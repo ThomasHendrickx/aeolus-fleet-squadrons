@@ -90,6 +90,20 @@ describe('setVersion', () => {
     expect(Object.keys(rawManifest('squadrons'))).toEqual(before);
   });
 
+  // The source condition points into src, which the tarball does not ship (aeolus-fleet#968).
+  it('removes the @aeolus-fleet/source condition from the exports, keeping types and default', () => {
+    setVersion(copy, '0.28.0');
+
+    expect(rawManifest('squadrons').exports).toEqual({
+      '.': { types: './dist/index.d.ts', default: './dist/index.js' },
+      './testing': { types: './dist/testing/index.d.ts', default: './dist/testing/index.js' },
+      './testing/squadrons-global-setup': {
+        types: './dist/testing/squadrons-global-setup.d.ts',
+        default: './dist/testing/squadrons-global-setup.js',
+      },
+    });
+  });
+
   it('accepts a prerelease', () => {
     setVersion(copy, '0.0.0-ci.123');
 
