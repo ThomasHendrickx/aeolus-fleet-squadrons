@@ -46,7 +46,7 @@ An example: [tidewater-feature.yaml](squadrons-example/.aeolus/squadrons/bluepri
 
 ## Crew settings
 
-A template and a blueprint role may each say how members are crewed (#343), in a `crew` block with the fields of a crew request's settings ([trierarch.md](trierarch.md#the-crew-request)). Every field is optional in both files:
+A template and a blueprint role may each say how members are crewed (#343), in a `crew` block with the fields of a crew request's settings ([trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/trierarch.md#the-crew-request)). Every field is optional in both files:
 
 | Field | Rule |
 | --- | --- |
@@ -115,7 +115,7 @@ No squadron prefix by default: membership is known by squadrons and shown with S
 squadrons hands each member its crew lines once, when it forms the squadron, adds the member, or gives it a new crew line, and stores them nowhere:
 
 - **One per harness with the aeolus plugin** (Claude Code, Codex): the fleet's crew line with the squadron id appended. The plugin registers and checks in.
-- **One for a chat client** (Claude chat, ChatGPT), which has no plugin: the fleet's crew instructions for a chat (its starting prompt; [connect a ChatGPT chat](guides/chatgpt.md)), then the check-in below in full, with the member's role. The console's switch calls it Chat.
+- **One for a chat client** (Claude chat, ChatGPT), which has no plugin: the fleet's crew instructions for a chat (its starting prompt; [connect a ChatGPT chat](https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/guides/chatgpt.md)), then the check-in below in full, with the member's role. The console's switch calls it Chat.
 
 The console shows a role's launch note and pinned model once, and each member one row: a switch between Claude Code, Codex and Chat (Claude Code first), the chosen line, and one copy button.
 
@@ -195,3 +195,11 @@ The repositories squadrons reads are runtime configuration: the operator adds th
 - **Token:** a read token for a private repository, entered once and never shown again. squadrons reads a repository with its own token only, and with no token unauthenticated: a private repository without a token that can read it is not read, whatever credentials the host holds.
 
 squadrons fetches a repository when the operator adds it, every repository when the operator refreshes, and every repository once when it connects or starts, since it keeps nothing across a restart; never on a timer. A fetch asks GitHub for the repository's tags, naming the ETag of its last answer: an unchanged repository answers 304, which GitHub does not count against its rate limit, and nothing more is read. A commit's content never changes, so what is read at one is kept by repository and commit, for every fleet of the install: a new commit costs one tree and one commit call, and one read for each file of a tag `<name>@<n>` that exists there. Each fleet still asks for the tags itself, with its own token, before it is given anything kept. A fetch that fails keeps the repository, with why, and keeps what it last read. Settings shows for each repository the template and blueprint versions found, and every version and version tag left out with its reason: invalid YAML, a missing or wrong field (which, and what it expects), a reference to a repository squadrons does not know (or knows under another letter case: names match exactly), to a template at no tag or a version not tagged, an unbound or unknown hand-off, a tag with no file of its name. A repository read whole shows nothing left out. Removing a repository takes its versions out of the catalogue at once; formed squadrons keep the versions they formed from.
+
+## Architecture
+
+`@aeolus-fleet/squadrons` forms squadrons of ships from blueprints and leads them (decision [0017](decisions/0017-squadrons-package.md)): its own core, ports and Prisma adapter, its own database and migrations, the fleet's public REST API as its management ship (`fleet:read`, `fleet:commission`, `fleet:manage`, `labels:define`, `labels:assign`, `fleet:on-behalf`, `scopes:declare`), and GitHub's REST API for the template repositories, with no clone and no files on disk. `src/core` holds domain, use cases and ports, and `src/adapters` the rest, as in the fleet core; squadrons reaches the fleet only through the fleet's public API, never its tables. It depends on `common` only. The calls it makes and the minimum core version it checks: aeolus-fleet's [docs/compatibility.md](https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/compatibility.md).
+
+## Deployment
+
+A long-running Node process with its own Postgres database (it may share the fleet's Postgres server), serving every fleet of the server with one connection each, switched per fleet by a hosting service with squadrons' own installation token (decision [0021](https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/decisions/0021-squadrons-installation.md)), and no files of its own: it reads template repositories from `api.github.com`, on any VM or container host next to the server. It needs no public address: only the web app's server and the fleet's API talk to it or it to them, and it calls out to GitHub.

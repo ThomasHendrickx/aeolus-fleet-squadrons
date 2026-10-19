@@ -1,0 +1,5 @@
+# Decisions
+
+Current state only; history is in git. To change a decision, edit its file and its line here in the same commit. Decisions keep one numbering across the trains' repositories; the full index is aeolus-fleet's [docs/decisions/README.md](https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/decisions/README.md).
+
+- [0017](0017-squadrons-package.md) **Squadrons, a ship of the fleet.** Separate package, own process and database, reaches the fleet only through the public API as its squadrons ship, owned by argo (fleet:read, fleet:commission, fleet:manage, labels:define, labels:assign, fleet:on-behalf, scopes:declare), labelling its squadrons' ships and declaring their reach, manage included, on its own labels; declares `squadrons:form` and `squadrons:scale`, forming by message from any ship holding them, templates granting within the subset rule, limits its configuration; names the forming ship's owner on the squadron's ships; the flagship proxies to the forming ship, then its owner once retired; own pages; reads on behalf of a person's ship; Aeolus knows nothing about squadrons.
