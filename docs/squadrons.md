@@ -46,7 +46,7 @@ An example: [tidewater-feature.yaml](squadrons-example/.aeolus/squadrons/bluepri
 
 ## Crew settings
 
-A template and a blueprint role may each say how members are crewed (#343), in a `crew` block with the fields of a crew request's settings ([trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/trierarch.md#the-crew-request)). Every field is optional in both files:
+A template and a blueprint role may each say how members are crewed (#343), in a `crew` block with the fields of a crew request's settings ([trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md#the-crew-request)). Every field is optional in both files:
 
 | Field | Rule |
 | --- | --- |
@@ -170,7 +170,7 @@ One squadrons install serves every fleet at its `FLEET_URL`, with one connection
 squadrons keeps each squadron's reach in place itself (#573, decisions 0031 and 0037), so argo writes no rule per squadron. On every rescan of a fleet it serves (every interval, and after forming and standing down) it:
 
 - **defines and assigns two labels it owns:** `squadron`, with one value per squadron that is not disbanded, its id; and `squadron-role`, with `flagship` and `squadrons`. Each such squadron's flagship carries `squadron=<id>` and `squadron-role=flagship`, each member that serves `squadron=<id>`, and its management ship `squadron-role=squadrons`. A value no ship carries any more and no squadron needs is removed. A key another ship owns is left alone;
-- **declares three rules** with `fleet.declareNetworkRules`: `squadron=#` to `squadron=#` (every ship reaches the ships of its own squadron), `squadron-role=flagship` to `squadron-role=squadrons` and the reverse (the flagships and its management ship reach each other). No flagship reaches another. Declared once per process while its labels stay the same; they are in force only once a networking plugin supplies them (decision 0035);
+- **declares three rules** with `fleet.declareNetworkRules`: `squadron=#` to `squadron=#` (every ship reaches the ships of its own squadron), `squadron-role=flagship` to `squadron-role=squadrons` and the reverse (the flagships and its management ship reach each other). No flagship reaches another. Declared once per process while its labels stay the same; they are in force beside the fleet's own rules (decision 0037);
 - **at the limit:** a label holds at most 50 values (decision 0031), so a squadron beyond them carries no squadron label and argo is told once: once rules are in force its ships do not reach each other by these rules. A value frees once a disbanded squadron's ships are retired;
 - **without the label scopes** (a management ship commissioned before them; scopes never change) it labels and declares nothing, and argo is told once: retire the management ship and connect squadrons again.
 
