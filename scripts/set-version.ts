@@ -5,7 +5,7 @@
  * @aeolus-fleet/common or @aeolus-fleet/core, keeps its range: that train has
  * a version of its own (decision 0049). The exports lose the
  * @aeolus-fleet/source condition: it points into src, which the tarball does
- * not ship (aeolus-fleet#968). Used by the release workflow and the publish
+ * not ship (aeolus-fleet#968). Used by the candidate workflow and the publish
  * dry run in CI.
  *
  * Usage: npm run set-version -- <version>
