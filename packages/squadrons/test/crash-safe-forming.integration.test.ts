@@ -12,6 +12,7 @@ import { createSquadronsDatabase } from '../src/testing/database.js';
 import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
 import { seedRepository } from '../src/testing/repositories.js';
 import { connectSquadrons } from './support/connection.js';
+import { giveOperatorLogin } from './support/operator-login.js';
 
 // Forming killed midway, then squadrons started again on the same database: the
 // start retires every ship the killed forming commissioned, the one whose id it
@@ -108,9 +109,10 @@ beforeEach(async () => {
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
   const useCases = createUseCases({ prisma: fleetDatabase });
-  const argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  const argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet' })));
+  await giveOperatorLogin(fleetDatabase, argo.fleetId);
   const { shipId, secret } = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }),
   );
   managementShip = { operatorFleetId: argo.fleetId, shipId, secret: secretOf(secret) };
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });

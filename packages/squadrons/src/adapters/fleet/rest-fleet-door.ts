@@ -29,6 +29,8 @@ const LOCATION = { kind: 'SERVER' } as const;
  * What squadrons' own ships, its management ship and every flagship, state
  * as model and harness (#157): squadrons is software, not a model, so it
  * names its package and the version it runs, read from its package.json.
+ * Only a flagship states the model: the management ship is a plugin ship,
+ * and the fleet refuses a model from one (#1082).
  */
 export const SQUADRONS_SELF = { model: `@aeolus-fleet/squadrons@${runningVersion()}`, harness: 'aeolus-squadrons' } as const;
 
@@ -185,8 +187,14 @@ export function createRestFleetDoor(fleetUrl: string, options: DoorOptions = {})
       const ponged = await call(door, { path: '/ship/pong', method: 'POST', crewToken, body: { deliveryId }, answers: z.unknown() });
       return ponged.isOk ? ok(undefined) : ponged;
     },
-    send: (crewToken, message) =>
-      call(door, { path: '/ship/send', method: 'POST', crewToken, body: { ...message, model: SQUADRONS_SELF.model }, answers: z.object({ messageId: idSchema('message') }) }),
+    send: (crewToken, { from, ...message }) =>
+      call(door, {
+        path: '/ship/send',
+        method: 'POST',
+        crewToken,
+        body: from === 'flagship' ? { ...message, model: SQUADRONS_SELF.model } : message,
+        answers: z.object({ messageId: idSchema('message') }),
+      }),
     listShips: async (crewToken) => {
       const listed = await call(door, {
         path: '/fleet/list',

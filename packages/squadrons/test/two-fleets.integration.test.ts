@@ -9,6 +9,7 @@ import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from '../src/testing/database.js';
 import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
 import { seedRepository } from '../src/testing/repositories.js';
+import { giveOperatorLogin } from './support/operator-login.js';
 
 // One squadrons install serving two fleets of one server, each connected with
 // its own management ship: neither fleet's operator ever sees the other's
@@ -59,7 +60,8 @@ beforeEach(async () => {
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
   const useCases = createUseCases({ prisma: fleetDatabase });
-  const ourFleet = unwrap(await useCases.initialiseFleet({ name: 'our fleet', ...OPERATOR }));
+  const ourFleet = unwrap(await useCases.initialiseFleet({ name: 'our fleet' }));
+  await giveOperatorLogin(fleetDatabase, ourFleet.fleetId);
   const theirFleet = unwrap(await useCases.createFleet({ requestId: newKey(), name: 'their fleet', operatorEmail: OTHER_OPERATOR.email }));
   // A hosted operator has no password; this one gets one, so the test can sign in to its console.
   await fleetDatabase.operator.update({ where: { fleetId: theirFleet.fleetId }, data: { passwordHash: await argon2idPasswordHasher.hash(OTHER_OPERATOR.password) } });
@@ -67,7 +69,7 @@ beforeEach(async () => {
   // argo of their fleet: the same scopes, in the other fleet.
   const theirArgo = { ...ourArgo, fleetId: theirFleet.fleetId, shipId: theirFleet.operatorShipId };
   const management = async (argo: typeof ourArgo) =>
-    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }));
+    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }));
   const ourManagement = await management(ourArgo);
   const theirManagement = await management(theirArgo);
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });

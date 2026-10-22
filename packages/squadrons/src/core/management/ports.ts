@@ -177,6 +177,8 @@ export interface ReceivedMessage {
 
 /** A message squadrons sends from one of its ships. */
 export interface OutgoingMessage {
+  /** The ship it is sent from: the management ship is a plugin ship, a flagship an agent ship. */
+  from: "management" | "flagship";
   selector:
     | { kind: "ship"; shipId: ShipId }
     | { kind: "ship"; name: string }

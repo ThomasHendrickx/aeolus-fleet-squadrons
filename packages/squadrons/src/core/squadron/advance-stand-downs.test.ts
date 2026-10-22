@@ -165,8 +165,8 @@ describe('a squadron standing down', () => {
     await advance(FLEET);
 
     expect(sent).toEqual([
-      { selector: { kind: 'ship', shipId: PLANNER }, contentType: STAND_DOWN, payload: JSON.stringify({ squadron: 'team-a1b2c3' }), idempotencyKey: `stand-down-team-a1b2c3-${PLANNER}` },
-      { selector: { kind: 'ship', shipId: TESTER }, contentType: STAND_DOWN, payload: JSON.stringify({ squadron: 'team-a1b2c3' }), idempotencyKey: `stand-down-team-a1b2c3-${TESTER}` },
+      { from: 'flagship', selector: { kind: 'ship', shipId: PLANNER }, contentType: STAND_DOWN, payload: JSON.stringify({ squadron: 'team-a1b2c3' }), idempotencyKey: `stand-down-team-a1b2c3-${PLANNER}` },
+      { from: 'flagship', selector: { kind: 'ship', shipId: TESTER }, contentType: STAND_DOWN, payload: JSON.stringify({ squadron: 'team-a1b2c3' }), idempotencyKey: `stand-down-team-a1b2c3-${TESTER}` },
     ]);
     expect(held.members.map((each) => each.standDownMessageId)).toEqual(['msg_01m3tbfspe96yf1rnr4ank0001', 'msg_01m3tbfspe96yf1rnr4ank0002']);
   });

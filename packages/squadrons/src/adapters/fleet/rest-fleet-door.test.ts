@@ -14,6 +14,7 @@ describe('the fleet door over REST while the fleet is busy (#546)', () => {
   it('sends again by itself with the same idempotency key while the fleet is busy', async () => {
     await aFleetAnswering([BUSY, BUSY, { status: 200, body: { messageId: MESSAGE_ID } }], async (fleetUrl, asked) => {
       const sent = await createRestFleetDoor(fleetUrl, { busyWaitsMs: [1, 1, 1, 1] }).send('aeolus_ct_v1_x', {
+        from: 'flagship',
         selector: { kind: 'ship', name: 'scout' },
         payload: 'your role',
         contentType: 'text/plain',

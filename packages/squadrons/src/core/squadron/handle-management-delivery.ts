@@ -76,6 +76,7 @@ export function createHandleManagementDelivery(deps: {
     };
     const answer = async (outcome: ManagementOutcome, reply: { contentType: string; payload: unknown }): Promise<Result<ManagementOutcome, FleetRefusal>> => {
       const sent = await deps.door.send(crewToken, {
+        from: 'management',
         selector: { kind: 'ship', shipId: delivery.senderShipId },
         contentType: reply.contentType,
         inReplyTo: delivery.messageId,

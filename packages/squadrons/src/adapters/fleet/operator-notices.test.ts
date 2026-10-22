@@ -24,6 +24,7 @@ describe('telling argo', () => {
 
     expect(sent).toEqual([
       {
+        from: 'management',
         selector: { kind: 'ship', name: 'argo' },
         payload: 'A squadron carries no squadron label\n\n- Squadron: `team-a1b2c3`',
         contentType: 'text/markdown',

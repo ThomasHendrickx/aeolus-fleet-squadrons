@@ -4,9 +4,10 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
+import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
 
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
+import { giveOperatorLogin } from './support/operator-login.js';
 import { connectSquadrons, signIn } from './support/connection.js';
 import { createSquadronsDatabase } from '../src/testing/database.js';
 
@@ -30,9 +31,10 @@ beforeEach(async () => {
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
   useCases = createUseCases({ prisma: fleetDatabase });
-  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet' })));
+  await giveOperatorLogin(fleetDatabase, argo.fleetId);
   const commissioned = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }),
   );
   shipId = commissioned.shipId;
   secret = secretOf(commissioned.secret);

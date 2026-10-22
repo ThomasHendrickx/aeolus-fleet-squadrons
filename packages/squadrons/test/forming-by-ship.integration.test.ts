@@ -9,6 +9,7 @@ import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from '../src/testing/database.js';
 import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
 import { seedRepository } from '../src/testing/repositories.js';
+import { giveOperatorLogin } from './support/operator-login.js';
 
 // A ship forming a squadron by message against a real fleet (decision 0017):
 // squadrons declares its namespace, argo grants a tech lead squadrons:form,
@@ -70,12 +71,14 @@ beforeEach(async () => {
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
   fleetUseCases = createUseCases({ prisma: fleetDatabase });
-  argo = operatorCaller(unwrap(await fleetUseCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await fleetUseCases.initialiseFleet({ name: 'home fleet' })));
+  await giveOperatorLogin(fleetDatabase, argo.fleetId);
   const { shipId, secret } = unwrap(
     await fleetUseCases.commissionShip(argo, {
       idempotencyKey: newKey(),
       name: 'squadrons',
       type: 'squadrons',
+      kind: 'plugin',
       scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'fleet:on-behalf', 'scopes:declare'],
     }),
   );

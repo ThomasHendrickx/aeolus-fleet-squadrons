@@ -60,6 +60,7 @@ function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: F
       ]),
   );
   return {
+    from: 'flagship',
     selector: { kind: 'ship', shipId: member.shipId },
     contentType: ROLE,
     inReplyTo: inReplyTo.messageId,
@@ -146,6 +147,7 @@ export function createHandleFlagshipDelivery(deps: {
   const answerRefused = async (squadron: Squadron, refusal: { delivery: FlagshipDelivery; code: string; message: string }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
     const { delivery, code, message } = refusal;
     const sent = await deps.door.send(squadron.flagship.crewToken, {
+      from: 'flagship',
       selector: { kind: 'ship', shipId: delivery.senderShipId },
       contentType: REFUSED,
       inReplyTo: delivery.messageId,
@@ -167,6 +169,7 @@ export function createHandleFlagshipDelivery(deps: {
       });
     }
     const sent = await deps.door.send(squadron.flagship.crewToken, {
+      from: 'flagship',
       selector: contactSelector(contact),
       contentType: RELAY,
       idempotencyKey: `relay-${delivery.deliveryId}`,
@@ -188,6 +191,7 @@ export function createHandleFlagshipDelivery(deps: {
       return answerRefused(squadron, { delivery, code: 'NO_SUCH_MEMBER', message: target.error });
     }
     const sent = await deps.door.send(squadron.flagship.crewToken, {
+      from: 'flagship',
       selector: target.value.selector,
       contentType: RELAY,
       ...(target.value.inReplyTo === undefined ? {} : { inReplyTo: target.value.inReplyTo }),
@@ -260,6 +264,7 @@ export function createHandleFlagshipDelivery(deps: {
         await deps.operator.tell({ fleetId: squadron.fleetId, ...notice, key: `kept-${deliveryId}` });
       } else {
         const told = await deps.door.send(crewToken, {
+          from: 'flagship',
           selector: contactSelector(contact.value),
           contentType: MARKDOWN_CONTENT_TYPE,
           idempotencyKey: `kept-${deliveryId}`,
@@ -316,6 +321,7 @@ export function createHandleFlagshipDelivery(deps: {
         }
       }
       const answered = await deps.door.send(crewToken, {
+        from: 'flagship',
         selector: { kind: 'ship', shipId: delivery.senderShipId },
         contentType: STANDING_DOWN,
         inReplyTo: delivery.messageId,
@@ -363,6 +369,7 @@ export function createHandleFlagshipDelivery(deps: {
         added = { name: adding.value.name, role: adding.value.role };
       }
       const answered = await deps.door.send(crewToken, {
+        from: 'flagship',
         selector: { kind: 'ship', shipId: delivery.senderShipId },
         contentType: MEMBER_ADDED,
         inReplyTo: delivery.messageId,
@@ -396,6 +403,7 @@ export function createHandleFlagshipDelivery(deps: {
         }
       }
       const answered = await deps.door.send(crewToken, {
+        from: 'flagship',
         selector: { kind: 'ship', shipId: delivery.senderShipId },
         contentType: MEMBER_REMOVED,
         inReplyTo: delivery.messageId,

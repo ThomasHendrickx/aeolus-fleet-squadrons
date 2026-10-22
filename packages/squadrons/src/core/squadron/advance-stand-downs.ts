@@ -66,6 +66,7 @@ export function createAdvanceStandDowns(deps: { door: FleetDoor; management: Man
       }
       if (member.standDownMessageId === null) {
         const sent = await deps.door.send(squadron.flagship.crewToken, {
+          from: 'flagship',
           selector: { kind: 'ship', shipId: member.shipId },
           contentType: STAND_DOWN,
           payload: JSON.stringify({ squadron: squadron.id }),
