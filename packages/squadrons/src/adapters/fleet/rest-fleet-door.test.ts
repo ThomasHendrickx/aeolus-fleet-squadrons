@@ -112,3 +112,18 @@ describe('a fleet:read read on behalf of a named ship (decision 0034)', () => {
     });
   });
 });
+
+describe("a send from squadrons' own ship (#1082)", () => {
+  it('states no model: its own ship is a plugin ship, and the fleet refuses a model from one', async () => {
+    await aFleetAnswering([{ status: 200, body: { messageId: MESSAGE_ID } }], async (fleetUrl, asked) => {
+      await createRestFleetDoor(fleetUrl).send('aeolus_ct_v1_x', {
+        selector: { kind: 'ship', name: 'scout' },
+        payload: 'your role',
+        contentType: 'text/plain',
+        idempotencyKey: 'role-1',
+      });
+
+      expect('model' in JSON.parse(asked[0]?.body ?? '{}')).toBe(false);
+    });
+  });
+});
