@@ -14,6 +14,7 @@ describe('the fleet door over REST while the fleet is busy (#546)', () => {
   it('sends again by itself with the same idempotency key while the fleet is busy', async () => {
     await aFleetAnswering([BUSY, BUSY, { status: 200, body: { messageId: MESSAGE_ID } }], async (fleetUrl, asked) => {
       const sent = await createRestFleetDoor(fleetUrl, { busyWaitsMs: [1, 1, 1, 1] }).send('aeolus_ct_v1_x', {
+        from: 'flagship',
         selector: { kind: 'ship', name: 'scout' },
         payload: 'your role',
         contentType: 'text/plain',
@@ -110,5 +111,30 @@ describe('a fleet:read read on behalf of a named ship (decision 0034)', () => {
 
       expect(asked.map(({ headers }) => 'aeolus-on-behalf-of' in headers)).toEqual([false]);
     });
+  });
+});
+
+describe("the model a send from squadrons' ships states (#1082)", () => {
+  async function bodyOfSendFrom(from: 'flagship' | 'management'): Promise<unknown> {
+    let body: unknown;
+    await aFleetAnswering([{ status: 200, body: { messageId: MESSAGE_ID } }], async (fleetUrl, asked) => {
+      await createRestFleetDoor(fleetUrl).send('aeolus_ct_v1_x', {
+        from,
+        selector: { kind: 'ship', name: 'scout' },
+        payload: 'your role',
+        contentType: 'text/plain',
+        idempotencyKey: 'role-1',
+      });
+      body = JSON.parse(asked[0]?.body ?? '{}');
+    });
+    return body;
+  }
+
+  it('states none from the management ship: it is a plugin ship, and the fleet refuses a model from one', async () => {
+    expect(await bodyOfSendFrom('management')).not.toHaveProperty('model');
+  });
+
+  it('states the squadrons package and the version it runs from a flagship: a flagship is an agent ship, which states a model', async () => {
+    expect(await bodyOfSendFrom('flagship')).toMatchObject({ model: '@aeolus-fleet/squadrons@0.0.0' });
   });
 });

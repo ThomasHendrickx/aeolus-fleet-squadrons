@@ -261,6 +261,7 @@ describe("a member's check-in", () => {
     expect(acked).toEqual([checkIn.deliveryId]);
     expect(sent).toEqual([
       {
+        from: 'flagship',
         selector: { kind: 'ship', shipId: TESTER },
         contentType: ROLE,
         inReplyTo: checkIn.messageId,
@@ -584,6 +585,7 @@ describe('the flagship proxying between its squadron and its forming ship (decis
 
     expect(sent).toEqual([
       {
+        from: 'flagship',
         selector: { kind: 'ship', shipId: FORMING },
         contentType: RELAY,
         idempotencyKey: `relay-${relay.deliveryId}`,
@@ -622,6 +624,7 @@ describe('the flagship proxying between its squadron and its forming ship (decis
 
     expect(sent).toEqual([
       {
+        from: 'flagship',
         selector: { kind: 'ship', shipId: TESTER },
         contentType: RELAY,
         inReplyTo: asked.messageId,
@@ -697,6 +700,7 @@ describe('standing a squadron down by message to its flagship (decision 0017)', 
     expect(advances).toHaveLength(1);
     expect(sent).toEqual([
       {
+        from: 'flagship',
         selector: { kind: 'ship', shipId: FORMING },
         contentType: STANDING_DOWN,
         inReplyTo: standDown.messageId,
@@ -888,6 +892,7 @@ describe('scaling a squadron by message to its flagship (decision 0017)', () => 
     ]);
     expect(sent).toEqual([
       {
+        from: 'flagship',
         selector: { kind: 'ship', shipId: FORMING },
         contentType: MEMBER_ADDED,
         inReplyTo: add.messageId,
@@ -968,6 +973,7 @@ describe('scaling a squadron by message to its flagship (decision 0017)', () => 
     expect(held.members.find((each) => each.shipId === PLANNER)?.retiredAt).toEqual(NOW);
     expect(sent).toEqual([
       {
+        from: 'flagship',
         selector: { kind: 'ship', shipId: FORMING },
         contentType: MEMBER_REMOVED,
         inReplyTo: remove.messageId,

@@ -10,6 +10,7 @@ import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from '../src/testing/database.js';
 import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
 import { seedRepository } from '../src/testing/repositories.js';
+import { giveOperatorLogin } from './support/operator-login.js';
 
 // The installation API (decision 0021): a hosting service switches squadrons
 // on or off per fleet and deletes a fleet's records, with the installation
@@ -85,10 +86,11 @@ beforeEach(async () => {
   const fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
   const useCases = createUseCases({ prisma: fleetDatabase });
-  const founded = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const founded = unwrap(await useCases.initialiseFleet({ name: 'home fleet' }));
+  await giveOperatorLogin(fleetDatabase, founded.fleetId);
   fleetId = founded.fleetId;
   const commissioned = unwrap(
-    await useCases.commissionShip(operatorCaller(founded), { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }),
+    await useCases.commissionShip(operatorCaller(founded), { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }),
   );
   management = { shipId: commissioned.shipId, secret: secretOf(commissioned.secret) };
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });

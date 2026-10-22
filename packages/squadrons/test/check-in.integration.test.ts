@@ -9,6 +9,7 @@ import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from '../src/testing/database.js';
 import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
 import { seedRepository } from '../src/testing/repositories.js';
+import { giveOperatorLogin } from './support/operator-login.js';
 
 // The check-in against a real fleet: a member crewed with its crew line checks
 // in at its flagship, gets its role and charter back, confirms it, and the
@@ -63,9 +64,10 @@ beforeEach(async () => {
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
   const useCases = createUseCases({ prisma: fleetDatabase });
   fleetUseCases = useCases;
-  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet' })));
+  await giveOperatorLogin(fleetDatabase, argo.fleetId);
   const { shipId, secret } = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }),
   );
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });

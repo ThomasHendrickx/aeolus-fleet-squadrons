@@ -33,6 +33,7 @@ export type RecoverFormations = (fleetId: FleetId, which: RecoveredAttempts) => 
  */
 export function createRecoverFormations(deps: { door: FleetDoor; management: ManagementCrewStore; attempts: FormationAttempts }): RecoverFormations {
   const tellArgo = async (attempt: FormationAttempt, crewToken: string) => deps.door.send(crewToken, {
+    from: 'management',
     selector: { kind: 'ship', name: 'argo' },
     contentType: MARKDOWN_CONTENT_TYPE,
     payload: argoMessage({

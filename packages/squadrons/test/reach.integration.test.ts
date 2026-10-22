@@ -4,9 +4,10 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
+import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
 
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
+import { giveOperatorLogin } from './support/operator-login.js';
 import { signIn } from './support/connection.js';
 import { createSquadronsDatabase } from '../src/testing/database.js';
 import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
@@ -134,11 +135,12 @@ beforeEach(async () => {
   fleetDatabaseUrl = await createMigratedDatabase();
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
   useCases = createUseCases({ prisma: fleetDatabase });
-  const founded = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const founded = unwrap(await useCases.initialiseFleet({ name: 'home fleet' }));
   argo = operatorCaller(founded);
+  await giveOperatorLogin(fleetDatabase, founded.fleetId);
   fleetId = founded.fleetId;
   const commissioned = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign'] }),
   );
   management = { shipId: commissioned.shipId, secret: secretOf(commissioned.secret) };
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });

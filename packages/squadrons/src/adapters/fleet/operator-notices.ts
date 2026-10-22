@@ -19,6 +19,7 @@ export function createOperatorNotices(deps: { door: FleetDoor; management: Manag
         return;
       }
       await deps.door.send(crew.crewToken, {
+        from: 'management',
         selector: { kind: 'ship', name: OPERATOR_SHIP_NAME },
         payload: argoMessage({ headline, body }),
         contentType: MARKDOWN_CONTENT_TYPE,
