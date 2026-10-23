@@ -56,7 +56,7 @@ export function createRecoverFormations(deps: { door: FleetDoor; management: Man
         if (!told.isOk) {
           return told;
         }
-        await deps.attempts.finish(attempt.id);
+        await deps.attempts.finish(crew.fleetId, attempt.id);
         continue;
       }
       let byName: Map<string, ShipId> | undefined;
@@ -81,7 +81,7 @@ export function createRecoverFormations(deps: { door: FleetDoor; management: Man
         }
       }
       if (isEveryShipRetired) {
-        await deps.attempts.finish(attempt.id);
+        await deps.attempts.finish(crew.fleetId, attempt.id);
       } else {
         const recoveryRefusals = attempt.recoveryRefusals + 1;
         await deps.attempts.recordRecoveryRefusal(crew.fleetId, attempt.id);
@@ -90,7 +90,7 @@ export function createRecoverFormations(deps: { door: FleetDoor; management: Man
           if (!told.isOk) {
             return told;
           }
-          await deps.attempts.finish(attempt.id);
+          await deps.attempts.finish(crew.fleetId, attempt.id);
         }
       }
     }

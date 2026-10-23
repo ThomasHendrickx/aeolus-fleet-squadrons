@@ -244,7 +244,7 @@ describe('a formation attempt of one fleet', () => {
     const attempts = createPrismaFormationAttempts(prisma, clock);
     await attempts.begin({ id: 'team-b2c3d4@1', fleetId: FLEET, squadronId: 'team-b2c3d4', startedAt: AT });
 
-    await expect(attempts.plan(OTHER_FLEET, 'team-b2c3d4@1', 'team-b2c3d4')).rejects.toThrow();
+    await expect(attempts.plan(OTHER_FLEET, { attemptId: 'team-b2c3d4@1', name: 'team-b2c3d4' })).rejects.toThrow();
 
     await expect(attempts.unfinished(FLEET)).resolves.toEqual([expect.objectContaining({ id: 'team-b2c3d4@1', ships: [] })]);
   });
@@ -252,9 +252,9 @@ describe('a formation attempt of one fleet', () => {
   it('gets no commissioned ship from another fleet', async () => {
     const attempts = createPrismaFormationAttempts(prisma, clock);
     await attempts.begin({ id: 'team-b2c3d4@1', fleetId: FLEET, squadronId: 'team-b2c3d4', startedAt: AT });
-    await attempts.plan(FLEET, 'team-b2c3d4@1', 'team-b2c3d4');
+    await attempts.plan(FLEET, { attemptId: 'team-b2c3d4@1', name: 'team-b2c3d4' });
 
-    await attempts.commissioned(OTHER_FLEET, 'team-b2c3d4@1', { name: 'team-b2c3d4', shipId: PLANNER });
+    await attempts.commissioned(OTHER_FLEET, { attemptId: 'team-b2c3d4@1', name: 'team-b2c3d4', shipId: PLANNER });
 
     await expect(attempts.unfinished(FLEET)).resolves.toEqual([expect.objectContaining({ id: 'team-b2c3d4@1', ships: [{ name: 'team-b2c3d4', shipId: null }] })]);
   });
@@ -272,8 +272,8 @@ describe('a formation attempt of one fleet', () => {
   it('is planned, commissioned, given up and finished by its own fleet', async () => {
     const attempts = createPrismaFormationAttempts(prisma, clock);
     await attempts.begin({ id: 'team-b2c3d4@1', fleetId: FLEET, squadronId: 'team-b2c3d4', startedAt: AT });
-    await attempts.plan(FLEET, 'team-b2c3d4@1', 'team-b2c3d4');
-    await attempts.commissioned(FLEET, 'team-b2c3d4@1', { name: 'team-b2c3d4', shipId: PLANNER });
+    await attempts.plan(FLEET, { attemptId: 'team-b2c3d4@1', name: 'team-b2c3d4' });
+    await attempts.commissioned(FLEET, { attemptId: 'team-b2c3d4@1', name: 'team-b2c3d4', shipId: PLANNER });
     await attempts.giveUp(FLEET, 'team-b2c3d4@1');
 
     await expect(attempts.unfinished(FLEET)).resolves.toEqual([expect.objectContaining({ id: 'team-b2c3d4@1', isGivenUp: true, ships: [{ name: 'team-b2c3d4', shipId: PLANNER }] })]);

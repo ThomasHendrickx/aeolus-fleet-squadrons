@@ -37,14 +37,14 @@ export interface FormationAttempt {
 export interface FormationAttempts {
   begin(attempt: Omit<FormationAttempt, 'ships' | 'isGivenUp' | 'recoveryRefusals'>): Promise<void>;
   /** Records the name of a ship before it is commissioned. */
-  plan(attemptId: string, name: string): Promise<void>;
+  plan(fleetId: FleetId, ship: { attemptId: string; name: string }): Promise<void>;
   /** Records the id of a planned ship once it is commissioned. */
-  commissioned(attemptId: string, ship: { name: string; shipId: ShipId }): Promise<void>;
+  commissioned(fleetId: FleetId, ship: { attemptId: string; name: string; shipId: ShipId }): Promise<void>;
   /** Records that its forming gave the attempt up unfinished, so a recovery at a rescan may undo it. */
-  giveUp(attemptId: string): Promise<void>;
+  giveUp(fleetId: FleetId, attemptId: string): Promise<void>;
   /** Counts one recovery pass with a refused retire. */
   recordRecoveryRefusal(fleetId: FleetId, attemptId: string): Promise<void>;
-  finish(attemptId: string): Promise<void>;
+  finish(fleetId: FleetId, attemptId: string): Promise<void>;
   unfinished(fleetId: FleetId): Promise<FormationAttempt[]>;
 }
 
