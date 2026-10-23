@@ -2,8 +2,8 @@
  * squadrons' API: one tRPC router, which the web app's server calls with the
  * console's session cookie (decision 0017). Every procedure but the
  * installation's is the operator's: the cookie must be a signed-in console
- * session of a fleet at the fleet's URL, and the procedure works on that
- * fleet. A fleet squadrons does not serve (switched off) gets only
+ * session of a fleet at the fleet's URL, the operator's or a viewer's, never
+ * an account's, and the procedure works on that fleet. A fleet squadrons does not serve (switched off) gets only
  * `connection.status`; only `connection` works before squadrons is connected
  * to the fleet. The installation procedures take the installation token
  * instead (decision 0021).
@@ -100,6 +100,21 @@ function managing(procedure: typeof operatorProcedure) {
   return procedure.use(({ ctx, next }) => {
     if (!ctx.scopes.includes('fleet:manage')) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Needs fleet:manage: a viewer session only reads' });
+    }
+    return next();
+  });
+}
+
+/**
+ * What reads the fleet's squadrons, their kept messages or its catalogue
+ * needs the session's ship to hold fleet:read, as the operator's and a
+ * viewer's do. `connection.status` needs only a signed-in session. Checked
+ * before the input is read.
+ */
+function reading(procedure: typeof operatorProcedure) {
+  return procedure.use(({ ctx, next }) => {
+    if (!ctx.scopes.includes('fleet:read')) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Needs fleet:read' });
     }
     return next();
   });
@@ -391,7 +406,7 @@ export const squadronsRouter = t.router({
   }),
   squadrons: t.router({
     /** The messages a squadron's flagship kept because it does not handle them, oldest first. */
-    messages: connectedProcedure
+    messages: reading(connectedProcedure)
       .input(z.object({ squadronId: z.string() }))
       .output(
         z.array(
@@ -420,7 +435,7 @@ export const squadronsRouter = t.router({
         })),
       ),
     /** The fleet's squadrons, oldest first, with their members, each with its health and crew as the fleet shows them now. */
-    list: connectedProcedure.output(z.array(squadronOutputSchema)).query(async ({ ctx }) => {
+    list: reading(connectedProcedure).output(z.array(squadronOutputSchema)).query(async ({ ctx }) => {
       const listed = await ctx.listSquadrons(ctx.fleetId);
       if (!listed.isOk) {
         throw new TRPCError({ code: LIST_CODES[listed.error.kind], message: listed.error.message });
@@ -565,7 +580,7 @@ export const squadronsRouter = t.router({
   }),
   catalogue: t.router({
     /** Every template and blueprint version tagged in git, and every version left out with its problem. */
-    list: connectedProcedure.output(catalogueOutputSchema).query(({ ctx }) => {
+    list: reading(connectedProcedure).output(catalogueOutputSchema).query(({ ctx }) => {
       const { templates, blueprints, problems } = ctx.catalogue(ctx.fleetId);
       return {
         templates: templates.map((template) => ({ ...template, committedAt: template.committedAt.toISOString() })),
