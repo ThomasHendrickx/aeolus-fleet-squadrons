@@ -13,7 +13,8 @@ import { seedRepository } from '../src/testing/repositories.js';
 // A viewer session at squadrons' tRPC door (decision 0022): the fleet says
 // the session is a viewer's with fleet:read only, so squadrons serves it the
 // catalogue, the squadrons, their kept messages and the connection, and
-// refuses every other procedure, as it would a missing scope.
+// refuses every other procedure, as it would a missing scope. Its reads,
+// but connection.status, need fleet:read.
 
 const REPO = 'github.com/acme/templates';
 const FORBIDDEN = 403;
@@ -26,6 +27,7 @@ let fleetUrl: string;
 let app: SquadronsApp;
 let address: string;
 let viewerCookie: string;
+let fleetId: FleetId;
 
 async function redeem(ticket: string): Promise<string> {
   const response = await fetch(`${fleetUrl}/trpc/console.redeemSignInTicket`, {
@@ -47,7 +49,7 @@ beforeEach(async () => {
   fleetDatabase = createPrismaClient(fleetDatabaseUrl);
   const useCases = createUseCases({ prisma: fleetDatabase });
   const created = unwrap(await useCases.createFleet({ requestId: newKey(), name: 'demo', operatorEmail: 'demo@example.com', hasViewer: true }));
-  const fleetId: FleetId = created.fleetId;
+  fleetId = created.fleetId;
   // argo of the created fleet, as its console session makes it.
   const argo = { fleetId, shipId: created.operatorShipId, kind: 'operator' as const, scopes: [...SCOPES] };
   const { shipId, secret } = unwrap(
@@ -114,5 +116,23 @@ describe('a viewer session at squadrons', () => {
     'catalogue.refresh',
   ])('is refused %s, before its input is even read', async (procedure) => {
     await expect(mutate(procedure, {}).then((response) => response.status)).resolves.toBe(FORBIDDEN);
+  });
+});
+
+describe('a viewer session whose ship holds no fleet:read', () => {
+  beforeEach(async () => {
+    await fleetDatabase.ship.updateMany({ where: { fleetId, kind: 'viewer' }, data: { scopes: [] } });
+  });
+
+  it.each([
+    ['catalogue.list', undefined],
+    ['squadrons.list', undefined],
+    ['squadrons.messages', { squadronId: 'sqd_01m3tb1zgr5h2ffee12xnch8sv' }],
+  ])('is refused %s', async (procedure, input) => {
+    await expect(query(procedure, input).then((response) => response.status)).resolves.toBe(FORBIDDEN);
+  });
+
+  it('reads connection.status, open to every signed-in session', async () => {
+    await expect(query('connection.status').then((response) => response.status)).resolves.toBe(OK);
   });
 });
