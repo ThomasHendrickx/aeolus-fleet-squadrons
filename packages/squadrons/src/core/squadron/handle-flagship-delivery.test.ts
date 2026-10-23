@@ -634,6 +634,29 @@ describe('the flagship proxying between its squadron and its forming ship (decis
     ]);
   });
 
+  it("treats the forming ship's answer to another squadron's relay as answering none, so it goes to the member it names", async () => {
+    held = formedByTechLead();
+    relayed.push({ fleetId: FLEET, squadronId: 'other-d4e5f6', relayMessageId: 'msg_01m3tbfspe96yf1rnr4ank0200', memberShipId: STRANGER, memberMessageId: 'msg_01m3tbfspe96yf1rnr4ank0201' });
+    const answer = delivery(FORMING, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', to: { member: 'planner-k3x9' }, payload: 'main' }, inReplyTo: 'msg_01m3tbfspe96yf1rnr4ank0200' });
+
+    await expect(handle(held, answer)).resolves.toEqual({ isOk: true, value: 'relayed' });
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ selector: { kind: 'ship', shipId: PLANNER }, contentType: RELAY });
+    expect(sent[0]).not.toHaveProperty('inReplyTo');
+  });
+
+  it("refuses the forming ship's answer to another squadron's relay that names no member or role, and sends nothing on", async () => {
+    held = formedByTechLead();
+    relayed.push({ fleetId: FLEET, squadronId: 'other-d4e5f6', relayMessageId: 'msg_01m3tbfspe96yf1rnr4ank0200', memberShipId: STRANGER, memberMessageId: 'msg_01m3tbfspe96yf1rnr4ank0201' });
+    const answer = delivery(FORMING, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'main' }, inReplyTo: 'msg_01m3tbfspe96yf1rnr4ank0200' });
+
+    await handle(held, answer);
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ selector: { kind: 'ship', shipId: FORMING }, contentType: REFUSED, inReplyTo: answer.messageId });
+  });
+
   it("sends the forming ship's relay naming a member to that member", async () => {
     held = formedByTechLead();
 

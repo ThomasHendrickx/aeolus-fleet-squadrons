@@ -77,10 +77,10 @@ beforeEach(async () => {
   // tester commissioned but killed before its id was recorded, the last member never commissioned.
   await attempts.begin({ id: 'attempt-1', fleetId: FLEET, squadronId: 'team-a1b2c3', startedAt: AT });
   for (const name of ['team-a1b2c3', 'planner-k3x9', 'tester-m4p7', 'tester-q8r2']) {
-    await attempts.plan('attempt-1', name);
+    await attempts.plan(FLEET, { attemptId: 'attempt-1', name });
   }
-  await attempts.commissioned('attempt-1', { name: 'team-a1b2c3', shipId: 'shp_01m3tbfspe96yf1rnr4ank0001' });
-  await attempts.commissioned('attempt-1', { name: 'planner-k3x9', shipId: 'shp_01m3tbfspe96yf1rnr4ank0002' });
+  await attempts.commissioned(FLEET, { attemptId: 'attempt-1', name: 'team-a1b2c3', shipId: 'shp_01m3tbfspe96yf1rnr4ank0001' });
+  await attempts.commissioned(FLEET, { attemptId: 'attempt-1', name: 'planner-k3x9', shipId: 'shp_01m3tbfspe96yf1rnr4ank0002' });
 });
 
 const recover = (which: 'all' | 'given-up' = 'all') => createRecoverFormations({ door, management, attempts })(FLEET, which);
@@ -138,7 +138,7 @@ describe('recovering formations at a rescan (#738)', () => {
   });
 
   it('retires every ship of an attempt the forming gave up, then finishes it', async () => {
-    await attempts.giveUp('attempt-1');
+    await attempts.giveUp(FLEET, 'attempt-1');
 
     await expect(recover('given-up')).resolves.toEqual({ isOk: true, value: { recovered: 1, retired: 3 } });
 
@@ -149,7 +149,7 @@ describe('recovering formations at a rescan (#738)', () => {
 describe('bounded recovery of refused retires (#740)', () => {
   it('retries below five refusals without telling argo', async () => {
     retiresRefused.set('planner-k3x9', 10);
-    await attempts.giveUp('attempt-1');
+    await attempts.giveUp(FLEET, 'attempt-1');
     for (let refusal = 0; refusal < 4; refusal += 1) {
       await recover('given-up');
     }
@@ -160,7 +160,7 @@ describe('bounded recovery of refused retires (#740)', () => {
 
   it('stops after five refusals and tells argo once, naming the fleet and ship, across a restart', async () => {
     retiresRefused.set('planner-k3x9', 10);
-    await attempts.giveUp('attempt-1');
+    await attempts.giveUp(FLEET, 'attempt-1');
     for (let refusal = 0; refusal < 5; refusal += 1) {
       await recover('given-up');
     }

@@ -9,21 +9,21 @@ export function createPrismaFormationAttempts(db: Db, clock: { now(): Date }): F
     begin: async ({ id, fleetId, squadronId, startedAt }) => {
       await db.formationAttempt.create({ data: { id, fleetId, squadronId, startedAt } });
     },
-    plan: async (attemptId, name) => {
-      const attempt = await db.formationAttempt.findUniqueOrThrow({ where: { id: attemptId }, select: { fleetId: true, _count: { select: { ships: true } } } });
-      await db.formationShip.create({ data: { attemptId, name, fleetId: attempt.fleetId, position: attempt._count.ships } });
+    plan: async (fleetId, { attemptId, name }) => {
+      const attempt = await db.formationAttempt.findFirstOrThrow({ where: { fleetId, id: attemptId }, select: { _count: { select: { ships: true } } } });
+      await db.formationShip.create({ data: { attemptId, name, fleetId, position: attempt._count.ships } });
     },
-    commissioned: async (attemptId, { name, shipId }) => {
-      await db.formationShip.update({ where: { attemptId_name: { attemptId, name } }, data: { shipId } });
+    commissioned: async (fleetId, { attemptId, name, shipId }) => {
+      await db.formationShip.updateMany({ where: { fleetId, attemptId, name }, data: { shipId } });
     },
-    giveUp: async (attemptId) => {
-      await db.formationAttempt.updateMany({ where: { id: attemptId, givenUpAt: null }, data: { givenUpAt: clock.now() } });
+    giveUp: async (fleetId, attemptId) => {
+      await db.formationAttempt.updateMany({ where: { fleetId, id: attemptId, givenUpAt: null }, data: { givenUpAt: clock.now() } });
     },
     recordRecoveryRefusal: async (fleetId, attemptId) => {
       await db.formationAttempt.updateMany({ where: { fleetId, id: attemptId }, data: { recoveryRefusals: { increment: 1 } } });
     },
-    finish: async (attemptId) => {
-      await db.formationAttempt.updateMany({ where: { id: attemptId, finishedAt: null }, data: { finishedAt: clock.now() } });
+    finish: async (fleetId, attemptId) => {
+      await db.formationAttempt.updateMany({ where: { fleetId, id: attemptId, finishedAt: null }, data: { finishedAt: clock.now() } });
     },
     unfinished: async (fleetId) =>
       (

@@ -59,7 +59,7 @@ export async function beginFormation(
     }
     const { shipId, prompt: issued, secret, crewLines } = made.value;
     commissioned.push(shipId);
-    await deps.attempts.commissioned(attemptId, { name: ship.name, shipId });
+    await deps.attempts.commissioned(crew.fleetId, { attemptId, name: ship.name, shipId });
     if (issued !== null && secret !== null && crewLines !== null) {
       return ok({ shipId, prompt: issued, secret, crewLines });
     }
@@ -73,7 +73,7 @@ export async function beginFormation(
       let refusal: FleetRefusal = { code: 'CONFLICT', message: 'no free name' };
       for (let attempt = 0; attempt < NAME_ATTEMPTS; attempt += 1) {
         const shipName = ship.names();
-        await deps.attempts.plan(attemptId, shipName);
+        await deps.attempts.plan(crew.fleetId, { attemptId, name: shipName });
         const made = await commissionOnce({ name: shipName, type: ship.type, scopes: ship.scopes, ownerOf, idempotencyKey: `${attemptId}:${slot}:${shipName}` });
         if (made.isOk) {
           return ok({ ...made.value, name: shipName });
@@ -95,9 +95,9 @@ export async function beginFormation(
       // A refused retire leaves the attempt unfinished, so recovering formations retires its ship later (#736);
       // given up, a rescan recovers it, never one a forming still holds (#738).
       if (isEveryShipRetired) {
-        await deps.attempts.finish(attemptId);
+        await deps.attempts.finish(crew.fleetId, attemptId);
       } else {
-        await deps.attempts.giveUp(attemptId);
+        await deps.attempts.giveUp(crew.fleetId, attemptId);
       }
     },
   };

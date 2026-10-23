@@ -8,20 +8,20 @@ export function memoryAttempts(): FormationAttempts & { held: (FormationAttempt 
       attempts.held.push({ ...attempt, ships: [], isGivenUp: false, recoveryRefusals: 0, isFinished: false });
       return Promise.resolve();
     },
-    plan: (attemptId, name) => {
-      attempts.held.find((held) => held.id === attemptId)?.ships.push({ name, shipId: null });
+    plan: (fleetId, { attemptId, name }) => {
+      attempts.held.find((held) => held.fleetId === fleetId && held.id === attemptId)?.ships.push({ name, shipId: null });
       return Promise.resolve();
     },
-    commissioned: (attemptId, ship) => {
-      const planned = attempts.held.find((held) => held.id === attemptId)?.ships.find((each) => each.name === ship.name);
+    commissioned: (fleetId, ship) => {
+      const planned = attempts.held.find((held) => held.fleetId === fleetId && held.id === ship.attemptId)?.ships.find((each) => each.name === ship.name);
       if (planned) {
         planned.shipId = ship.shipId;
       }
       return Promise.resolve();
     },
-    giveUp: (attemptId) => {
+    giveUp: (fleetId, attemptId) => {
       const held = attempts.held.find((each) => each.id === attemptId);
-      if (held) {
+      if (held?.fleetId === fleetId) {
         held.isGivenUp = true;
       }
       return Promise.resolve();
@@ -33,9 +33,9 @@ export function memoryAttempts(): FormationAttempts & { held: (FormationAttempt 
       }
       return Promise.resolve();
     },
-    finish: (attemptId) => {
+    finish: (fleetId, attemptId) => {
       const held = attempts.held.find((each) => each.id === attemptId);
-      if (held) {
+      if (held?.fleetId === fleetId) {
         held.isFinished = true;
       }
       return Promise.resolve();

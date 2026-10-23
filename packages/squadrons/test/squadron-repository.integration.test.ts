@@ -228,12 +228,83 @@ describe('a formation attempt the forming gave up (#738)', () => {
     await attempts.begin({ id: 'team-b2c3d4@1', fleetId: FLEET, squadronId: 'team-b2c3d4', startedAt: AT });
     await attempts.begin({ id: 'team-c3d4e5@1', fleetId: FLEET, squadronId: 'team-c3d4e5', startedAt: LATER });
 
-    await attempts.giveUp('team-b2c3d4@1');
+    await attempts.giveUp(FLEET, 'team-b2c3d4@1');
 
     await expect(attempts.unfinished(FLEET)).resolves.toEqual([
       expect.objectContaining({ id: 'team-b2c3d4@1', isGivenUp: true }),
       expect.objectContaining({ id: 'team-c3d4e5@1', isGivenUp: false }),
     ]);
+  });
+});
+
+describe('a formation attempt of one fleet', () => {
+  const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sw';
+
+  it('gets no planned ship from another fleet', async () => {
+    const attempts = createPrismaFormationAttempts(prisma, clock);
+    await attempts.begin({ id: 'team-b2c3d4@1', fleetId: FLEET, squadronId: 'team-b2c3d4', startedAt: AT });
+
+    await expect(attempts.plan(OTHER_FLEET, { attemptId: 'team-b2c3d4@1', name: 'team-b2c3d4' })).rejects.toThrow();
+
+    await expect(attempts.unfinished(FLEET)).resolves.toEqual([expect.objectContaining({ id: 'team-b2c3d4@1', ships: [] })]);
+  });
+
+  it('gets no commissioned ship from another fleet', async () => {
+    const attempts = createPrismaFormationAttempts(prisma, clock);
+    await attempts.begin({ id: 'team-b2c3d4@1', fleetId: FLEET, squadronId: 'team-b2c3d4', startedAt: AT });
+    await attempts.plan(FLEET, { attemptId: 'team-b2c3d4@1', name: 'team-b2c3d4' });
+
+    await attempts.commissioned(OTHER_FLEET, { attemptId: 'team-b2c3d4@1', name: 'team-b2c3d4', shipId: PLANNER });
+
+    await expect(attempts.unfinished(FLEET)).resolves.toEqual([expect.objectContaining({ id: 'team-b2c3d4@1', ships: [{ name: 'team-b2c3d4', shipId: null }] })]);
+  });
+
+  it('is neither given up nor finished by another fleet', async () => {
+    const attempts = createPrismaFormationAttempts(prisma, clock);
+    await attempts.begin({ id: 'team-b2c3d4@1', fleetId: FLEET, squadronId: 'team-b2c3d4', startedAt: AT });
+
+    await attempts.giveUp(OTHER_FLEET, 'team-b2c3d4@1');
+    await attempts.finish(OTHER_FLEET, 'team-b2c3d4@1');
+
+    await expect(attempts.unfinished(FLEET)).resolves.toEqual([expect.objectContaining({ id: 'team-b2c3d4@1', isGivenUp: false })]);
+  });
+
+  it('is not finished by storing a squadron of another fleet', async () => {
+    const squadrons = createPrismaSquadronRepository(prisma, clock);
+    const attempts = createPrismaFormationAttempts(prisma, clock);
+    await attempts.begin({ id: 'team-b2c3d4@1', fleetId: OTHER_FLEET, squadronId: 'team-b2c3d4', startedAt: AT });
+
+    await squadrons.create({ ...formed, id: 'team-b2c3d4', flagship: { ...formed.flagship, shipId: 'shp_01m3tbfspe96yf1rnr4ank0010', name: 'team-b2c3d4' }, members: [] }, 'team-b2c3d4@1');
+
+    await expect(attempts.unfinished(OTHER_FLEET)).resolves.toEqual([expect.objectContaining({ id: 'team-b2c3d4@1' })]);
+  });
+
+  it('is not finished by updating a squadron of another fleet', async () => {
+    const squadrons = createPrismaSquadronRepository(prisma, clock);
+    const attempts = createPrismaFormationAttempts(prisma, clock);
+    await attempts.begin({ id: 'team-b2c3d4@1', fleetId: OTHER_FLEET, squadronId: 'team-b2c3d4', startedAt: AT });
+    const [snapshot] = await squadrons.list(FLEET);
+    if (!snapshot) {
+      expect.fail('the squadron was not stored');
+    }
+
+    await squadrons.update({ before: snapshot, after: snapshot, finishesAttempt: 'team-b2c3d4@1' });
+
+    await expect(attempts.unfinished(OTHER_FLEET)).resolves.toEqual([expect.objectContaining({ id: 'team-b2c3d4@1' })]);
+  });
+
+  it('is planned, commissioned, given up and finished by its own fleet', async () => {
+    const attempts = createPrismaFormationAttempts(prisma, clock);
+    await attempts.begin({ id: 'team-b2c3d4@1', fleetId: FLEET, squadronId: 'team-b2c3d4', startedAt: AT });
+    await attempts.plan(FLEET, { attemptId: 'team-b2c3d4@1', name: 'team-b2c3d4' });
+    await attempts.commissioned(FLEET, { attemptId: 'team-b2c3d4@1', name: 'team-b2c3d4', shipId: PLANNER });
+    await attempts.giveUp(FLEET, 'team-b2c3d4@1');
+
+    await expect(attempts.unfinished(FLEET)).resolves.toEqual([expect.objectContaining({ id: 'team-b2c3d4@1', isGivenUp: true, ships: [{ name: 'team-b2c3d4', shipId: PLANNER }] })]);
+
+    await attempts.finish(FLEET, 'team-b2c3d4@1');
+
+    await expect(attempts.unfinished(FLEET)).resolves.toEqual([]);
   });
 });
 

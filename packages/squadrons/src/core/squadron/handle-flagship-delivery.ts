@@ -185,7 +185,9 @@ export function createHandleFlagshipDelivery(deps: {
   // The contact's relay goes to the member it answers, or to the member or role it names.
   const relayFromContact = async (squadron: Squadron, relayed: { delivery: FlagshipDelivery; relay: z.infer<typeof relayPayload> }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
     const { delivery, relay } = relayed;
-    const answered = delivery.inReplyTo === null ? undefined : await deps.relays.find(squadron.fleetId, delivery.inReplyTo);
+    const found = delivery.inReplyTo === null ? undefined : await deps.relays.find(squadron.fleetId, delivery.inReplyTo);
+    // An answer to another squadron's relay answers none of this squadron's members.
+    const answered = found?.squadronId === squadron.id ? found : undefined;
     const target = relayTarget(squadron, { answered, to: relay.to });
     if (!target.isOk) {
       return answerRefused(squadron, { delivery, code: 'NO_SUCH_MEMBER', message: target.error });

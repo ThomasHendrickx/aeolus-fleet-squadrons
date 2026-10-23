@@ -147,7 +147,7 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
         },
       });
       // The squadron and the end of its attempt commit together: a crash leaves both or neither.
-      await db.$transaction([create, db.formationAttempt.updateMany({ where: { id: attemptId, finishedAt: null }, data: { finishedAt: clock.now() } })]);
+      await db.$transaction([create, db.formationAttempt.updateMany({ where: { fleetId: squadron.fleetId, id: attemptId, finishedAt: null }, data: { finishedAt: clock.now() } })]);
     },
     update: async ({ before, after, finishesAttempt }) => {
       const { fleetId, id } = after;
@@ -196,7 +196,7 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
         }
       }
       if (finishesAttempt !== undefined) {
-        writes.push(db.formationAttempt.updateMany({ where: { id: finishesAttempt, finishedAt: null }, data: { finishedAt: clock.now() } }));
+        writes.push(db.formationAttempt.updateMany({ where: { fleetId, id: finishesAttempt, finishedAt: null }, data: { finishedAt: clock.now() } }));
       }
       await db.$transaction(writes);
     },

@@ -181,7 +181,7 @@ function memorySquadrons(attempts: ReturnType<typeof memoryAttempts>): SquadronR
     exists: (fleetId, id) => Promise.resolve(repository.held.some((squadron) => squadron.fleetId === fleetId && squadron.id === id)),
     create: async (squadron, attemptId) => {
       repository.held.push(structuredClone(squadron));
-      await attempts.finish(attemptId);
+      await attempts.finish(squadron.fleetId, attemptId);
     },
     list: (fleetId) => Promise.resolve(repository.held.filter((squadron) => squadron.fleetId === fleetId)),
     update: () => Promise.resolve(),
