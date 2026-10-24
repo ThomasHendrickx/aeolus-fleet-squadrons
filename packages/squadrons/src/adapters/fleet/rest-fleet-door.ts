@@ -10,7 +10,21 @@
  */
 import { setTimeout as wait } from 'node:timers/promises';
 
-import { busyWaitMs, crewLineSchema, FLEET_BUSY_WAITS_MS, findLabelValueOutputSchema, idSchema, ON_BEHALF_OF_HEADER, receivedDeliverySchema, shipDetailOutputSchema, type ShipId } from '@aeolus-fleet/common';
+import {
+  busyWaitMs,
+  crewLineSchema,
+  FLEET_BUSY_WAITS_MS,
+  findLabelValueOutputSchema,
+  fleetListOutputSchema,
+  idSchema,
+  type ListedShip,
+  ON_BEHALF_OF_HEADER,
+  PAGE_SIZE_MAX,
+  receivedDeliverySchema,
+  shipDetailOutputSchema,
+  type ShipId,
+  type ShipOutsideReadReach,
+} from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { FleetDoor, FleetRefusal } from '../../core/management/ports.js';
@@ -66,6 +80,28 @@ export async function call<T>({ fleetUrl, busyWaitsMs, random, wait: waitBusy }:
     await waitBusy(busyWaitMs(waitMs, random), request.signal);
   }
   return callOnce(fleetUrl, request);
+}
+
+/**
+ * Every ship fleet.list answers (fleet:read), read page by page, each page
+ * after the cursor the last one answered, until the fleet answers none
+ * (aeolus-fleet#1143): squadrons needs the whole fleet, so it asks the most a
+ * page may hold. A refusal of any page is the answer.
+ */
+export async function listEveryShip(door: Door, crewToken: string): Promise<Result<(ListedShip | ShipOutsideReadReach)[], FleetRefusal>> {
+  const ships: (ListedShip | ShipOutsideReadReach)[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await call(door, { path: '/fleet/list', method: 'POST', crewToken, body: { limit: PAGE_SIZE_MAX, cursor }, answers: fleetListOutputSchema });
+    if (!page.isOk) {
+      return page;
+    }
+    ships.push(...page.value.items);
+    if (page.value.nextCursor === null) {
+      return ok(ships);
+    }
+    cursor = page.value.nextCursor;
+  }
 }
 
 async function callOnce<T>(fleetUrl: string, request: FleetCall<T>): Promise<Result<T, FleetRefusal>> {
@@ -196,13 +232,7 @@ export function createRestFleetDoor(fleetUrl: string, options: DoorOptions = {})
         answers: z.object({ messageId: idSchema('message') }),
       }),
     listShips: async (crewToken) => {
-      const listed = await call(door, {
-        path: '/fleet/list',
-        method: 'POST',
-        crewToken,
-        body: {},
-        answers: z.array(z.object({ id: idSchema('ship'), name: z.string(), status: z.string() })),
-      });
+      const listed = await listEveryShip(door, crewToken);
       return listed.isOk ? ok(listed.value.filter((ship) => ship.status !== 'retired').map(({ id, name }) => ({ shipId: id, name }))) : listed;
     },
     requestCrew: async (crewToken, request) => {

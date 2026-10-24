@@ -58,7 +58,7 @@ async function aFormedSquadron(): Promise<{ flagship: ShipId; member: ShipId }> 
     .object({ flagship: z.object({ shipId: z.string() }), members: z.array(z.object({ shipId: z.string() })) })
     .parse(await expectOk(asOperator('squadrons.form', { blueprint: { repository: REPO, name: 'team', version: 1 }, squadronId: 'team-one' })));
   app.startFlagships(RESCAN_MS);
-  const ids = (await useCases.listFleet(argo)).map((ship) => ship.id);
+  const ids = (await useCases.listFleet(argo)).ships.map((ship) => ship.id);
   const flagship = ids.find((id) => id === formed.flagship.shipId);
   const member = ids.find((id) => id === formed.members[0]?.shipId);
   if (flagship === undefined || member === undefined) {
@@ -69,7 +69,7 @@ async function aFormedSquadron(): Promise<{ flagship: ShipId; member: ShipId }> 
 
 /** The label values a ship carries, as `key=value`. */
 async function labelsOf(shipId: ShipId): Promise<string[]> {
-  const ship = (await useCases.listFleet(argo)).filter(isInReadReach).find((each) => each.id === shipId);
+  const ship = (await useCases.listFleet(argo)).ships.filter(isInReadReach).find((each) => each.id === shipId);
   return (ship?.labels ?? []).map((label) => `${label.key}=${label.value}`).sort();
 }
 
