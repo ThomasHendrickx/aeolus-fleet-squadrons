@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { aFleetAnswering, BUSY } from '../../../test/support/fake-fleet.js';
+import { aListedShip } from '../../../test/support/listed-ships.js';
 import { call, createRestFleetDoor, restDoor } from './rest-fleet-door.js';
 
 const MESSAGE_ID = 'msg_01m3tbfspe96yf1rnr4ank9h1d';
@@ -136,5 +137,36 @@ describe("the model a send from squadrons' ships states (#1082)", () => {
 
   it('states the squadrons package and the version it runs from a flagship: a flagship is an agent ship, which states a model', async () => {
     expect(await bodyOfSendFrom('flagship')).toMatchObject({ model: '@aeolus-fleet/squadrons@0.0.0' });
+  });
+});
+
+describe('the fleet door reads every page of fleet.list (aeolus-fleet#1143)', () => {
+  const pages = [
+    { status: 200, body: { items: [aListedShip({ id: 'shp_01m3tbfspe96yf1rnr4ank9h3a', name: 'scout' }), aListedShip({ id: 'shp_01m3tbfspe96yf1rnr4ank9h3b', name: 'gone', status: 'retired' })], nextCursor: 'after-gone' } },
+    { status: 200, body: { items: [{ id: 'shp_01m3tbfspe96yf1rnr4ank9h3c', name: 'vault', type: 'keeper', status: 'crewed', isInReadReach: false }], nextCursor: 'after-vault' } },
+    { status: 200, body: { items: [aListedShip({ id: 'shp_01m3tbfspe96yf1rnr4ank9h3d', name: 'keeper' })], nextCursor: null } },
+  ];
+
+  it('lists the ships that are not retired from every page, reading on until the fleet answers no next cursor', async () => {
+    await aFleetAnswering(pages, async (fleetUrl) => {
+      const listed = await createRestFleetDoor(fleetUrl).listShips('aeolus_ct_v1_x');
+
+      expect(listed).toEqual({
+        isOk: true,
+        value: [
+          { shipId: 'shp_01m3tbfspe96yf1rnr4ank9h3a', name: 'scout' },
+          { shipId: 'shp_01m3tbfspe96yf1rnr4ank9h3c', name: 'vault' },
+          { shipId: 'shp_01m3tbfspe96yf1rnr4ank9h3d', name: 'keeper' },
+        ],
+      });
+    });
+  });
+
+  it('asks each next page after the cursor the last page answered, at the most ships a page may hold', async () => {
+    await aFleetAnswering(pages, async (fleetUrl, asked) => {
+      await createRestFleetDoor(fleetUrl).listShips('aeolus_ct_v1_x');
+
+      expect(asked.map(({ body }): unknown => JSON.parse(body))).toEqual([{ limit: 500 }, { limit: 500, cursor: 'after-gone' }, { limit: 500, cursor: 'after-vault' }]);
+    });
   });
 });
