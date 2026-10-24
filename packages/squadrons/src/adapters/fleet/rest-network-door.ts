@@ -4,12 +4,12 @@
  * refusal reads as the fleet's code and message; a busy fleet is asked again,
  * as the fleet door does.
  */
-import { changeLabelValuesOutputSchema, declareNetworkRulesOutputSchema, defineLabelOutputSchema, fleetListOutputSchema, isInReadReach, labelsOutputSchema } from '@aeolus-fleet/common';
+import { changeLabelValuesOutputSchema, declareNetworkRulesOutputSchema, defineLabelOutputSchema, isInReadReach, labelsOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { NetworkDoor } from '../../core/network/ports.js';
 import { ok } from '../../core/shared/result.js';
-import { call, type DoorOptions, restDoor } from './rest-fleet-door.js';
+import { call, type DoorOptions, listEveryShip, restDoor } from './rest-fleet-door.js';
 
 export function createRestNetworkDoor(fleetUrl: string, options: DoorOptions = {}): NetworkDoor {
   const door = restDoor(fleetUrl, options);
@@ -29,7 +29,7 @@ export function createRestNetworkDoor(fleetUrl: string, options: DoorOptions = {
       return changed.isOk ? ok({ values: changed.value.values.map((value) => ({ valueId: value.id, value: value.value })) }) : changed;
     },
     listLabelledShips: async (crewToken) => {
-      const listed = await call(door, { path: '/fleet/list', method: 'POST', crewToken, body: {}, answers: fleetListOutputSchema });
+      const listed = await listEveryShip(door, crewToken);
       return listed.isOk
         ? ok(
             listed.value
