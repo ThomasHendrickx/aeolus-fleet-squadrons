@@ -16,6 +16,7 @@ Layout (`packages/squadrons/src`):
 The doors:
 - Core only over `/api/v1`, through `adapters/fleet`, with `@aeolus-fleet/common` for the shapes. Only the calls aeolus-fleet's `docs/compatibility.md` lists for squadrons.
 - A call core added later raises `MINIMUM_CORE_VERSION` (`adapters/fleet/core-version.ts`) in the same PR.
+- When core has a release candidate with a breaking change, run the fleet contract tests against it before core is released.
 - Template repositories only through GitHub's REST API (`adapters/github`): no clone, no files on disk.
 
 Testing (decision 0014, strict):
