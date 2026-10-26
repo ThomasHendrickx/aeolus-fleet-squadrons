@@ -70,7 +70,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@aeolus-fleet/core": "^0.30.0",
+    "@aeolus-fleet/core": "^0.32.0",
     "@testcontainers/postgresql": "^12.2.0",
     "@types/pg": "^8.23.1"
   }
