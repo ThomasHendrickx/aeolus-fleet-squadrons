@@ -1,5 +1,4 @@
 import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -16,12 +15,25 @@ async function fleetAnswering(scopes: string[]): Promise<string> {
       JSON.stringify({ result: { data: { fleetId: FLEET, fleetName: 'acme', expiresAt: '2030-01-01T00:00:00.000Z', kind: 'operator', scopes } } }),
     );
   });
-  await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
-  return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const listening = server;
+  await new Promise<void>((resolve) => {
+    listening.listen(0, '127.0.0.1', resolve);
+  });
+  const address = listening.address();
+  return `http://127.0.0.1:${typeof address === 'object' && address !== null ? address.port : 0}`;
 }
 
 afterEach(async () => {
-  await new Promise<void>((resolve) => (server === undefined ? resolve() : server.close(() => resolve())));
+  const closing = server;
+  await new Promise<void>((resolve) => {
+    if (closing === undefined) {
+      resolve();
+    } else {
+      closing.close(() => {
+        resolve();
+      });
+    }
+  });
   server = undefined;
 });
 

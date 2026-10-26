@@ -1,10 +1,10 @@
-import type { FleetId, Scope } from '@aeolus-fleet/common';
+import type { FleetId, ScopeName } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { ConsoleSessions } from './ports.js';
 
-export type AuthenticateOperator = (cookie: string | undefined) => Promise<Result<{ fleetId: FleetId; scopes: readonly Scope[] }, DomainError<'NOT_THE_OPERATOR' | 'ACCOUNT_SESSION'>>>;
+export type AuthenticateOperator = (cookie: string | undefined) => Promise<Result<{ fleetId: FleetId; scopes: readonly ScopeName[] }, DomainError<'NOT_THE_OPERATOR' | 'ACCOUNT_SESSION'>>>;
 
 /**
  * Use case: whether a request comes from the operator. squadrons has no login
