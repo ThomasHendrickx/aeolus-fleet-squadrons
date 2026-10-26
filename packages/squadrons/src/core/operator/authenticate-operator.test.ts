@@ -18,6 +18,8 @@ const sessions: ConsoleSessions = {
           ? ok({ fleetId: OTHER_FLEET, kind: 'operator', scopes: OPERATOR_SCOPES })
           : cookie === 'aeolus_session=viewer'
             ? ok({ fleetId: FLEET, kind: 'viewer', scopes: ['fleet:read'] })
+            : cookie === 'aeolus_session=plugin'
+              ? ok({ fleetId: FLEET, kind: 'operator', scopes: ['fleet:read', 'trierarch:join'] })
             : cookie === 'aeolus_session=account'
               ? ok({ fleetId: FLEET, kind: 'account', scopes: OPERATOR_SCOPES })
               : err({ code: 'UNAUTHORIZED', message: 'No signed-in console session' }),
@@ -38,6 +40,15 @@ describe('the operator', () => {
     const authenticate = createAuthenticateOperator({ sessions });
 
     await expect(authenticate('aeolus_session=viewer')).resolves.toEqual({ isOk: true, value: { fleetId: FLEET, scopes: ['fleet:read'] } });
+  });
+
+  it('keeps a scope a plugin declared, beside the core ones, so a session holding it is not dropped or refused', async () => {
+    const authenticate = createAuthenticateOperator({ sessions });
+
+    await expect(authenticate('aeolus_session=plugin')).resolves.toEqual({
+      isOk: true,
+      value: { fleetId: FLEET, scopes: ['fleet:read', 'trierarch:join'] },
+    });
   });
 
   it('is refused for an account session, which squadrons does not serve, saying so', async () => {
