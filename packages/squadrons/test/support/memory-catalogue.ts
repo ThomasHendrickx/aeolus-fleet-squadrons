@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
-import type { Catalogue } from '../../src/core/catalogue/catalogue.js';
-import type { CatalogueHolder, RepositoryReader, RepositoryStore, RepositoryToRead, SourceFile, UnreadTag } from '../../src/core/catalogue/ports.js';
+import type { Catalogue, TemplateVersion } from '../../src/core/catalogue/catalogue.js';
+import type { BuiltTemplateStore, CatalogueHolder, RepositoryReader, RepositoryStore, RepositoryToRead, SourceFile, UnreadTag } from '../../src/core/catalogue/ports.js';
 import type { TemplateRepository } from '../../src/core/catalogue/template-repository.js';
 
 /** The repository store in memory, one row per fleet and name. */
@@ -93,6 +93,40 @@ export function fakeCatalogueSource(): RepositoryReader & {
     },
   };
   return source;
+}
+
+/** A built template as the store in memory holds it. */
+export interface HeldBuiltTemplate {
+  fleetId: FleetId;
+  template: TemplateVersion;
+  builtAt: Date;
+  lastUsedAt: Date;
+}
+
+/** The built template store in memory, one row per fleet and hash. */
+export function memoryBuiltTemplates(): BuiltTemplateStore & { held: HeldBuiltTemplate[] } {
+  const store: BuiltTemplateStore & { held: HeldBuiltTemplate[] } = {
+    held: [],
+    find: (fleetId, hashes) => Promise.resolve(store.held.filter((each) => each.fleetId === fleetId && each.template.hash !== null && hashes.includes(each.template.hash)).map((each) => structuredClone(each.template))),
+    use: (fleetId, { templates, at }) => {
+      for (const template of templates) {
+        const held = store.held.find((each) => each.fleetId === fleetId && each.template.hash === template.hash);
+        if (held) {
+          held.lastUsedAt = at;
+        } else if (template.hash !== null) {
+          store.held.push({ fleetId, template: structuredClone(template), builtAt: at, lastUsedAt: at });
+        }
+      }
+      return Promise.resolve();
+    },
+    deleteUnusedSince: (fleetId, before) => {
+      const kept = store.held.filter((each) => each.fleetId !== fleetId || each.lastUsedAt >= before);
+      const deleted = store.held.length - kept.length;
+      store.held = kept;
+      return Promise.resolve(deleted);
+    },
+  };
+  return store;
 }
 
 /** A hash a reader can follow, standing in for SHA-256: what it hashes, in sha(...). */

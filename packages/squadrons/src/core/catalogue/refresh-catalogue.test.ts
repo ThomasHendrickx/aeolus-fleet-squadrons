@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { fakeCatalogueSource, memoryCatalogueHolder, memoryRepositoryStore, readableHash } from '../../../test/support/memory-catalogue.js';
+import { fakeCatalogueSource, memoryCatalogueHolder, memoryRepositoryStore, memoryBuiltTemplates, readableHash } from '../../../test/support/memory-catalogue.js';
 import type { SourceFile } from './ports.js';
 import { createRefreshCatalogue } from './refresh-catalogue.js';
 
@@ -9,6 +9,7 @@ const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
 const ADDED = new Date('2026-10-03T09:00:00.000Z');
 const NOW = new Date('2026-10-03T10:00:00.000Z');
+const LATER = new Date('2026-10-20T10:00:00.000Z');
 
 function tester(repository: string): SourceFile {
   return {
@@ -28,12 +29,16 @@ let store: ReturnType<typeof memoryRepositoryStore>;
 let source: ReturnType<typeof fakeCatalogueSource>;
 let holder: ReturnType<typeof memoryCatalogueHolder>;
 let refresh: ReturnType<typeof createRefreshCatalogue>;
+let built: ReturnType<typeof memoryBuiltTemplates>;
+let now: Date;
 
 beforeEach(async () => {
   store = memoryRepositoryStore();
   source = fakeCatalogueSource();
   holder = memoryCatalogueHolder();
-  refresh = createRefreshCatalogue({ store, source, holder, clock: { now: () => NOW }, hash: readableHash });
+  built = memoryBuiltTemplates();
+  now = NOW;
+  refresh = createRefreshCatalogue({ store, source, holder, built, clock: { now: () => now }, hash: readableHash });
   for (const name of ['github.com/acme/one', 'github.com/acme/two']) {
     await store.add({ fleetId: FLEET, name, url: `https://${name}`, path: '.aeolus/squadrons', token: name.endsWith('two') ? 'ghp_two' : null, addedAt: ADDED, lastFetch: null });
     source.files.set(name, [tester(name)]);
@@ -120,7 +125,7 @@ describe('refreshing the catalogue', () => {
   it('runs the next refresh after one that failed', async () => {
     let isDown = true;
     const flaky = { ...store, list: (fleetId: FleetId) => (isDown ? Promise.reject(new Error('database down')) : store.list(fleetId)) };
-    const refreshing = createRefreshCatalogue({ store: flaky, source, holder, clock: { now: () => NOW }, hash: readableHash });
+    const refreshing = createRefreshCatalogue({ store: flaky, source, holder, built, clock: { now: () => NOW }, hash: readableHash });
     await expect(refreshing(FLEET, 'all')).rejects.toThrow('database down');
     isDown = false;
 
@@ -183,5 +188,52 @@ describe('refreshing a template on a base in another repository', () => {
       { name: 'reviewer', charter: 'You test.' },
       { name: 'tester', charter: 'You test.' },
     ]);
+  });
+});
+
+describe('refreshing builds each version once', () => {
+  it('keeps each version it built for the fleet, by its hash, built and last used at the refresh', async () => {
+    await refresh(FLEET, 'all');
+
+    expect(built.held.map(({ fleetId, template, builtAt, lastUsedAt }) => ({ fleetId, repository: template.repository, hash: template.hash, builtAt, lastUsedAt }))).toEqual(
+      holder.get(FLEET).templates.map(({ repository, hash }) => ({ fleetId: FLEET, repository, hash, builtAt: NOW, lastUsedAt: NOW })),
+    );
+  });
+
+  it('takes the version kept for the fleet instead of building it again, and sets its last use', async () => {
+    await refresh(FLEET, 'all');
+    for (const held of built.held) {
+      held.template = { ...held.template, description: 'As kept.' };
+    }
+    now = LATER;
+
+    await refresh(FLEET, 'all');
+
+    expect(holder.get(FLEET).templates.map((template) => template.description)).toEqual(['As kept.', 'As kept.']);
+    expect(built.held.map(({ builtAt, lastUsedAt }) => ({ builtAt, lastUsedAt }))).toEqual([
+      { builtAt: NOW, lastUsedAt: LATER },
+      { builtAt: NOW, lastUsedAt: LATER },
+    ]);
+  });
+
+  it('builds a version again to the same hash and the same template once its kept one was deleted', async () => {
+    await refresh(FLEET, 'all');
+    const first = holder.get(FLEET).templates;
+    built.held = [];
+    now = LATER;
+
+    await refresh(FLEET, 'all');
+
+    expect(holder.get(FLEET).templates).toEqual(first);
+    expect(built.held.map(({ template, builtAt }) => ({ hash: template.hash, builtAt }))).toEqual(first.map(({ hash }) => ({ hash, builtAt: LATER })));
+  });
+
+  it('never takes what another fleet built, though of the same hash', async () => {
+    await refresh(FLEET, 'all');
+    built.held = built.held.map((held) => ({ ...held, fleetId: OTHER_FLEET, template: { ...held.template, description: 'Built for another fleet.' } }));
+
+    await refresh(FLEET, 'all');
+
+    expect(holder.get(FLEET).templates.map((template) => template.description)).toEqual(['Tests.', 'Tests.']);
   });
 });
