@@ -32,7 +32,7 @@ Thomas, 26 Oct 2026: "it would be nice if we can make ship templates like Docker
 | `CMD`, `ENTRYPOINT` | The last one wins whole; there is no "add to the base's command". | The charter is the closest thing: added after the base by default, replaced whole when stated: decision 1. |
 | `ARG` | A build value, given at build time; an `ARG` of the base is gone once the base is built, and a child declares its own to use one. | Good: a template filling its base's parameters bakes the value in, as a build value does. A filled parameter is final: decision 2. |
 | `ONBUILD` | Instructions a base sets to run when a child builds on it. Widely found confusing; Docker's docs warn against surprises. | Bad: left out. |
-| Tags and digests | A tag (`node:20`) can be moved to another image; a digest (`@sha256:...`) never changes. Reproducible builds pin by digest. | Good: a version is the tag `<name>@<n>`, which is never moved ([Step by step](../../squadrons.md#step-by-step), step 2), and squadrons records each version's commit, its digest. |
+| Tags and digests | A tag (`node:20`) can be moved to another image; a digest (`@sha256:...`) never changes. Reproducible builds pin by digest. | Good: a version is the tag `<name>@<n>`, which is not to be moved ([Step by step](../../squadrons.md#step-by-step), step 2), and squadrons records each version's commit, its digest. A moved tag is used silently, as `alpine:latest` is: decision 10. |
 | A new base does not reach children | A child image keeps the base it was built on until it is built again; tools such as Renovate open pull requests to bump `FROM`. | Good with a price: a squadron never changes, but a fix in a base reaches a child only through a new child version: decision 4. |
 | `docker history`, `docker inspect` | `inspect` shows the final configuration, `history` each layer and the instruction that made it. | Good: the console shows the resolved template, and the chain of bases it came from: decision 6. |
 | Layer limit | An image holds at most 127 layers. | A limit on how deep a chain may go: 10, decision 5. |
@@ -53,7 +53,7 @@ Thomas, 26 Oct 2026: "it would be nice if we can make ship templates like Docker
 
 ## Decisions
 
-Thomas agreed the purpose as written and answered the stage 1 questions on 27 Oct 2026.
+Thomas agreed the purpose as written and answered the stage 1 and stage 2 questions on 27 Oct 2026.
 
 1. **The charter.** A template's charter is added after its base's; the template may instead replace its base's charter whole, stated in the file. A part a template should change is a parameter of the base, which the template fills.
 2. **Parameters and crew settings.** A parameter a template fills is final: it is no longer a parameter of that template, and neither a blueprint nor a form sees it. A parameter left open stays open, and the template may declare its own. Crew settings merge base, template, blueprint role, form: nearest wins, `options` per key.
@@ -69,7 +69,9 @@ Thomas agreed the purpose as written and answered the stage 1 questions on 27 Oc
    ```
 7. **Where bases live.** Any repository the fleet configured. Thomas: "When loading the templates, squadrons checks if it has access to all required templates (bases included). If not it gives a warning why that template cannot be included and what repository is missing."
 8. **Every template is complete and formable**, a base too.
-9. **Built once, kept.** Thomas: "important --> full template gets build and hashed based on the version. They are kept for x amount of time. Else calculating it every single time from scratch becomes hard, same as the docker images that get build each deploy." A template version is built once into its full template, identified by a hash, and kept; forming and reading use the built one. How long is open question 1.
+9. **Built once, kept.** Thomas: "important --> full template gets build and hashed based on the version. They are kept for x amount of time. Else calculating it every single time from scratch becomes hard, same as the docker images that get build each deploy." A template version is built once into its full template, identified by a hash, and kept; forming and reading use the built one. A built template is kept 30 days since last used.
+10. **A moved version tag.** A tag is not to be moved, but if it is, squadrons uses its new commit silently, with no warning. Thomas: "I would keep 3 .. if someone wants to change it .. It is the same as using alpine@latest in docker ... it changes, deal with it. You need to trust the basis you use. That is not aeolus to concern about. If this becomes an issue, we will deal with it later." The hash follows the commit, so a moved tag builds to a new hash, and no squadron changes.
+11. **A change of the build rules.** The hash also covers a build rules number, which squadrons raises when a rule of [Building](#building) changes. A changed rule builds anew. Thomas: "indeed we are not yet 1.0".
 
 ## Design
 
@@ -118,11 +120,11 @@ A placeholder in the layer's own text must be a parameter of the full template a
 
 A version is built once, when the catalogue is read: at a repository's add, at Refresh and at start. Building needs no more GitHub calls, since every base is a version of a configured repository and read with it.
 
-- **The hash** is the SHA-256 of the chain, base-layer-0 first: for each layer its repository, name, version, commit and the SHA-256 of its file's text. One chain gives one hash, and one hash one built template.
+- **The hash** is the SHA-256 of the build rules number and the chain, base-layer-0 first: for each layer its repository, name, version, commit and the SHA-256 of its file's text. One chain under one build rules number gives one hash, and one hash one built template.
 - **Kept** in Postgres, per fleet (`fleet_id` and hash), with the chain, the full template, which layer each charter part and field came from, when it was built and when it was last used. A fleet never finds another fleet's built template, so a base read with one fleet's token never reaches another.
 - **Looked up first.** Reading the catalogue computes each version's hash and takes the kept one when there is one; it builds and keeps only what is missing. Two reads building one hash at once keep one: the same chain builds the same template.
 - **Used.** The catalogue, the console and forming read the built template, never the files again. Each use sets its last use.
-- **Deleted** once unused for the time of open question 1, on a fleet's rescan. A version still in the catalogue whose built template was deleted is built again at its next use, from what the catalogue read, to the same hash and the same template. Deleting a fleet forgets its built templates with the rest.
+- **Deleted** once unused for 30 days, on a fleet's rescan. A version still in the catalogue whose built template was deleted is built again at its next use, from what the catalogue read, to the same hash and the same template. Deleting a fleet forgets its built templates with the rest.
 
 ### The catalogue's warnings
 
@@ -218,40 +220,10 @@ flowchart TD
 ### The guarantees
 
 - **A squadron never changes.** **Given** a squadron formed from `typescript-implementer@1` on `implementer@2`, **when** `implementer@3` is tagged, or the base's repository is removed, or its built template is deleted, **then** a member added later gets the charter the squadron formed with, read from its snapshot.
-- **A version means the same forever.** **Given** `typescript-implementer@1` built to hash H, **when** the catalogue is read again, after a restart, or after H was deleted, **then** it builds to H and the same full template.
+- **A version means the same as long as its tag is not moved.** **Given** `typescript-implementer@1` built to hash H, **when** the catalogue is read again, after a restart, or after H was deleted, **then** it builds to H and the same full template.
+- **A moved tag.** **Given** `implementer@2` was built from commit 9b0c1de, **when** its tag is moved to 3a7f210 and the catalogue is read, **then** the version is built from 3a7f210 to a new hash, with no warning, and a squadron formed before keeps its snapshot.
+- **A changed build rule.** **Given** `typescript-implementer@1` built to hash H, **when** a later squadrons raises the build rules number, **then** it builds anew to another hash H2, and a squadron formed before keeps its snapshot.
 - **A fix in a base reaches only new versions.** **Given** `implementer@3` fixes `implementer@2`, **when** the catalogue is read, **then** `typescript-implementer@1` still builds on `implementer@2`, and only a `typescript-implementer@2` naming `implementer@3` gets the fix.
 - **Built once.** **Given** H is kept for the fleet, **when** the catalogue is read or a squadron formed, **then** nothing is built again and the last use of H is set.
 - **One build per hash.** **Given** two reads of one catalogue at once, **when** both build H, **then** one built template H is kept, and both use it.
 - **Nothing changes without a base.** **Given** a template without `base` and a snapshot from before bases, **when** the catalogue is read and a member added, **then** both behave as today, the snapshot read as a chain of one.
-
-## Open questions for Thomas
-
-### 1. How long a built template is kept
-
-Context: a built template is kept per fleet by its hash; one deleted is built again at its next use to the same template, from what the catalogue read, without GitHub. A squadron never needs it: its snapshot holds its own copy. So the time trades storage against building again, never correctness.
-
-1. **7 days since last used.**
-2. **30 days since last used.**
-3. **30 days since built**, used or not.
-4. **A setting**, as the forming limits are, 30 days since last used when unset.
-
-Pick: 2. Counting from last use keeps what fleets use and deletes what nobody forms from, as pruning unused images does; 30 days covers a blueprint formed once a month. A setting adds a knob nobody has asked for yet.
-
-### 2. When a version tag is moved
-
-Context: a tag is never to be moved ([Step by step](../../squadrons.md#step-by-step)), but git allows it. Today squadrons reads the tag's new commit. With built templates kept, squadrons can see that `implementer@2` now has another commit than the one it built from. A moved tag gives a new hash, so no squadron changes either way.
-
-1. **Use the new commit, and warn.** The version is built from the new commit; Settings shows "implementer@2 moved from 9b0c1de to 3a7f210: a version tag is never moved".
-2. **Leave the version out** with that warning, until the tag is put back.
-3. **As today:** use the new commit, say nothing.
-
-Pick: 1. Templates on it keep working, and the warning tells the author what broke the rule; option 2 breaks every chain above a moved base.
-
-### 3. When a later squadrons changes how a chain is built
-
-Context: "a version means the same forever" holds while the rules of [Building](#building) hold. A later squadrons might change one (say, the separator between charters).
-
-1. **The rules never change what an existing file builds to.** A new behaviour comes as a new optional field; a file without it builds as before.
-2. **The hash also covers the rules' number.** A changed rule builds anew; a version formed later may then get another full template than one formed before.
-
-Pick: 1. It keeps the guarantee whole; option 2 breaks it with each change.
