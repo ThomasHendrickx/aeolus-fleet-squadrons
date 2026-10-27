@@ -240,7 +240,7 @@ export function createGithubRepositoryReader(options: { apiUrl?: string; timeout
       const file = `${repository.path}/${folder}/${tag.name}.yaml`;
       const text = await textOf(repository, { sha: tag.commit, commit, file });
       if (text !== undefined) {
-        files.push({ repository: repository.name, kind, name: tag.name, version: tag.version, file, commit: tag.commit, committedAt: commit.committedAt, ...parsed(text) });
+        files.push({ repository: repository.name, kind, name: tag.name, version: tag.version, file, commit: tag.commit, committedAt: commit.committedAt, text, ...parsed(text) });
       }
     }
     return files;

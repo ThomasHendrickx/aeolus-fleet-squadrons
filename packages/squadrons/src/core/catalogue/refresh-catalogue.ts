@@ -1,8 +1,8 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
 import type { Clock } from '../shared/clock.js';
-import { assembleCatalogue } from './assemble-catalogue.js';
-import type { CatalogueHolder, RepositoryReader, RepositoryStore } from './ports.js';
+import { assembleCatalogue, catalogueHashes } from './assemble-catalogue.js';
+import type { BuiltTemplateStore, CatalogueHolder, RepositoryReader, RepositoryStore } from './ports.js';
 
 /** Which repositories a refresh fetches: every one, one by name, or none. */
 export type RefreshScope = 'all' | 'none' | { name: string };
@@ -16,6 +16,10 @@ export type RefreshCatalogue = (fleetId: FleetId, scope: RefreshScope) => Promis
  * repository is read from what it last fetched. Nothing fetches by itself: a
  * fetch happens when the operator adds a repository or refreshes.
  *
+ * Each template version is built once into its full template, kept for the
+ * fleet by its hash: a refresh takes what it kept and builds only the rest,
+ * and sets the last use of every version it serves.
+ *
  * Refreshes run one at a time, each after the one before it settled, so the
  * catalogue served is always built from the repositories as the last refresh
  * found them, never from an earlier refresh that finished later. One process
@@ -25,7 +29,10 @@ interface RefreshDeps {
   store: RepositoryStore;
   source: RepositoryReader;
   holder: CatalogueHolder;
+  built: BuiltTemplateStore;
   clock: Clock;
+  /** A text's SHA-256, in hex. */
+  hash: (text: string) => string;
 }
 
 export function createRefreshCatalogue(deps: RefreshDeps): RefreshCatalogue {
@@ -54,5 +61,9 @@ async function refresh(deps: RefreshDeps, { fleetId, scope }: { fleetId: FleetId
       fetchFailures.set(name, error);
     }
   }
-  deps.holder.set(fleetId, assembleCatalogue({ repositories: repositories.map((repository) => repository.name), files, tags, fetchFailures }));
+  // Each version is built once: one kept for the fleet by its hash is taken, and only the others are built and kept.
+  const kept = await deps.built.find(fleetId, catalogueHashes({ files, hash: deps.hash }));
+  const catalogue = assembleCatalogue({ repositories: repositories.map((repository) => repository.name), files, tags, fetchFailures, hash: deps.hash, kept });
+  await deps.built.use(fleetId, { templates: catalogue.templates, at });
+  deps.holder.set(fleetId, catalogue);
 }

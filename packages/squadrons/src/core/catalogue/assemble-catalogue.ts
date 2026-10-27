@@ -3,8 +3,9 @@ import { z } from 'zod';
 
 import { err, ok, type Result } from '../shared/result.js';
 import { CHARTER_MAX_BYTES, FLAGSHIP, TEMPLATE_SCOPES_MAX, type BlueprintVersion, type Catalogue, type CatalogueProblem, type CrewDraft, type TemplateReference, type TemplateVersion } from './catalogue.js';
+import { SQUADRON_LABEL, SQUADRON_ROLE_LABEL } from '../network/label-squadrons.js';
 import type { SourceFile, UnreadTag } from './ports.js';
-import { buildTemplates, referenceKey, untaggedReason, type TemplateLayer } from './template-base.js';
+import { BUILD_RULES, buildTemplates, chainHashes, referenceKey, untaggedReason, type TemplateLayer, type ToBuild } from './template-base.js';
 
 const MINUTES_PER_HOUR = 60;
 const CHECK_IN_MAX_MINUTES = 24 * MINUTES_PER_HOUR;
@@ -115,7 +116,22 @@ const layerFields = {
     .array(scopeNameSchema.or(z.never({ error: () => 'must be a scope <namespace>:<action>' })), expecting('a list of scopes, each <namespace>:<action>'))
     .max(TEMPLATE_SCOPES_MAX, `must be at most ${String(TEMPLATE_SCOPES_MAX)} scopes`)
     .optional(),
+  labels: z
+    .array(machineLabel, expecting(`a list of ${MACHINE_LABEL}`))
+    .superRefine((labels, context) => {
+      labels.forEach(({ key }, index) => {
+        if (SQUADRONS_OWN_LABEL_KEYS.includes(key)) {
+          context.addIssue({ code: 'custom', path: [index], message: `uses ${key}, a label squadrons puts on its ships itself` });
+        } else if (labels.slice(0, index).some((each) => each.key === key)) {
+          context.addIssue({ code: 'custom', path: [index], message: `gives ${key} again: a member carries one value of a label` });
+        }
+      });
+    })
+    .optional(),
 };
+/** The label keys squadrons puts on its ships itself, which no template sets. */
+const SQUADRONS_OWN_LABEL_KEYS: readonly string[] = [SQUADRON_LABEL, SQUADRON_ROLE_LABEL.key];
+
 /** A template without a base: today's template, its check-in and charter its own. */
 const templateSchema = z.object({ ...layerFields, checkIn, charter: charterText });
 
@@ -222,7 +238,7 @@ function hasBase(content: unknown): boolean {
 }
 
 function layerFieldsOf(file: SourceFile, fields: Omit<z.infer<typeof templateSchema>, 'checkIn' | 'charter'>): Omit<TemplateLayer, 'base' | 'checkInMinutes' | 'charter'> {
-  const { description, launchNote, handoffs, parameters, crew, scopes } = fields;
+  const { description, launchNote, handoffs, parameters, crew, scopes, labels } = fields;
   return {
     file,
     description,
@@ -232,6 +248,7 @@ function layerFieldsOf(file: SourceFile, fields: Omit<z.infer<typeof templateSch
     parameters: Object.entries(parameters ?? {}).map(([parameter, description]) => ({ name: parameter, description })),
     crew: crewOf(crew),
     scopes: scopes ?? [],
+    labels: labels ?? [],
   };
 }
 
@@ -336,6 +353,16 @@ function invalidYaml(file: SourceFile & { parseError: string }): string {
   return `the ${file.kind} is no valid YAML: ${file.parseError.split('\n')[0] ?? file.parseError}`;
 }
 
+/** Each template file as its layer, or why it is none, by its reference key. */
+function layersOf(templateFiles: readonly SourceFile[]): ToBuild['layers'] {
+  return new Map(templateFiles.map((file) => [referenceKey(file), { file, layer: file.parseError === undefined ? layerOf(file) : err(invalidYaml({ ...file, parseError: file.parseError })) }] as const));
+}
+
+/** The hash each template version of the files builds to, so what was built before is looked up first. */
+export function catalogueHashes(read: { files: readonly SourceFile[]; hash: (text: string) => string }): string[] {
+  return [...chainHashes({ layers: layersOf(read.files.filter((each) => each.kind === 'template')), hash: read.hash, buildRules: BUILD_RULES }).values()];
+}
+
 /**
  * The catalogue from every tagged file of the repositories squadrons is given
  * (docs/squadrons.md): the template and blueprint versions that follow the
@@ -353,6 +380,12 @@ export function assembleCatalogue(read: {
   tags: readonly UnreadTag[];
   /** Why a repository could not be read at its last fetch, by its name: none when every one was. */
   fetchFailures?: ReadonlyMap<string, string>;
+  /** A text's SHA-256, in hex. */
+  hash: (text: string) => string;
+  /** The build rules number the hashes cover; squadrons' own unless given. */
+  buildRules?: number;
+  /** Templates built before, taken by their hash instead of building them again. */
+  kept?: readonly TemplateVersion[];
 }): Catalogue {
   const problems: CatalogueProblem[] = read.tags.map(tagProblem);
   const problemOf = (file: SourceFile, message: string): CatalogueProblem => {
@@ -365,10 +398,15 @@ export function assembleCatalogue(read: {
   for (const { repository, name, version } of templateFiles) {
     tagged.set(`${repository}#${name}`, [...(tagged.get(`${repository}#${name}`) ?? []), version]);
   }
-  const layers = new Map(
-    templateFiles.map((file) => [referenceKey(file), { file, layer: file.parseError === undefined ? layerOf(file) : err(invalidYaml({ ...file, parseError: file.parseError })) }] as const),
-  );
-  const built = buildTemplates({ layers, tagged, repositories: new Set(read.repositories), fetchFailures: read.fetchFailures ?? new Map() });
+  const built = buildTemplates({
+    layers: layersOf(templateFiles),
+    tagged,
+    repositories: new Set(read.repositories),
+    fetchFailures: read.fetchFailures ?? new Map(),
+    hash: read.hash,
+    buildRules: read.buildRules ?? BUILD_RULES,
+    kept: new Map((read.kept ?? []).flatMap((template) => (template.hash === null ? [] : [[template.hash, template] as const]))),
+  });
   const templates: TemplateVersion[] = [];
   for (const file of templateFiles) {
     const result = built.get(referenceKey(file)) ?? err(`${referenceKey(file)} is no template`);

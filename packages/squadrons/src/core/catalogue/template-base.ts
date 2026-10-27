@@ -7,15 +7,25 @@
  * A chain holds at most 10 templates and never loops; the full template is
  * then held to every limit a template without a base is.
  */
-import { FIRST_PROMPT_MAX_BYTES } from '@aeolus-fleet/common';
+import { FIRST_PROMPT_MAX_BYTES, SHIP_LABELS_MAX } from '@aeolus-fleet/common';
 
 import { err, ok, type Result } from '../shared/result.js';
 import { CHARTER_MAX_BYTES, TEMPLATE_SCOPES_MAX, type ChainLayer, type CrewDraft, type TemplateOrigins, type TemplateReference, type TemplateVersion } from './catalogue.js';
 import { fillParameters } from './member-crew.js';
 import type { SourceFile } from './ports.js';
 
+/** The most labels a template gives its members: as many as a ship carries, but squadrons' own squadron=<id>. */
+const TEMPLATE_LABELS_MAX = SHIP_LABELS_MAX - 1;
+
 /** The most templates a chain holds, the template itself included (decision 5). */
 export const CHAIN_MAX_TEMPLATES = 10;
+
+/**
+ * The build rules number, which every hash covers: raised whenever a rule
+ * of building changes, so each version builds anew under the new rules
+ * (decision 11).
+ */
+export const BUILD_RULES = 1;
 
 const BYTES_PER_KB = 1024;
 /** Tenths per whole: a size over a limit is shown to one decimal, rounded up. */
@@ -34,6 +44,7 @@ interface LayerFields {
   parameters: { name: string; description: string }[];
   crew: CrewDraft;
   scopes: string[];
+  labels: { key: string; value: string }[];
 }
 
 /** A template's base: the version it names, the values it fills, and whether its charter replaces the base's. */
@@ -89,6 +100,7 @@ function fieldsSetBy(layer: TemplateLayer, index: number): Record<string, number
     ...Object.keys(crew.options ?? {}).map((option) => `crew.options.${option}`),
     ...layer.handoffs.map((handoff) => `handoffs.${handoff.name}`),
     ...layer.scopes.map((scope) => `scopes.${scope}`),
+    ...layer.labels.map((label) => `labels.${label.key}`),
     ...layer.parameters.map((parameter) => `parameters.${parameter.name}`),
   ];
   return Object.fromEntries(paths.map((path) => [path, index]));
@@ -123,6 +135,8 @@ function rootOf(layer: TemplateLayer & { base: null }): Result<TemplateVersion, 
     crew: layer.crew,
     parameters: layer.parameters,
     scopes: layer.scopes,
+    labels: layer.labels,
+    hash: null,
     chain: [linkOf(layer.file)],
     origins: { charter: [{ layer: 0, text: layer.charter }], fields: fieldsSetBy(layer, 0), filled: [] },
   });
@@ -148,6 +162,11 @@ function ruleBroken(below: TemplateVersion, layer: TemplateLayer & { base: Base 
     if (unknown !== undefined) {
       return `${field} uses {{${unknown}}}, which is neither a parameter the template declares nor one its base leaves open`;
     }
+  }
+  const relabelled = layer.labels.find((label) => below.labels.some((each) => each.key === label.key && each.value !== label.value));
+  const was = below.labels.find((each) => each.key === relabelled?.key);
+  if (relabelled !== undefined && was !== undefined) {
+    return `labels.${relabelled.key} is ${was.key}=${was.value} in its base: a template adds labels, and never changes one`;
   }
   const declaredBelow = layer.handoffs.find((handoff) => below.handoffs.some((each) => each.name === handoff.name));
   if (declaredBelow !== undefined) {
@@ -195,6 +214,8 @@ function buildOn(below: TemplateVersion, layer: TemplateLayer & { base: Base }):
     crew,
     parameters: [...below.parameters.filter((parameter) => !(parameter.name in values)), ...layer.parameters],
     scopes: [...new Set([...below.scopes, ...layer.scopes])],
+    labels: [...below.labels, ...layer.labels.filter((label) => !below.labels.some((each) => each.key === label.key))],
+    hash: null,
     chain: [...below.chain, linkOf(layer.file)],
     origins,
   });
@@ -202,10 +223,10 @@ function buildOn(below: TemplateVersion, layer: TemplateLayer & { base: Base }):
 
 /**
  * The fields a layer sets that replace the one below: every field it sets
- * but a scope its base already has, which is kept once, from below.
+ * but a scope or label its base already has, which is kept once, from below.
  */
 function fieldsReplacedBy(layer: TemplateLayer, index: number): Record<string, number> {
-  return Object.fromEntries(Object.entries(fieldsSetBy(layer, index)).filter(([path]) => !path.startsWith('scopes.')));
+  return Object.fromEntries(Object.entries(fieldsSetBy(layer, index)).filter(([path]) => !path.startsWith('scopes.') && !path.startsWith('labels.')));
 }
 
 /** A size in KB to one decimal, rounded up, so a size over a limit never reads as the limit. */
@@ -227,6 +248,9 @@ function overLimit(template: TemplateVersion): string | undefined {
   if (template.scopes.length > TEMPLATE_SCOPES_MAX) {
     return `scopes are ${String(template.scopes.length)} once built, over ${String(TEMPLATE_SCOPES_MAX)}`;
   }
+  if (template.labels.length > TEMPLATE_LABELS_MAX) {
+    return `labels are ${String(template.labels.length)} once built, over ${String(TEMPLATE_LABELS_MAX)}: a member carries at most ${String(SHIP_LABELS_MAX)} labels, squadron among them`;
+  }
   return undefined;
 }
 
@@ -240,6 +264,44 @@ export interface ToBuild {
   repositories: ReadonlySet<string>;
   /** Why a repository could not be read at its last fetch, by its name. */
   fetchFailures: ReadonlyMap<string, string>;
+  /** A text's SHA-256, in hex. */
+  hash: (text: string) => string;
+  buildRules: number;
+  /** Templates built before, by their hash: taken instead of building them again. */
+  kept: ReadonlyMap<string, TemplateVersion>;
+}
+
+/** The files of a version's chain, base-layer-0 first: undefined while a layer is missing, is no layer, or the chain loops or runs over 10. */
+function chainFilesOf(key: string, layers: ToBuild['layers']): SourceFile[] | undefined {
+  const files: SourceFile[] = [];
+  let next: string | undefined = key;
+  while (next !== undefined) {
+    const entry = layers.get(next);
+    if (entry === undefined || !entry.layer.isOk || files.length === CHAIN_MAX_TEMPLATES) {
+      return undefined;
+    }
+    files.unshift(entry.file);
+    next = baseKeyOf(entry);
+  }
+  return files;
+}
+
+/** The hash of a chain under a build rules number: one chain, one hash, one built template. */
+function hashOfChain(files: readonly SourceFile[], input: Pick<ToBuild, 'hash' | 'buildRules'>): string {
+  const chain = files.map((file) => ({ ...linkOf(file), file: input.hash(file.text) }));
+  return input.hash(JSON.stringify({ buildRules: input.buildRules, chain }));
+}
+
+/** The hash of every version whose chain can be walked, by its reference key, so what was built before can be looked up first. */
+export function chainHashes(input: Pick<ToBuild, 'layers' | 'hash' | 'buildRules'>): Map<string, string> {
+  const hashes = new Map<string, string>();
+  for (const key of input.layers.keys()) {
+    const files = chainFilesOf(key, input.layers);
+    if (files !== undefined) {
+      hashes.set(key, hashOfChain(files, input));
+    }
+  }
+  return hashes;
 }
 
 /** The base each layer names, by key: none for one without a base or that is no layer. */
@@ -285,14 +347,18 @@ function baseMissingReason(layer: { file: SourceFile; reference: TemplateReferen
  */
 export function buildTemplates(input: ToBuild): Map<string, Result<TemplateVersion, string>> {
   const built = new Map<string, Result<TemplateVersion, string>>();
+  const hashes = chainHashes(input);
   const build = (key: string): Result<TemplateVersion, string> => {
     const known = built.get(key);
     if (known !== undefined) {
       return known;
     }
-    const result = buildOne(key);
-    built.set(key, result);
-    return result;
+    const hash = hashes.get(key);
+    const kept = hash === undefined ? undefined : input.kept.get(hash);
+    const result = kept === undefined ? buildOne(key) : ok(kept);
+    const hashed = result.isOk && hash !== undefined ? ok({ ...result.value, hash }) : result;
+    built.set(key, hashed);
+    return hashed;
   };
   const buildOne = (key: string): Result<TemplateVersion, string> => {
     const entry = input.layers.get(key);

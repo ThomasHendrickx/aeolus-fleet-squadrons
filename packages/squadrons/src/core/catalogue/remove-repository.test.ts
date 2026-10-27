@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { fakeCatalogueSource, memoryCatalogueHolder, memoryRepositoryStore } from '../../../test/support/memory-catalogue.js';
+import { fakeCatalogueSource, memoryCatalogueHolder, memoryRepositoryStore, memoryBuiltTemplates, readableHash } from '../../../test/support/memory-catalogue.js';
 import { createRefreshCatalogue } from './refresh-catalogue.js';
 import { createRemoveRepository } from './remove-repository.js';
 
@@ -18,11 +18,11 @@ beforeEach(async () => {
   store = memoryRepositoryStore();
   source = fakeCatalogueSource();
   holder = memoryCatalogueHolder();
-  refresh = createRefreshCatalogue({ store, source, holder, clock: { now: () => NOW } });
+  refresh = createRefreshCatalogue({ store, source, holder, built: memoryBuiltTemplates(), clock: { now: () => NOW }, hash: readableHash });
   removeRepository = createRemoveRepository({ store, source, refresh });
   await store.add({ fleetId: FLEET, name: 'github.com/acme/templates', url: 'https://github.com/acme/templates', path: '.aeolus/squadrons', token: null, addedAt: NOW, lastFetch: null });
   source.files.set('github.com/acme/templates', [
-    { repository: 'github.com/acme/templates', kind: 'template', name: 'tester', version: 1, file: '.aeolus/squadrons/templates/tester.yaml', commit: 'c1', committedAt: NOW, content: { description: 'Tests.', checkIn: '30m', charter: 'You test.' } },
+    { repository: 'github.com/acme/templates', kind: 'template', name: 'tester', version: 1, file: '.aeolus/squadrons/templates/tester.yaml', commit: 'c1', committedAt: NOW, text: 'description: Tests.', content: { description: 'Tests.', checkIn: '30m', charter: 'You test.' } },
   ]);
   await refresh(FLEET, 'all');
   source.fetches.length = 0;

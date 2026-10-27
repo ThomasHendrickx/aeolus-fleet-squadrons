@@ -60,8 +60,17 @@ describe('the GitHub repository reader', () => {
       file: '.aeolus/squadrons/templates/tester.yaml',
       commit: tester2.sha,
       committedAt: new Date('2026-10-02T10:00:00.000Z'),
+      text: 'description: Tests well.\ncheckIn: 15m\ncharter: You test.\n',
       content: { description: 'Tests well.', checkIn: '15m', charter: 'You test.' },
     });
+  });
+
+  it("hands back each file's text as read, beside what it parses to", async () => {
+    github.repositories.set('acme/templates', { tags: [aTag('tester@1', { files: { '.aeolus/squadrons/templates/tester.yaml': TESTER } })] });
+
+    const { files } = await reader().read([aRepository()], fetchAll);
+
+    expect(files.map(({ text }) => text)).toEqual([TESTER]);
   });
 
   it('ignores tags that are no <name>@<n>, and hands back each version tag it read no file at, its name lowercase or not', async () => {

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 import { assembleCatalogue } from './assemble-catalogue.js';
+import type { TemplateVersion } from './catalogue.js';
 import type { SourceFile } from './ports.js';
 
 const OWN = 'github.com/tidewater-labs/squadron-templates';
@@ -10,11 +11,25 @@ const KB = 1024;
 
 function layer(tagged: { repository?: string; name: string; version: number; commit?: string }, content: unknown): SourceFile {
   const { repository = SKILLS, name, version, commit = `${name}-${String(version)}` } = tagged;
-  return { repository, kind: 'template', name, version, file: `squadrons/templates/${name}.yaml`, commit, committedAt: AT, content };
+  return { repository, kind: 'template', name, version, file: `squadrons/templates/${name}.yaml`, commit, committedAt: AT, text: JSON.stringify(content), content };
 }
 
-function catalogueOf(files: SourceFile[], options: { repositories?: string[]; fetchFailures?: ReadonlyMap<string, string> } = {}) {
-  return assembleCatalogue({ repositories: options.repositories ?? [OWN, SKILLS], files, tags: [], ...(options.fetchFailures === undefined ? {} : { fetchFailures: options.fetchFailures }) });
+/** A hash a reader can follow: what it hashes, in sha(...). */
+function sha(text: string): string {
+  return `sha(${text})`;
+}
+
+function catalogueOf(files: SourceFile[], options: { repositories?: string[]; fetchFailures?: ReadonlyMap<string, string>; buildRules?: number; kept?: readonly TemplateVersion[] } = {}) {
+  const { repositories = [OWN, SKILLS], fetchFailures, buildRules, kept } = options;
+  return assembleCatalogue({
+    repositories,
+    files,
+    tags: [],
+    hash: sha,
+    ...(fetchFailures === undefined ? {} : { fetchFailures }),
+    ...(buildRules === undefined ? {} : { buildRules }),
+    ...(kept === undefined ? {} : { kept }),
+  });
 }
 
 function reasonOf(files: SourceFile[], name: string): string | undefined {
@@ -31,6 +46,7 @@ const aeolusShip = layer(
     parameters: { lead: 'the ship you report to' },
     handoffs: { report: 'What was done' },
     scopes: ['notes:read'],
+    labels: ['company=aeolus'],
     crew: { harness: 'claude-code', options: { effort: 'high' } },
   },
 );
@@ -67,9 +83,12 @@ function chainOf(length: number, charterOf: (number: number) => string = (number
   });
 }
 
+/** Where a test of the whole built template leaves out its hash: "the hash of a built template" tests it. */
+const HASH_CHECKED_APART = 'checked apart';
+
 describe('a template on a base', () => {
   it('is built from its chain, base-layer-0 first, into one full template', () => {
-    expect(builtOf(chain, 'typescript-implementer')).toEqual({
+    expect({ ...builtOf(chain, 'typescript-implementer'), hash: HASH_CHECKED_APART }).toEqual({
       repository: OWN,
       name: 'typescript-implementer',
       version: 1,
@@ -85,6 +104,8 @@ describe('a template on a base', () => {
       crew: { harness: 'claude-code', options: { effort: 'high', verbosity: 'low' } },
       parameters: [],
       scopes: ['notes:read'],
+      labels: [{ key: 'company', value: 'aeolus' }],
+      hash: HASH_CHECKED_APART,
       chain: [
         { repository: SKILLS, name: 'aeolus-ship', version: 3, commit: 'aeolus-ship-3' },
         { repository: SKILLS, name: 'implementer', version: 2, commit: 'implementer-2' },
@@ -106,6 +127,7 @@ describe('a template on a base', () => {
           'crew.options.verbosity': 1,
           'handoffs.report': 0,
           'scopes.notes:read': 0,
+          'labels.company': 0,
         },
         filled: [
           { name: 'lead', layer: 1 },
@@ -187,6 +209,7 @@ describe('a template on a base', () => {
       file: 'squadrons/blueprints/team.yaml',
       commit: 'team-1',
       committedAt: AT,
+      text: 'description: A team.',
       content: { description: 'A team.', roles: { builder: { template: `${OWN}#typescript-implementer@1` } }, handoffs: { 'builder.report': 'flagship' } },
     };
 
@@ -350,5 +373,101 @@ describe('the guarantees', () => {
 
   it('builds a template without a base as today, as a chain of one', () => {
     expect(builtOf(chain, 'aeolus-ship')?.chain).toEqual([{ repository: SKILLS, name: 'aeolus-ship', version: 3, commit: 'aeolus-ship-3' }]);
+  });
+});
+
+describe('the hash of a built template', () => {
+  const plain = layer({ repository: OWN, name: 'plain', version: 1 }, { base: { template: `${SKILLS}#aeolus-ship@3`, parameters: { lead: 'argo' } }, description: 'Plain.' });
+  const hashOf = (files: SourceFile[], options: Parameters<typeof catalogueOf>[1] = {}) => catalogueOf(files, options).templates.find((template) => template.name === 'plain')?.hash;
+
+  it("is the SHA-256 of the build rules number and its chain, base-layer-0 first: each layer's repository, name, version, commit and its file's SHA-256", () => {
+    const chainText = [
+      `{"repository":"${SKILLS}","name":"aeolus-ship","version":3,"commit":"aeolus-ship-3","file":"sha(base text)"}`,
+      `{"repository":"${OWN}","name":"plain","version":1,"commit":"plain-1","file":"sha(plain text)"}`,
+    ];
+
+    expect(hashOf([{ ...aeolusShip, text: 'base text' }, { ...plain, text: 'plain text' }])).toBe(`sha({"buildRules":1,"chain":[${chainText.join(',')}]})`);
+  });
+
+  it('builds one chain to the same hash and the same full template whenever it is read', () => {
+    expect(catalogueOf([aeolusShip, plain]).templates).toEqual(catalogueOf([aeolusShip, plain]).templates);
+  });
+
+  it('builds a version whose tag was moved from its new commit to a new hash, with no warning', () => {
+    const moved = { ...aeolusShip, commit: '3a7f210' };
+
+    expect(hashOf([moved, plain])).not.toBe(hashOf([aeolusShip, plain]));
+    expect(catalogueOf([moved, plain]).problems).toEqual([]);
+  });
+
+  it("builds anew to another hash once a file's text changes at its commit", () => {
+    expect(hashOf([{ ...aeolusShip, text: `${aeolusShip.text} ` }, plain])).not.toBe(hashOf([aeolusShip, plain]));
+  });
+
+  it('builds anew to another hash under a raised build rules number', () => {
+    expect(hashOf([aeolusShip, plain], { buildRules: 2 })).not.toBe(hashOf([aeolusShip, plain]));
+  });
+
+  it('keeps the hash of a version on its base when a new version of the base is tagged', () => {
+    const next = layer({ name: 'aeolus-ship', version: 4 }, { description: 'Fixed.', checkIn: '30m', charter: 'Report to {{lead}}, briefly.', parameters: { lead: 'the lead' } });
+
+    expect(hashOf([aeolusShip, next, plain])).toBe(hashOf([aeolusShip, plain]));
+  });
+
+  it('takes a built template kept by its hash rather than building it again', () => {
+    const built = catalogueOf([aeolusShip, plain]).templates.find((template) => template.name === 'plain');
+    assert(built !== undefined);
+    const kept = { ...built, description: 'As kept.' };
+
+    expect(catalogueOf([aeolusShip, plain], { kept: [kept] }).templates.find((template) => template.name === 'plain')).toEqual(kept);
+  });
+});
+
+describe('labels on a template', () => {
+  const labelled = (labels: unknown, isOnBase = false) =>
+    layer({ repository: OWN, name: 'labelled', version: 1 }, isOnBase ? { base: { template: `${SKILLS}#aeolus-ship@3` }, description: 'Labelled.', labels } : { description: 'Labelled.', checkIn: '1h', charter: 'Go.', labels });
+
+  it('are read as key=value, each a label every member formed from it carries', () => {
+    expect(builtOf([labelled(['team=platform', 'tier=one'])], 'labelled')?.labels).toEqual([
+      { key: 'team', value: 'platform' },
+      { key: 'tier', value: 'one' },
+    ]);
+  });
+
+  it('are none when a template sets none', () => {
+    expect(builtOf([layer({ name: 'plain', version: 1 }, { description: 'Plain.', checkIn: '1h', charter: 'Go.' })], 'plain')?.labels).toEqual([]);
+  });
+
+  it('refuse a label that is no key=value', () => {
+    expect(reasonOf([labelled(['company'])], 'labelled')).toBe('labels.0 must be key=value: a label key and one of its values, each lowercase letters, digits and hyphens');
+  });
+
+  it('refuse squadron and squadron-role: squadrons puts them on its ships itself', () => {
+    expect(reasonOf([labelled(['squadron=mine'])], 'labelled')).toBe('labels.0 uses squadron, a label squadrons puts on its ships itself');
+    expect(reasonOf([labelled(['squadron-role=member'])], 'labelled')).toBe('labels.0 uses squadron-role, a label squadrons puts on its ships itself');
+  });
+
+  it('refuse a key given twice in one template', () => {
+    expect(reasonOf([labelled(['team=platform', 'team=web'])], 'labelled')).toBe('labels.1 gives team again: a member carries one value of a label');
+  });
+
+  it("are added to its base's, keeping one its base has once", () => {
+    expect(builtOf([aeolusShip, labelled(['company=aeolus', 'team=platform'], true)], 'labelled')?.labels).toEqual([
+      { key: 'company', value: 'aeolus' },
+      { key: 'team', value: 'platform' },
+    ]);
+  });
+
+  it("never replace a label of its base: another value of a key its base set is refused", () => {
+    expect(reasonOf([aeolusShip, labelled(['company=tidewater'], true)], 'labelled')).toBe('labels.company is company=aeolus in its base: a template adds labels, and never changes one');
+  });
+
+  it('leave out a template with more labels than a member carries beside its squadron, 19 once built', () => {
+    const labels = (from: number, count: number) => Array.from({ length: count }, (_, index) => `key-${String(from + index)}=value`);
+    const base = layer({ name: 'base', version: 1 }, { description: 'Base.', checkIn: '1h', charter: 'Go.', labels: labels(1, 10) });
+    const more = (count: number) => layer({ repository: OWN, name: 'more', version: 1 }, { base: { template: `${SKILLS}#base@1` }, description: 'More.', labels: labels(11, count) });
+
+    expect(builtOf([base, more(9)], 'more')?.labels).toHaveLength(19);
+    expect(reasonOf([base, more(10)], 'more')).toBe('labels are 20 once built, over 19: a member carries at most 20 labels, squadron among them');
   });
 });

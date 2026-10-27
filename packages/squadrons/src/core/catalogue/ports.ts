@@ -10,6 +10,8 @@ export interface SourceFile {
   /** The commit the tag points at. */
   commit: string;
   committedAt: Date;
+  /** The YAML as read, which a built template's hash covers. */
+  text: string;
   /** The YAML, parsed; whatever it holds is checked here. */
   content: unknown;
   /** Why the YAML could not be parsed, when it could not. */
@@ -32,7 +34,7 @@ export interface UnreadTag {
 
 import type { FleetId } from '@aeolus-fleet/common';
 
-import type { Catalogue } from './catalogue.js';
+import type { Catalogue, TemplateVersion } from './catalogue.js';
 import type { TemplateRepository } from './template-repository.js';
 
 /** A repository to read: what reading it needs, and the fleet whose it is. */
@@ -65,6 +67,25 @@ export interface RepositoryStore {
   remove(fleetId: FleetId, name: string): Promise<boolean>;
   /** Records a repository's last fetch: when, and why it failed (null when it worked). */
   recordFetch(fleetId: FleetId, fetch: { name: string; at: Date; error: string | null }): Promise<void>;
+}
+
+/**
+ * Outbound port: the templates built for a fleet, each by its hash
+ * (docs/squadrons.md, "Built once"), with when it was built and last used.
+ * A fleet never finds another fleet's, so a base read with one fleet's token
+ * never reaches another.
+ */
+export interface BuiltTemplateStore {
+  /** The fleet's built templates of the given hashes; a hash it does not keep finds none. */
+  find(fleetId: FleetId, hashes: readonly string[]): Promise<TemplateVersion[]>;
+  /**
+   * Keeps each built template the fleet does not keep yet, built at the time
+   * of the use, and sets the last use of each to it. One hash is one built template:
+   * one kept already, or kept by another use at once, stays as it is.
+   */
+  use(fleetId: FleetId, use: { templates: readonly TemplateVersion[]; at: Date }): Promise<void>;
+  /** Deletes the fleet's built templates last used before the given time; answers how many. */
+  deleteUnusedSince(fleetId: FleetId, before: Date): Promise<number>;
 }
 
 /** Outbound port: the catalogue squadrons serves each fleet, built at each refresh of that fleet; empty for a fleet not refreshed. */

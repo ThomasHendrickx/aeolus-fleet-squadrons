@@ -8,10 +8,12 @@ import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
 import { createRestScopeDoor } from './adapters/fleet/rest-scope-door.js';
 import { createRestNetworkDoor } from './adapters/fleet/rest-network-door.js';
 import { sha256RequestHasher } from './adapters/crypto/request-hasher.js';
+import { sha256 } from './adapters/crypto/sha256.js';
 import { createGithubRepositoryReader } from './adapters/github/github-repository-reader.js';
 import { createPrismaFleetForgetter } from './adapters/prisma/fleet-forgetter.js';
 import { createPrismaFleetSwitches } from './adapters/prisma/fleet-switches.js';
 import { createPrismaInstallationRequests } from './adapters/prisma/installation-requests.js';
+import { createPrismaBuiltTemplateStore } from './adapters/prisma/built-template-store.js';
 import { createPrismaRepositoryStore } from './adapters/prisma/repository-store.js';
 import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
@@ -58,6 +60,7 @@ import type { Declarations } from './core/network/ports.js';
 import { createWithdrawNetworkRules } from './core/network/withdraw-network-rules.js';
 import { createNewCrewLine } from './core/squadron/new-crew-line.js';
 import { createRecoverFormations, type RecoverFormations } from './core/squadron/recover-formations.js';
+import { createDeleteUnusedBuiltTemplates } from './core/catalogue/delete-unused-built-templates.js';
 import type { Clock } from './core/shared/clock.js';
 
 export const systemClock: Clock = { now: () => new Date() };
@@ -135,7 +138,9 @@ export function createSquadronsApp(options: {
   // One catalogue per fleet: a refresh for a fleet squadrons served earlier never reaches the one it serves now.
   const catalogues = new Map<FleetId, Catalogue>();
   const catalogueOf = (fleetId: FleetId): Catalogue => catalogues.get(fleetId) ?? { templates: [], blueprints: [], problems: [] };
-  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
+  const builtTemplates = createPrismaBuiltTemplateStore(prisma);
+  const network = watchNetworkLease(createRestNetworkDoor(options.fleetUrl), store);
+  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, built: builtTemplates, labels: network, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
   // A new squadron's flagship starts receiving at once, not at the next rescan.
   const formAndWatch: FormSquadron = async (input) => {
     const formed = await formSquadron(input);
@@ -155,7 +160,9 @@ export function createSquadronsApp(options: {
         catalogues.set(fleetId, built);
       },
     },
+    built: builtTemplates,
     clock,
+    hash: sha256,
   });
   // Each connected fleet's catalogue, fetched; one fleet's failure leaves the others' as they are.
   const refreshFleet = async (fleetId: FleetId, scope: RefreshScope): Promise<void> => {
@@ -185,6 +192,7 @@ export function createSquadronsApp(options: {
     return stood;
   };
   const recoverFormations = createRecoverFormations({ door, management: store, attempts });
+  const deleteUnusedBuiltTemplates = createDeleteUnusedBuiltTemplates({ built: builtTemplates, clock });
   const readConnection = createReadConnection({ door, store });
   // A fleet's connection as squadrons holds it, asking the fleet nothing: what a fleet that is off reads.
   const heldConnection: ReadConnection = async (fleetId) => {
@@ -206,7 +214,6 @@ export function createSquadronsApp(options: {
       catalogues.delete(fleetId);
     },
   };
-  const network = watchNetworkLease(createRestNetworkDoor(options.fleetUrl), store);
   // What this process declared to each fleet, so a pass declares or withdraws only what changed.
   const declarations: Declarations = new Map();
   const withdraw = createWithdrawNetworkRules({ door: network, management: store, declarations });
@@ -363,6 +370,7 @@ export function createSquadronsApp(options: {
             server.log.info({ fleet: fleetId, ...recovered.value }, 'formations a forming gave up recovered');
           }
         },
+        deleteUnusedBuiltTemplates,
         isServed,
         operator,
         reach,

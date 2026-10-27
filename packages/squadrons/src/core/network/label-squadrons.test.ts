@@ -6,6 +6,7 @@ import { fakeNetworkFleet, OTHER_OWNER } from '../../../test/support/network-fak
 import type { OperatorNotices } from '../squadron/ports.js';
 import type { Member, Squadron, SquadronState } from '../squadron/squadron.js';
 import { createLabelSquadrons } from './label-squadrons.js';
+import { templateOfOne } from '../../../test/support/template-version.js';
 
 const AT = new Date('2026-10-11T12:00:00.000Z');
 const REPO = 'example.com/templates';
@@ -256,5 +257,44 @@ describe('squadrons labelling its squadrons (#573)', () => {
     fleet.state.isAnswering = false;
 
     await expect(labelSquadrons(FLEET_ID)).resolves.toMatchObject({ isOk: false, error: { kind: 'FLEET_UNAVAILABLE' } });
+  });
+});
+
+describe("a template's labels on its members", () => {
+  /** Squadron 1, its planner formed from a template with the given labels. */
+  function withTemplateLabels(labels: { key: string; value: string }[]): Squadron[] {
+    const squadron = aSquadron(1, { members: 2 });
+    const planner = templateOfOne({ repository: REPO, name: 'planner', version: 1, file: 'templates/planner.yaml', commit: 'p1', committedAt: AT, description: 'Plans.', checkInMinutes: 30, model: null, launchNote: null, charter: 'You plan.', handoffs: [], crew: {}, parameters: [], scopes: [] });
+    return [{ ...squadron, blueprint: { ...squadron.blueprint, roles: [{ name: 'planner', template: { repository: REPO, name: 'planner', version: 1 }, count: 2, model: null, crew: {}, parameters: {} }] }, templates: [{ ...planner, labels }] }];
+  }
+
+  it('are put on each member beside squadron=<id>, squadrons defining the key when the fleet has none', async () => {
+    held = withTemplateLabels([{ key: 'company', value: 'aeolus' }]);
+
+    await labelSquadrons(FLEET_ID);
+
+    expect(valuesOf('company')).toEqual(['aeolus']);
+    expect(fleet.state.labels.find((label) => label.key === 'company')?.ownerShipId).toBe(SHIP_ID);
+    expect(carried(shipIdOf(101))).toEqual(['company=aeolus', 'squadron=team-1']);
+    expect(carried(shipIdOf(102))).toEqual(['company=aeolus', 'squadron=team-1']);
+  });
+
+  it('are put on no flagship and not on squadrons\' own ship', async () => {
+    held = withTemplateLabels([{ key: 'company', value: 'aeolus' }]);
+
+    await labelSquadrons(FLEET_ID);
+
+    expect(carried(shipIdOf(100))).toEqual(['squadron-role=flagship', 'squadron=team-1']);
+    expect(carried(SHIP_ID)).toEqual(['squadron-role=squadrons']);
+  });
+
+  it('leave alone a key another ship owns', async () => {
+    held = withTemplateLabels([{ key: 'company', value: 'aeolus' }]);
+    fleet.state.labels.push({ labelId: 'lbl_01m3tbfspe96yf1rnr4ank9zzz', key: 'company', values: [{ valueId: 'lbv_01m3tbfspe96yf1rnr4ank9zzz', value: 'aeolus' }], ownerShipId: OTHER_OWNER });
+
+    await labelSquadrons(FLEET_ID);
+
+    expect(fleet.state.labelWrites.filter((write) => write.includes('company'))).toEqual([]);
+    expect(carried(shipIdOf(101))).toEqual(['squadron=team-1']);
   });
 });

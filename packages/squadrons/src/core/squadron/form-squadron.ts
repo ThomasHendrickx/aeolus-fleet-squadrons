@@ -1,7 +1,9 @@
-import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN, type CrewLine, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { LABEL_VALUES_MAX, SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN, type CrewLine, type FleetId, type ShipId } from '@aeolus-fleet/common';
 
-import type { Catalogue, TemplateReference } from '../catalogue/catalogue.js';
-import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
+import type { Catalogue, TemplateReference, TemplateVersion } from '../catalogue/catalogue.js';
+import type { BuiltTemplateStore } from '../catalogue/ports.js';
+import type { NetworkDoor } from '../network/ports.js';
+import type { FleetDoor, FleetRefusal, ManagementCrew, ManagementCrewStore } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -66,6 +68,10 @@ export function createFormSquadron(deps: {
   attempts: FormationAttempts;
   /** The catalogue of a fleet. */
   catalogue: (fleetId: FleetId) => Catalogue;
+  /** The fleet's built templates: forming sets the last use of each it forms from. */
+  built: BuiltTemplateStore;
+  /** The fleet's labels: a template's labels must be of keys squadrons owns, or of none the fleet has. */
+  labels: Pick<NetworkDoor, 'listLabels' | 'listLabelledShips'>;
   random: RandomNames;
   clock: Clock;
   limits: SquadronLimits;
@@ -91,6 +97,9 @@ export function createFormSquadron(deps: {
     const used = blueprint.roles.map((role) =>
       templates.find((held) => held.repository === role.template.repository && held.name === role.template.name && held.version === role.template.version),
     );
+    // Forming uses each built template, before the checks, as the design's flow has it; one deleted since the catalogue was read is kept again, to the same hash.
+    const formedFrom = [...new Set(used.filter((template) => template !== undefined))];
+    await deps.built.use(crew.fleetId, { templates: formedFrom, at: deps.clock.now() });
     const slots = blueprint.roles.flatMap((role, index) =>
       Array.from({ length: role.count }, (_, offset) => {
         const slot = `${role.name}-${String(offset + 1)}`;
@@ -130,6 +139,30 @@ export function createFormSquadron(deps: {
       if (template && ungranted !== undefined) {
         return refuse('FORMING_FAILED', `The template ${template.name}@${String(template.version)} names ${ungranted}, a scope squadrons cannot grant, so nothing was formed`);
       }
+    }
+    // Every template label is of a key squadrons owns, or one the fleet has none of, checked before anything is commissioned.
+    const unowned = await unownedTemplateLabel(deps, { crew, templates: formedFrom });
+    if (!unowned.isOk) {
+      return refuse('FORMING_FAILED', `The fleet refused a step, so nothing was formed: ${unowned.error.message}`);
+    }
+    if (unowned.value !== undefined) {
+      const { template, label, owner } = unowned.value;
+      return refuse(
+        'FORMING_FAILED',
+        `The template ${template.name}@${String(template.version)} labels its members ${label.key}=${label.value}, but ${owner} owns the label ${label.key} and squadrons puts only labels it owns on ships, so nothing was formed`,
+      );
+    }
+    // Every template label value fits its key's limit, checked before anything is commissioned, so no member lacks its template label.
+    const full = await overfullTemplateLabel(deps, { crew, templates: formedFrom });
+    if (!full.isOk) {
+      return refuse('FORMING_FAILED', `The fleet refused a step, so nothing was formed: ${full.error.message}`);
+    }
+    if (full.value !== undefined) {
+      const { template, label } = full.value;
+      return refuse(
+        'FORMING_FAILED',
+        `The template ${template.name}@${String(template.version)} labels its members ${label.key}=${label.value}, but the label ${label.key} holds at most ${String(LABEL_VALUES_MAX)} values and ships carry them all, so nothing was formed`,
+      );
     }
     // Every machine label resolves before anything is commissioned, so an unknown one forms nothing.
     const labels = await resolveMachineLabels(deps.door, { crewToken: crew.crewToken, crews: slots.flatMap((each) => each.crew ?? []) });
@@ -186,7 +219,7 @@ export function createFormSquadron(deps: {
       state: 'forming',
       blueprint,
       // One copy of each template, even when several roles use it.
-      templates: [...new Set(used.filter((template) => template !== undefined))],
+      templates: formedFrom,
       flagship: { shipId: flagship.value.shipId, name: squadronId, crewToken: crewed.value.crewToken },
       members,
       formedAt: deps.clock.now(),
@@ -195,4 +228,81 @@ export function createFormSquadron(deps: {
     }, attemptId);
     return ok({ squadronId, flagship: { shipId: flagship.value.shipId, name: squadronId }, members: lines });
   };
+}
+
+/**
+ * The first template label of a key another ship or the installation owns,
+ * with its owner's name; undefined when squadrons owns every key or the
+ * fleet has none of it, which squadrons then defines at its next label pass.
+ */
+async function unownedTemplateLabel(
+  deps: { door: FleetDoor; labels: Pick<NetworkDoor, 'listLabels' | 'listLabelledShips'> },
+  forming: { crew: ManagementCrew; templates: readonly TemplateVersion[] },
+): Promise<Result<{ template: TemplateVersion; label: TemplateVersion['labels'][number]; owner: string } | undefined, FleetRefusal>> {
+  const { crew, templates } = forming;
+  if (!templates.some((template) => template.labels.length > 0)) {
+    return ok(undefined);
+  }
+  const listed = await deps.labels.listLabels(crew.crewToken);
+  if (!listed.isOk) {
+    return listed;
+  }
+  for (const template of templates) {
+    for (const label of template.labels) {
+      const held = listed.value.find((each) => each.key === label.key);
+      if (held !== undefined && held.ownerShipId !== crew.shipId) {
+        return ok({ template, label, owner: await ownerNameOf(deps.door, { crewToken: crew.crewToken, ownerShipId: held.ownerShipId }) });
+      }
+    }
+  }
+  return ok(undefined);
+}
+
+/**
+ * The first template label whose value a key squadrons owns has no room for:
+ * the key's values that ships carry (squadrons never removes one), with those
+ * the forming templates need, would pass the limit. Undefined when every one
+ * fits; a key the fleet has none of, or another ship owns, is not checked here.
+ */
+async function overfullTemplateLabel(
+  deps: { labels: Pick<NetworkDoor, 'listLabels' | 'listLabelledShips'> },
+  forming: { crew: ManagementCrew; templates: readonly TemplateVersion[] },
+): Promise<Result<{ template: TemplateVersion; label: TemplateVersion['labels'][number] } | undefined, FleetRefusal>> {
+  const { crew, templates } = forming;
+  if (!templates.some((template) => template.labels.length > 0)) {
+    return ok(undefined);
+  }
+  const listed = await deps.labels.listLabels(crew.crewToken);
+  if (!listed.isOk) {
+    return listed;
+  }
+  const ships = await deps.labels.listLabelledShips(crew.crewToken);
+  if (!ships.isOk) {
+    return ships;
+  }
+  const taken = new Map<string, Set<string>>();
+  for (const template of templates) {
+    for (const label of template.labels) {
+      const held = listed.value.find((each) => each.key === label.key);
+      if (held?.ownerShipId !== crew.shipId) {
+        continue;
+      }
+      const values = taken.get(label.key) ?? new Set(held.values.filter((value) => ships.value.some((ship) => ship.labels.some((each) => each.valueId === value.valueId))).map((value) => value.value));
+      values.add(label.value);
+      taken.set(label.key, values);
+      if (values.size > LABEL_VALUES_MAX) {
+        return ok({ template, label });
+      }
+    }
+  }
+  return ok(undefined);
+}
+
+/** A label owner as a refusal names it: a ship by its name, or the installation. */
+async function ownerNameOf(door: FleetDoor, owner: { crewToken: string; ownerShipId: ShipId | null }): Promise<string> {
+  if (owner.ownerShipId === null) {
+    return 'the installation';
+  }
+  const ships = await door.listShips(owner.crewToken);
+  return (ships.isOk ? ships.value.find((ship) => ship.shipId === owner.ownerShipId)?.name : undefined) ?? owner.ownerShipId;
 }

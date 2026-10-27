@@ -27,6 +27,7 @@ An example: [tester.yaml](squadrons-example/.aeolus/squadrons/templates/tester.y
 | `parameters` | no | Parameter names (handles) with what each stands for, used as `{{name}}` in `charter` and `crew.firstPrompt`; see [Crew settings](#crew-settings). A placeholder the template does not declare is refused |
 | `crew` | no | How its members are crewed, and the model they run (`crew.model`); see [Crew settings](#crew-settings) |
 | `scopes` | no | The scopes its members get at commission, each `<namespace>:<action>`, at most 20. squadrons grants them within the subset rule: scopes its own ship holds, and its own namespace `squadrons` (decision 0017). Forming a blueprint with a template that names any other scope is refused before anything is commissioned |
+| `labels` | no | Labels every member formed from it carries, each `key=value`, such as `company=aeolus`, at most 19 once built: a ship carries at most 20, and squadrons puts its own `squadron=<id>` beside them. Not `squadron` or `squadron-role`, which squadrons puts on its ships itself, and one value per key. squadrons owns each key: it defines one the fleet does not have when a template first uses it; forming with a template whose label key another ship or the installation owns is refused before anything is commissioned, naming the key and its owner, and so is forming with a template label value its key has no room for (50 values, all carried by ships), naming the key and its limit. Not machine labels, which are `crew.machineLabels` |
 
 With a `base`, only `description` is required: `checkIn` and `charter` come from the base unless the template sets them.
 
@@ -67,6 +68,7 @@ squadrons builds each template version when it reads the catalogue. It walks the
 | `description`, `checkIn`, `launchNote` | Set: replaces the one below. `description` is never taken from below |
 | `handoffs` | Added. A name already declared below is refused |
 | `scopes` | Added; one already below is kept once |
+| `labels` | Added; one already below is kept once. Another value of a key already below is refused: a template never changes a label |
 | `crew` | Each field set replaces the one below whole, `options` per key, as a blueprint role does over a template |
 
 A placeholder in a layer's own charter or first prompt must be a parameter of the full template at that layer: one left open below, one it declares, or one it fills. The full template then holds what a template without a base holds, and every check runs on it: at most 48 KB of charter, 8 KB of first prompt and 20 scopes, the subset rule for scopes at forming, a blueprint binding exactly its hand-offs, and the form's limits.
@@ -84,9 +86,21 @@ A version that cannot be built is left out of the catalogue with why, as a versi
 | A loop | "a@2 builds on b@1, which builds on a@2" |
 | Too deep | "typescript-implementer@1 builds on 11 templates; a chain holds at most 10", with the chain |
 | A rule of building broken | The field: a parameter not left open, a name declared twice, an undeclared placeholder |
-| A limit broken once built | The limit and the full size: a charter over 48 KB, a first prompt over 8 KB, over 20 scopes |
+| A limit broken once built | The limit and the full size: a charter over 48 KB, a first prompt over 8 KB, over 20 scopes, over 19 labels |
 
-A squadron forms from the built templates, and its snapshot keeps each with its chain; a member at check-in gets one charter, as from any template. A new base version reaches a template only through a new version of that template naming it.
+A squadron forms from the built templates, and its snapshot keeps each with its hash and its chain; a member at check-in gets one charter, as from any template. A new base version reaches a template only through a new version of that template naming it. A snapshot from before template bases is read as a chain of one, its own version, with no hash.
+
+### Built once
+
+A template version is built once into its full template, identified by a hash, and kept, as Docker keeps a built layer by the hash of what made it:
+
+- **The hash** is the SHA-256 of the build rules number and the chain, base-layer-0 first: for each layer its repository, name, version, commit and the SHA-256 of its file's text. One chain under one build rules number gives one hash, and one hash one built template. squadrons raises the build rules number whenever a rule of [Building](#building) changes, so each version builds anew under the new rules.
+- **Kept** in Postgres per fleet, by fleet and hash, with its chain, the full template and which layer gave each part, when it was built and when it was last used. A fleet never finds another fleet's built template, so a base read with one fleet's token never reaches another.
+- **Looked up first.** Reading the catalogue (a repository's add, Refresh and start) computes each version's hash and takes the kept one when there is one; it builds and keeps only what is missing. Two reads building one hash at once keep one.
+- **Used.** A catalogue read and forming each set the last use of every built template they take; forming keeps one again that was deleted since, to the same hash.
+- **Deleted** once unused for 30 days, at the fleet's rescan, and with the rest of a deleted fleet. A version still in the catalogue is built again at its next use, from what the catalogue read, to the same hash and the same template.
+
+A version tag is not to be moved. If one is, squadrons builds the version from its new commit, to a new hash, with no warning, as `alpine:latest` changes; a squadron formed before keeps its snapshot.
 
 ## Squadron blueprint
 
@@ -230,7 +244,7 @@ One squadrons install serves every fleet at its `FLEET_URL`, with one connection
 
 squadrons keeps each squadron's reach in place itself (#573, decisions 0031 and 0037), so argo writes no rule per squadron. On every rescan of a fleet it serves (every interval, and after forming and standing down) it:
 
-- **defines and assigns two labels it owns:** `squadron`, with one value per squadron that is not disbanded, its id; and `squadron-role`, with `flagship` and `squadrons`. Each such squadron's flagship carries `squadron=<id>` and `squadron-role=flagship`, each member that serves `squadron=<id>`, and its management ship `squadron-role=squadrons`. A value no ship carries any more and no squadron needs is removed. A key another ship owns is left alone;
+- **defines and assigns two labels it owns:** `squadron`, with one value per squadron that is not disbanded, its id; and `squadron-role`, with `flagship` and `squadrons`. Each such squadron's flagship carries `squadron=<id>` and `squadron-role=flagship`, each member that serves `squadron=<id>`, and its management ship `squadron-role=squadrons`. Each member also carries its template's `labels`, under keys squadrons defines when the fleet has none of them, with a value for each one a serving template uses. A value no ship carries any more and no squadron needs is removed. A key another ship owns is left alone;
 - **declares three rules** with `fleet.declareNetworkRules`: `squadron=#` to `squadron=#` (every ship reaches the ships of its own squadron), `squadron-role=flagship` to `squadron-role=squadrons` and the reverse (the flagships and its management ship reach each other). No flagship reaches another. Declared once per process while its labels stay the same; they are in force beside the fleet's own rules (decision 0037);
 - **at the limit:** a label holds at most 50 values (decision 0031), so a squadron beyond them carries no squadron label and argo is told once: once rules are in force its ships do not reach each other by these rules. A value frees once a disbanded squadron's ships are retired;
 - **without the label scopes** (a management ship commissioned before them; scopes never change) it labels and declares nothing, and argo is told once: retire the management ship and connect squadrons again.

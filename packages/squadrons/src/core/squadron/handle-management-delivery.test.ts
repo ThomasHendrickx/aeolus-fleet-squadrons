@@ -13,6 +13,7 @@ import { createHandleManagementDelivery, type HandleManagementDelivery } from '.
 import type { FormRefusals, OperatorNotices, SquadronRepository } from './ports.js';
 import type { Squadron } from './squadron.js';
 import { templateOfOne } from '../../../test/support/template-version.js';
+import { memoryBuiltTemplates } from '../../../test/support/memory-catalogue.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const MANAGEMENT: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
@@ -171,7 +172,7 @@ beforeEach(() => {
   refusals = [];
   const door = fleetDoor();
   const attempts = memoryAttempts();
-  const form = createFormSquadron({ door, management, squadrons, attempts, catalogue: () => catalogue, random: { suffix: (length) => 'k3x9abcd'.slice(0, length) }, clock: { now: () => AT }, limits: NO_LIMITS });
+  const form = createFormSquadron({ door, management, squadrons, attempts, built: memoryBuiltTemplates(), labels: { listLabels: () => Promise.resolve(ok([])), listLabelledShips: () => Promise.resolve(ok([])) }, catalogue: () => catalogue, random: { suffix: (length) => 'k3x9abcd'.slice(0, length) }, clock: { now: () => AT }, limits: NO_LIMITS });
   handle = createHandleManagementDelivery({ door, squadrons, refusals: formRefusals, form, operator });
 });
 
