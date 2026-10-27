@@ -60,6 +60,7 @@ import type { Declarations } from './core/network/ports.js';
 import { createWithdrawNetworkRules } from './core/network/withdraw-network-rules.js';
 import { createNewCrewLine } from './core/squadron/new-crew-line.js';
 import { createRecoverFormations, type RecoverFormations } from './core/squadron/recover-formations.js';
+import { createDeleteUnusedBuiltTemplates } from './core/catalogue/delete-unused-built-templates.js';
 import type { Clock } from './core/shared/clock.js';
 
 export const systemClock: Clock = { now: () => new Date() };
@@ -190,6 +191,7 @@ export function createSquadronsApp(options: {
     return stood;
   };
   const recoverFormations = createRecoverFormations({ door, management: store, attempts });
+  const deleteUnusedBuiltTemplates = createDeleteUnusedBuiltTemplates({ built: builtTemplates, clock });
   const readConnection = createReadConnection({ door, store });
   // A fleet's connection as squadrons holds it, asking the fleet nothing: what a fleet that is off reads.
   const heldConnection: ReadConnection = async (fleetId) => {
@@ -368,6 +370,7 @@ export function createSquadronsApp(options: {
             server.log.info({ fleet: fleetId, ...recovered.value }, 'formations a forming gave up recovered');
           }
         },
+        deleteUnusedBuiltTemplates,
         isServed,
         operator,
         reach,

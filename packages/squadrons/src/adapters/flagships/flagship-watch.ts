@@ -56,6 +56,8 @@ export function watchFlagships(deps: {
   advanceStandDowns: AdvanceStandDowns;
   /** Retires what the fleet's given-up formations commissioned; logs its own refusals. */
   recoverFormations: (fleetId: FleetId) => Promise<void>;
+  /** Deletes the fleet's built templates unused for the kept time; answers how many. */
+  deleteUnusedBuiltTemplates: (fleetId: FleetId) => Promise<number>;
   isServed: IsServed;
   operator: OperatorNotices;
   reach: FleetReach;
@@ -150,6 +152,11 @@ export function watchFlagships(deps: {
       await deps.recoverFormations(fleetId);
     } catch (error) {
       deps.log.error({ err: error, fleet: fleetId }, 'the formations a forming gave up could not be recovered');
+    }
+    try {
+      await deps.deleteUnusedBuiltTemplates(fleetId);
+    } catch (error) {
+      deps.log.error({ err: error, fleet: fleetId }, 'the built templates unused for the kept time could not be deleted');
     }
     try {
       await deps.reach.keep(fleetId);

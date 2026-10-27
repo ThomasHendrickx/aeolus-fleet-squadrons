@@ -29,6 +29,9 @@ const forming: Squadron = {
 /** No formation to recover: what most tests need. */
 const noRecovery = () => Promise.resolve();
 
+/** No built template to delete: what most tests need. */
+const noDeletion = () => Promise.resolve(0);
+
 /** A fleet's reach left as it is: what most tests need. */
 const untouchedReach = { keep: () => Promise.resolve(), withdraw: () => Promise.resolve() };
 
@@ -74,6 +77,7 @@ describe('stopping the flagship watch', () => {
       },
       advanceStandDowns: () => Promise.resolve(),
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
@@ -126,6 +130,7 @@ describe('the flagships of every connected fleet', () => {
         return Promise.resolve();
       },
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
@@ -165,6 +170,7 @@ describe('the flagships of a fleet squadrons does not serve', () => {
         return Promise.resolve();
       },
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(false),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
@@ -200,6 +206,7 @@ describe('a released flagship', () => {
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
       advanceStandDowns: () => Promise.resolve(),
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(true),
       operator: {
         tell: (notice) => {
@@ -237,6 +244,7 @@ describe('a released flagship', () => {
         handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
         advanceStandDowns: () => Promise.resolve(),
         recoverFormations: noRecovery,
+        deleteUnusedBuiltTemplates: noDeletion,
         isServed: () => Promise.resolve(true),
         operator: {
           tell: (notice) => {
@@ -291,6 +299,7 @@ describe('the flagship of a squadron standing down', () => {
       },
       advanceStandDowns: () => Promise.resolve(),
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
@@ -323,6 +332,7 @@ describe('the flagship of a squadron standing down', () => {
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
       advanceStandDowns: () => Promise.resolve(),
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(true),
       operator: {
         tell: (notice) => {
@@ -354,6 +364,7 @@ describe('the flagship of a squadron standing down', () => {
         return Promise.resolve();
       },
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
@@ -384,6 +395,7 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
       advanceStandDowns: () => Promise.resolve(),
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: (fleetId) => Promise.resolve(fleetId === FLEET_ID),
       operator: { tell: () => Promise.resolve() },
       reach: {
@@ -419,6 +431,7 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
       advanceStandDowns: () => Promise.resolve(),
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(false),
       operator: { tell: () => Promise.resolve() },
       reach: {
@@ -452,6 +465,7 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
       advanceStandDowns: () => Promise.resolve(),
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: {
@@ -506,6 +520,7 @@ describe("each fleet's formations a forming gave up (#738)", () => {
         recovered.push(fleetId);
         return Promise.resolve();
       },
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: (fleetId) => Promise.resolve(fleetId === FLEET_ID),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
@@ -542,6 +557,7 @@ describe("a fleet's rescans (#626)", () => {
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
       advanceStandDowns: pass,
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: { keep: pass, withdraw: () => Promise.resolve() },
@@ -575,6 +591,7 @@ describe("a fleet's rescans (#626)", () => {
         await gate.opened;
       },
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: untouchedReach,
@@ -607,6 +624,7 @@ describe("a fleet's rescans (#626)", () => {
       handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
       advanceStandDowns: () => Promise.resolve(),
       recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
       isServed: () => Promise.resolve(true),
       operator: { tell: () => Promise.resolve() },
       reach: {
