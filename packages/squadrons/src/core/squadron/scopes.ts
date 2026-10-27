@@ -8,8 +8,8 @@ export const SQUADRONS_SCOPES = [
 ] as const;
 
 /**
- * Whether squadrons may grant a scope at commission, by the subset rule
- * (decision 0046): a scope its own ship holds, or one of its own namespace.
+ * Whether squadrons may grant a scope at commission on behalf of the asking
+ * ship (decision 0046): a scope that ship holds, or one of squadrons' own namespace.
  */
 export function isGrantable(scope: string, held: readonly string[]): boolean {
   return held.includes(scope) || scope.startsWith(`${SQUADRONS_NAMESPACE}:`);
