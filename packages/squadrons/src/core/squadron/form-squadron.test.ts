@@ -13,6 +13,7 @@ import { issuedPrompt, memberCrewLines } from '../../../test/support/management-
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { SquadronRepository } from './ports.js';
 import { templateOfOne } from '../../../test/support/template-version.js';
+import { memoryBuiltTemplates } from '../../../test/support/memory-catalogue.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
@@ -207,6 +208,7 @@ let squadrons: ReturnType<typeof memorySquadrons>;
 const SQUADRON_SUFFIX_LENGTH = 6;
 let suffixes: string[];
 let form: FormSquadron;
+let built: ReturnType<typeof memoryBuiltTemplates>;
 
 function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogue; limits?: SquadronLimits } = {}): FormSquadron {
   return createFormSquadron({
@@ -214,6 +216,7 @@ function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogu
     management: overrides.store ?? managementStore,
     squadrons,
     attempts,
+    built,
     // The catalogue is held per fleet: another fleet's holds nothing here.
     catalogue: (fleetId) => (fleetId === OTHER_FLEET ? { templates: [], blueprints: [], problems: [] } : (overrides.catalogue ?? catalogue)),
     // The names come from the list; an attempt's longer suffix only tells attempts apart.
@@ -227,6 +230,7 @@ beforeEach(() => {
   fleet = fakeFleet();
   attempts = memoryAttempts();
   squadrons = memorySquadrons(attempts);
+  built = memoryBuiltTemplates();
   suffixes = ['a1b2c3', 'k3x9', 'm4p7', 'q8r2'];
   form = formWith();
 });
@@ -743,5 +747,24 @@ describe('forming from a template on a base', () => {
 
     expect(formed).toEqual({ isOk: false, error: { kind: 'FORMING_FAILED', message: 'The charter of builder-1 is over 48 KB once filled, so nothing was formed' } });
     expect(fleet.state.ships).toEqual([]);
+  });
+
+  it('sets the last use of each built template it forms from', async () => {
+    const catalogue = basedCatalogue('Report over the fleet.');
+    await built.use(FLEET, { templates: catalogue.templates, at: new Date('2026-09-01T00:00:00.000Z') });
+
+    unwrapped(await formWith({ catalogue })(fromBuilders));
+
+    expect(built.held.find((held) => held.template.name === 'builder')?.lastUsedAt).toEqual(AT);
+  });
+
+  it('keeps a built template it forms from again, to the same hash, once its kept one was deleted', async () => {
+    const catalogue = basedCatalogue('Report over the fleet.');
+
+    unwrapped(await formWith({ catalogue })(fromBuilders));
+
+    expect(built.held.map(({ fleetId, template, builtAt }) => ({ fleetId, hash: template.hash, builtAt }))).toEqual([
+      { fleetId: FLEET, hash: catalogue.templates.find((template) => template.name === 'builder')?.hash, builtAt: AT },
+    ]);
   });
 });
