@@ -295,6 +295,15 @@ describe("a member's check-in", () => {
     expect(JSON.parse(sent[0]?.payload ?? '{}')).toMatchObject({ charter: 'You test the API for planner-k3x9.' });
   });
 
+  it("answers with one charter, its template's as built from its chain and kept in the snapshot, whatever the catalogue holds now", async () => {
+    const built = { charter: 'Report to the flagship.\n\nYou test.', chain: [{ repository: 'github.com/ThomasHendrickx/skills', name: 'aeolus-ship', version: 3, commit: 'a3' }, { repository: REPO, name: 'tester', version: 4, commit: 't4' }] };
+    held = { ...held, templates: held.templates.map((template) => (template.name === 'tester' ? { ...template, ...built } : template)) };
+
+    await handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(JSON.parse(sent[0]?.payload ?? '{}')).toMatchObject({ template: 'tester@4', charter: 'Report to the flagship.\n\nYou test.' });
+  });
+
   it('stays within the 64 KB payload limit with the longest charter a template may have', async () => {
     const PAYLOAD_MAX_BYTES = 64 * 1024;
     held = { ...held, templates: held.templates.map((template) => ({ ...template, charter: 'x'.repeat(CHARTER_MAX_BYTES) })) };

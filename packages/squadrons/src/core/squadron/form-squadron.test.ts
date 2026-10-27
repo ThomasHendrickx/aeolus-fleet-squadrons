@@ -1,6 +1,7 @@
 import { FIRST_PROMPT_MAX_BYTES, idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
+import { assembleCatalogue } from '../catalogue/assemble-catalogue.js';
 import { CHARTER_MAX_BYTES, type BlueprintVersion, type Catalogue, type TemplateVersion } from '../catalogue/catalogue.js';
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
 import { err, ok, type Result } from '../shared/result.js';
@@ -696,5 +697,49 @@ describe("squadrons' limits on forming (question 9)", () => {
       error: { kind: 'LIMIT_REACHED', message: "The blueprint forms 3 members, over squadrons' limit of 2 per squadron, so nothing was formed" },
     });
     expect(atLimit).toMatchObject({ isOk: true });
+  });
+});
+
+describe('forming from a template on a base', () => {
+  const SKILLS = 'github.com/ThomasHendrickx/skills';
+  const file = (tagged: { repository: string; kind: 'template' | 'blueprint'; name: string }, content: unknown) => ({
+    ...tagged,
+    version: 1,
+    file: `squadrons/${tagged.kind}s/${tagged.name}.yaml`,
+    commit: `c-${tagged.name}`,
+    committedAt: AT,
+    content,
+  });
+  /** A catalogue of builders@1, one builder on builder@1, which builds on aeolus-ship@1 of another repository. */
+  function basedCatalogue(baseCharter: string): Catalogue {
+    return assembleCatalogue({
+      repositories: [REPO, SKILLS],
+      tags: [],
+      files: [
+        file({ repository: SKILLS, kind: 'template', name: 'aeolus-ship' }, { description: 'Any ship.', checkIn: '30m', charter: baseCharter, scopes: ['fleet:read'] }),
+        file({ repository: REPO, kind: 'template', name: 'builder' }, { base: { template: `${SKILLS}#aeolus-ship@1` }, description: 'Builds.', charter: 'Work on {{area}}.', parameters: { area: 'what to build' } }),
+        file({ repository: REPO, kind: 'blueprint', name: 'builders' }, { description: 'Builders.', roles: { builder: { template: `${REPO}#builder@1` } } }),
+      ],
+    });
+  }
+  const fromBuilders = { fleetId: FLEET, blueprint: { repository: REPO, name: 'builders', version: 1 } };
+
+  it("forms a blueprint whose role's template has a base as any other, and keeps the built template with its chain", async () => {
+    unwrapped(await formWith({ catalogue: basedCatalogue('Report over the fleet.') })(fromBuilders));
+
+    expect(squadrons.held[0]?.templates.map(({ name, charter, chain }) => ({ name, charter, chain: chain.map((layer) => `${layer.name}@${String(layer.version)}`) }))).toEqual([
+      { name: 'builder', charter: 'Report over the fleet.\n\nWork on {{area}}.', chain: ['aeolus-ship@1', 'builder@1'] },
+    ]);
+    expect(fleet.state.ships.find((ship) => ship.type === 'builders-a1b2c3:builder')?.scopes).toEqual(['fleet:read']);
+  });
+
+  it('refuses a member whose built charter of 48 KB is over once the form fills its open parameter, naming it, and commissions nothing', async () => {
+    const own = '\n\nWork on {{area}}.';
+    const built = basedCatalogue('x'.repeat(CHARTER_MAX_BYTES - own.length));
+
+    const formed = await formWith({ catalogue: built })({ ...fromBuilders, members: { 'builder-1': { parameters: { area: 'the public API' } } } });
+
+    expect(formed).toEqual({ isOk: false, error: { kind: 'FORMING_FAILED', message: 'The charter of builder-1 is over 48 KB once filled, so nothing was formed' } });
+    expect(fleet.state.ships).toEqual([]);
   });
 });
