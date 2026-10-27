@@ -19,6 +19,9 @@ import { memoryBuiltTemplates } from '../../../test/support/memory-catalogue.js'
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
 const MANAGEMENT: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
+const ARGO: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9a00';
+const FORMING: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9f00';
+const FORMING_OWNER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9f01';
 const AT = new Date('2026-10-03T09:00:00.000Z');
 const REPO = 'example.com/templates';
 
@@ -93,6 +96,11 @@ function fakeFleet() {
     retiresRefused: new Map<string, number>(),
     /** The scopes squadrons' own ship holds, as fleet.ship answers them. */
     managementScopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'fleet:manage'],
+    /** The ships that ask squadrons to form, as fleet.ship answers them. */
+    askers: new Map<ShipId, { name: string; status: 'crewed' | 'retired'; scopes: string[]; ownerShipId: ShipId | null }>([
+      [FORMING, { name: 'tech-lead', status: 'crewed', scopes: ['squadrons:form'], ownerShipId: FORMING_OWNER }],
+      [FORMING_OWNER, { name: 'tech-director', status: 'crewed', scopes: ['squadrons:form'], ownerShipId: null }],
+    ]),
   };
   let next = 0;
   const door: FleetDoor = {
@@ -109,7 +117,9 @@ function fakeFleet() {
       Promise.resolve(
         shipId === MANAGEMENT
           ? ok({ status: 'crewed' as const, scopes: state.managementScopes, lastSeenAt: AT, crewedSince: AT, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false, ownerShipId: null })
-          : err({ code: 'NOT_FOUND', message: 'not used' }),
+          : state.askers.has(shipId)
+            ? ok({ status: state.askers.get(shipId)?.status ?? 'crewed', scopes: state.askers.get(shipId)?.scopes ?? [], lastSeenAt: AT, crewedSince: AT, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false, ownerShipId: state.askers.get(shipId)?.ownerShipId ?? null })
+            : err({ code: 'NOT_FOUND', message: 'not used' }),
       ),
     deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
     commission: (crewToken, { name, type, idempotencyKey, scopes, ownerOf }): Promise<Result<{ shipId: ShipId; prompt: string | null; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
@@ -162,7 +172,14 @@ function fakeFleet() {
     ack: () => Promise.resolve(ok(undefined)),
     pong: () => Promise.resolve(ok(undefined)),
     send: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used here' })),
-    listShips: () => Promise.resolve(ok(state.ships.filter((ship) => !ship.isRetired).map(({ shipId, name }) => ({ shipId, name })))),
+    listShips: () =>
+      Promise.resolve(
+        ok([
+          { shipId: ARGO, name: 'argo' },
+          ...[...state.askers].filter(([, asker]) => asker.status !== 'retired').map(([shipId, { name }]) => ({ shipId, name })),
+          ...state.ships.filter((ship) => !ship.isRetired).map(({ shipId, name }) => ({ shipId, name })),
+        ]),
+      ),
     retire: (_crewToken, { shipId }) => {
       const ship = state.ships.find((held) => held.shipId === shipId);
       const refusals = ship ? (state.retiresRefused.get(ship.name) ?? 0) : 0;
@@ -244,6 +261,13 @@ beforeEach(() => {
 });
 
 const fromHemmaFeature = { fleetId: FLEET, blueprint: { repository: REPO, name: 'hemma-feature', version: 4 } };
+const forTechLead = { ...fromHemmaFeature, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } };
+
+/** Every role crewed by request: each names a workspace. */
+function crewedByRequest(from: Catalogue = catalogue): Catalogue {
+  const roles = blueprintVersion.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'worktree' as const, repository: 'hemma' } } }));
+  return { ...from, blueprints: [{ ...blueprintVersion, roles }] };
+}
 
 describe('forming a squadron', () => {
   it('names it after the blueprint with six random characters, and names its flagship the same, of type flagship', async () => {
@@ -316,14 +340,54 @@ describe('forming a squadron', () => {
     ]);
   });
 
-  it('refuses a template scope its own ship does not hold, outside its own namespace, naming it, and commissions nothing', async () => {
-    const granting = { ...catalogue, templates: [templateVersion('planner'), { ...templateVersion('implementer', ['done']), scopes: ['messages:force'] }] };
+  it('grants a template scope argo holds, though squadrons holds none of it, when argo forms in the console', async () => {
+    const granting = { ...catalogue, templates: [templateVersion('planner'), { ...templateVersion('implementer', ['done']), scopes: ['meetings:open'] }] };
 
-    const formed = await formWith({ catalogue: granting })(fromHemmaFeature);
+    unwrapped(await formWith({ catalogue: granting })(fromHemmaFeature));
+
+    expect(fleet.state.ships.filter(({ type }) => type.endsWith(':implementer')).map(({ scopes }) => scopes)).toEqual([['meetings:open'], ['meetings:open']]);
+  });
+
+  it('grants a template scope the forming ship holds, commissioning on its behalf', async () => {
+    fleet.state.askers.set(FORMING, { name: 'tech-lead', status: 'crewed', scopes: ['squadrons:form', 'meetings:open'], ownerShipId: FORMING_OWNER });
+    const granting = crewedByRequest({ ...catalogue, templates: [templateVersion('planner'), { ...templateVersion('implementer', ['done']), scopes: ['meetings:open'] }] });
+
+    unwrapped(await formWith({ catalogue: granting })(forTechLead));
+
+    expect(fleet.state.ships.filter(({ type }) => type.endsWith(':implementer')).map(({ scopes, ownerOf }) => ({ scopes, ownerOf }))).toEqual([
+      { scopes: ['meetings:open'], ownerOf: FORMING },
+      { scopes: ['meetings:open'], ownerOf: FORMING },
+    ]);
+  });
+
+  it('refuses a template scope the forming ship does not hold, naming the scope and the ship, and commissions nothing', async () => {
+    const granting = crewedByRequest({ ...catalogue, templates: [templateVersion('planner'), { ...templateVersion('implementer', ['done']), scopes: ['meetings:open'] }] });
+
+    const formed = await formWith({ catalogue: granting })(forTechLead);
 
     expect(formed).toMatchObject({ isOk: false, error: { kind: 'FORMING_FAILED' } });
     assert(!formed.isOk);
-    expect(formed.error.message).toContain('messages:force');
+    expect(formed.error.message).toContain('meetings:open');
+    expect(formed.error.message).toContain('tech-lead');
+    expect(fleet.state.ships).toEqual([]);
+  });
+
+  it('grants a scope of its own namespace to a forming ship that does not hold it', async () => {
+    const granting = crewedByRequest({ ...catalogue, templates: [templateVersion('planner'), { ...templateVersion('implementer', ['done']), scopes: ['squadrons:scale'] }] });
+
+    unwrapped(await formWith({ catalogue: granting })(forTechLead));
+
+    expect(fleet.state.ships.filter(({ type }) => type.endsWith(':implementer')).map(({ scopes }) => scopes)).toEqual([['squadrons:scale'], ['squadrons:scale']]);
+  });
+
+  it('refuses a retired forming ship, naming its owner, and commissions nothing', async () => {
+    fleet.state.askers.set(FORMING, { name: 'tech-lead', status: 'retired', scopes: ['squadrons:form'], ownerShipId: FORMING_OWNER });
+
+    const formed = await formWith({ catalogue: crewedByRequest() })(forTechLead);
+
+    expect(formed).toMatchObject({ isOk: false, error: { kind: 'FORMING_FAILED' } });
+    assert(!formed.isOk);
+    expect(formed.error.message).toContain('tech-director');
     expect(fleet.state.ships).toEqual([]);
   });
 
@@ -606,14 +670,6 @@ function unwrapped<T>(result: Result<T, unknown>): T {
 }
 
 describe('forming for a ship that asked by message (decision 0017)', () => {
-  const FORMING: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9f00';
-  const forTechLead = { ...fromHemmaFeature, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } };
-  /** Every role crewed by request: each names a workspace. */
-  function crewedByRequest(): Catalogue {
-    const roles = blueprintVersion.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'worktree' as const, repository: 'hemma' } } }));
-    return { ...catalogue, blueprints: [{ ...blueprintVersion, roles }] };
-  }
-
   it('stores the ship that formed it with the key of its form request', async () => {
     unwrapped(await formWith({ catalogue: crewedByRequest() })(forTechLead));
 
@@ -626,10 +682,10 @@ describe('forming for a ship that asked by message (decision 0017)', () => {
     expect(fleet.state.ships.map(({ ownerOf }) => ownerOf)).toEqual([FORMING, FORMING, FORMING, FORMING]);
   });
 
-  it("commissions argo's squadron with squadrons' own owner, naming no other", async () => {
+  it('commissions the flagship and every member of a console form on behalf of argo', async () => {
     unwrapped(await form(fromHemmaFeature));
 
-    expect(fleet.state.ships.map(({ ownerOf }) => ownerOf)).toEqual([null, null, null, null]);
+    expect(fleet.state.ships.map(({ ownerOf }) => ownerOf)).toEqual([ARGO, ARGO, ARGO, ARGO]);
   });
 
   it('stores no forming ship for a squadron argo formed in the console', async () => {
@@ -649,11 +705,6 @@ describe('forming for a ship that asked by message (decision 0017)', () => {
 });
 
 describe("squadrons' limits on forming (question 9)", () => {
-  const FORMING: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9f00';
-  function crewedByRequest(): Catalogue {
-    const roles = blueprintVersion.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'worktree' as const, repository: 'hemma' } } }));
-    return { ...catalogue, blueprints: [{ ...blueprintVersion, roles }] };
-  }
   const byTechLead = (key: string) => ({ ...fromHemmaFeature, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: key } });
   const limited = (limits: Partial<SquadronLimits>) => formWith({ catalogue: crewedByRequest(), limits: { ...NO_LIMITS, ...limits } });
 
