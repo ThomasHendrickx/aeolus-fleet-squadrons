@@ -137,7 +137,8 @@ export function createSquadronsApp(options: {
   // One catalogue per fleet: a refresh for a fleet squadrons served earlier never reaches the one it serves now.
   const catalogues = new Map<FleetId, Catalogue>();
   const catalogueOf = (fleetId: FleetId): Catalogue => catalogues.get(fleetId) ?? { templates: [], blueprints: [], problems: [] };
-  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
+  const builtTemplates = createPrismaBuiltTemplateStore(prisma);
+  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, built: builtTemplates, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
   // A new squadron's flagship starts receiving at once, not at the next rescan.
   const formAndWatch: FormSquadron = async (input) => {
     const formed = await formSquadron(input);
@@ -147,7 +148,6 @@ export function createSquadronsApp(options: {
     return formed;
   };
   const repositories = createPrismaRepositoryStore(prisma);
-  const builtTemplates = createPrismaBuiltTemplateStore(prisma);
   const source = createGithubRepositoryReader(options.githubApiUrl === undefined ? {} : { apiUrl: options.githubApiUrl });
   const refresh = createRefreshCatalogue({
     store: repositories,

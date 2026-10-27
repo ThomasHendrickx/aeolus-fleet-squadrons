@@ -1,6 +1,7 @@
 import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN, type CrewLine, type FleetId, type ShipId } from '@aeolus-fleet/common';
 
 import type { Catalogue, TemplateReference } from '../catalogue/catalogue.js';
+import type { BuiltTemplateStore } from '../catalogue/ports.js';
 import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -66,6 +67,8 @@ export function createFormSquadron(deps: {
   attempts: FormationAttempts;
   /** The catalogue of a fleet. */
   catalogue: (fleetId: FleetId) => Catalogue;
+  /** The fleet's built templates: forming sets the last use of each it forms from. */
+  built: BuiltTemplateStore;
   random: RandomNames;
   clock: Clock;
   limits: SquadronLimits;
@@ -91,6 +94,9 @@ export function createFormSquadron(deps: {
     const used = blueprint.roles.map((role) =>
       templates.find((held) => held.repository === role.template.repository && held.name === role.template.name && held.version === role.template.version),
     );
+    // Forming uses each built template, before the checks, as the design's flow has it; one deleted since the catalogue was read is kept again, to the same hash.
+    const formedFrom = [...new Set(used.filter((template) => template !== undefined))];
+    await deps.built.use(crew.fleetId, { templates: formedFrom, at: deps.clock.now() });
     const slots = blueprint.roles.flatMap((role, index) =>
       Array.from({ length: role.count }, (_, offset) => {
         const slot = `${role.name}-${String(offset + 1)}`;
@@ -186,7 +192,7 @@ export function createFormSquadron(deps: {
       state: 'forming',
       blueprint,
       // One copy of each template, even when several roles use it.
-      templates: [...new Set(used.filter((template) => template !== undefined))],
+      templates: formedFrom,
       flagship: { shipId: flagship.value.shipId, name: squadronId, crewToken: crewed.value.crewToken },
       members,
       formedAt: deps.clock.now(),
