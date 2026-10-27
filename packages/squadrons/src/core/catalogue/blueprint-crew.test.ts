@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest';
 
 import { createBlueprintCrew } from './blueprint-crew.js';
 import type { BlueprintVersion, Catalogue, TemplateVersion } from './catalogue.js';
+import { templateOfOne } from '../../../test/support/template-version.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const REPO = 'github.com/tidewater-labs/squadron-templates';
 const AT = new Date('2026-10-08T08:00:00.000Z');
 
 function aTemplate(name: string, overrides: Partial<TemplateVersion> = {}): TemplateVersion {
-  return {
+  return templateOfOne({
     repository: REPO,
     name,
     version: 1,
@@ -26,7 +27,7 @@ function aTemplate(name: string, overrides: Partial<TemplateVersion> = {}): Temp
     parameters: [],
     scopes: [],
     ...overrides,
-  };
+  });
 }
 
 const PLANNER = aTemplate('planner', { model: 'claude-opus-5-5', parameters: [{ name: 'area', description: 'The part the features touch' }] });

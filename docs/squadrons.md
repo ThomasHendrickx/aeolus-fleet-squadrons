@@ -8,7 +8,7 @@ Ship templates and squadron blueprints are YAML files in GitHub repositories, as
 
 - **Where:** in each configured repository, `templates/*.yaml` and `blueprints/*.yaml` under its folder: `.aeolus/squadrons/` unless the repository's entry in the configuration sets a `path`. One file is one template or one blueprint, and the file name (without `.yaml`) is its name, unless a blueprint sets its own with `name`.
 - **Versions are git tags.** A template's version `n` is the tag `<name>@<n>` (`tester@4`), a blueprint's likewise (`hemma-feature@4`), each a whole number from 1. A tag always names the file: a blueprint `team.yaml` that sets `name: hemma-feature` is tagged `team@4`, and each version takes the name its own file sets. The tag's commit holds that version of the file. A tag of that form whose commit has no such file, or whose name is not lowercase (`Tester@4`), is reported with why; any other tag (`v1.0.0`) is no version tag and is ignored. The console shows templates as `tester@4`, blueprints as `v4`, and each version with its short commit (`4f2a91c`). A file changed without a new tag is no new version.
-- **Snapshots:** forming a squadron stores the blueprint version and every template version it uses, as read then. A squadron never changes when the files change later.
+- **Snapshots:** forming a squadron stores the blueprint version and every template version it uses, as read then, a template on a base as built, with its chain. A squadron never changes when the files change later.
 
 ## Ship template
 
@@ -18,6 +18,7 @@ An example: [tester.yaml](squadrons-example/.aeolus/squadrons/templates/tester.y
 
 | Field | Required | Rule |
 | --- | --- | --- |
+| `base` | no | The template it builds on; see [Template bases](#template-bases) |
 | `description` | yes | One line, for the template lists |
 | `checkIn` | yes | How often a member reports, late after one interval and silent after three. A duration: `<n>m` or `<n>h`, from 1 minute to 24 hours |
 | `launchNote` | no | Shown once per role, above its members' crew lines: where to start the session |
@@ -26,6 +27,66 @@ An example: [tester.yaml](squadrons-example/.aeolus/squadrons/templates/tester.y
 | `parameters` | no | Parameter names (handles) with what each stands for, used as `{{name}}` in `charter` and `crew.firstPrompt`; see [Crew settings](#crew-settings). A placeholder the template does not declare is refused |
 | `crew` | no | How its members are crewed, and the model they run (`crew.model`); see [Crew settings](#crew-settings) |
 | `scopes` | no | The scopes its members get at commission, each `<namespace>:<action>`, at most 20. squadrons grants them within the subset rule: scopes its own ship holds, and its own namespace `squadrons` (decision 0017). Forming a blueprint with a template that names any other scope is refused before anything is commissioned |
+
+With a `base`, only `description` is required: `checkIn` and `charter` come from the base unless the template sets them.
+
+## Template bases
+
+A template may build on one other template version, as a Dockerfile builds `FROM` one image: it names its base and states only what differs, what it adds, what it replaces and which of its base's parameters it fills (design: [template-bases.md](design/template-bases/template-bases.md)). The result is a template version like any other: a blueprint role runs it, and another template names it as its base. Every template is complete and formable, a base too.
+
+```yaml
+# templates/typescript-implementer.yaml
+base:
+  template: github.com/ThomasHendrickx/skills#implementer@2
+  parameters:
+    language: TypeScript
+description: Implements a slice in a TypeScript repository
+crew:
+  model: claude-opus-5-5
+charter: |
+  Run npm run typecheck before every commit.
+```
+
+| Field | Required | Rule |
+| --- | --- | --- |
+| `base.template` | yes, with `base` | `<repository>#<name>@<n>`: a repository the fleet added, a template's name and a version tagged in it. Only tags, letter case exact, as a blueprint's reference |
+| `base.parameters` | no | Values for parameters the base leaves open, by name, each at most 1 KB. A name the base does not leave open is refused, naming the parameters it does |
+| `base.replaceCharter` | no | `true`: this template's `charter` replaces its base's whole, and is then required. Left out: the charter is added after the base's |
+
+There is no build language: no conditionals, no loops, no instructions that run when a later template builds on this one, no second base, and no version ranges or "latest".
+
+### Building
+
+squadrons builds each template version when it reads the catalogue. It walks the chain from base-layer-0, the template without a base, up to the version itself, and applies each layer over the full template below it:
+
+| Part | Rule per layer |
+| --- | --- |
+| `charter` | Added after the charter below, one blank line between; replaced whole with `base.replaceCharter: true` |
+| `base.parameters` | Each value is filled into the charter and `crew.firstPrompt`, below and the layer's own; the parameter is then no longer the template's, and neither a blueprint nor a form sees it |
+| `parameters` | The layer's own, added to those left open below. A name already a parameter below, open or filled, is refused |
+| `description`, `checkIn`, `launchNote` | Set: replaces the one below. `description` is never taken from below |
+| `handoffs` | Added. A name already declared below is refused |
+| `scopes` | Added; one already below is kept once |
+| `crew` | Each field set replaces the one below whole, `options` per key, as a blueprint role does over a template |
+
+A placeholder in a layer's own charter or first prompt must be a parameter of the full template at that layer: one left open below, one it declares, or one it fills. The full template then holds what a template without a base holds, and every check runs on it: at most 48 KB of charter, 8 KB of first prompt and 20 scopes, the subset rule for scopes at forming, a blueprint binding exactly its hand-offs, and the form's limits.
+
+A chain holds at most 10 templates, the template itself included; a loop is refused. Each built template keeps its chain, base-layer-0 first, each layer's repository, name, version and commit, and which layer gave each part of its charter, each field and each filled parameter.
+
+A version that cannot be built is left out of the catalogue with why, as a version left out for its own file, and so is every blueprint naming it:
+
+| Case | Why |
+| --- | --- |
+| A base in a repository the fleet has not added | "typescript-implementer@1 cannot be included: its base github.com/ThomasHendrickx/skills#implementer@2 is in github.com/ThomasHendrickx/skills, which this fleet has not added. Add it under Settings, Repositories." |
+| A base's repository added but not read | The base, its repository and its last fetch's reason. A repository whose fetch fails keeps what it last read, and templates built from it stay |
+| A base at no tag, or a version not tagged | The reference, as a blueprint's |
+| A base left out itself | The base and its reason; a chain left out low leaves out every version above it |
+| A loop | "a@2 builds on b@1, which builds on a@2" |
+| Too deep | "typescript-implementer@1 builds on 11 templates; a chain holds at most 10", with the chain |
+| A rule of building broken | The field: a parameter not left open, a name declared twice, an undeclared placeholder |
+| A limit broken once built | The limit and the full size: a charter over 48 KB, a first prompt over 8 KB, over 20 scopes |
+
+A squadron forms from the built templates, and its snapshot keeps each with its chain; a member at check-in gets one charter, as from any template. A new base version reaches a template only through a new version of that template naming it.
 
 ## Squadron blueprint
 

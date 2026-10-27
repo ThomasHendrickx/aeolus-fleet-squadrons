@@ -42,6 +42,31 @@ export interface TemplateVersion {
   parameters: { name: string; description: string }[];
   /** The scopes its ships get at commission, granted by squadrons within the subset rule (decision 0017). */
   scopes: string[];
+  /** The versions it is built from, base-layer-0 first and itself last: one, itself, without a base. */
+  chain: ChainLayer[];
+  /** Which layer of its chain gave each part of it. */
+  origins: TemplateOrigins;
+}
+
+/** One template version of a chain, at the commit it was read at. */
+export interface ChainLayer {
+  repository: string;
+  name: string;
+  version: number;
+  commit: string;
+}
+
+/**
+ * Which layer of a built template's chain gave what (docs/squadrons.md,
+ * "Template bases"), each as its index in the chain, base-layer-0 being 0:
+ * each part of its charter, as filled; each field it holds, by its path
+ * (`checkIn`, `crew.options.effort`, `handoffs.report`, `scopes.notes:read`,
+ * `parameters.area`); and each parameter a layer filled.
+ */
+export interface TemplateOrigins {
+  charter: { layer: number; text: string }[];
+  fields: Record<string, number>;
+  filled: { name: string; layer: number }[];
 }
 
 /** Where a role's template comes from: a repository, a template's name and its version. */
@@ -92,6 +117,9 @@ export interface Catalogue {
  * leaves 16 KB of the 64 KB payload limit for the rest of it.
  */
 export const CHARTER_MAX_BYTES = 48 * 1024;
+
+/** The most scopes a template names for its ships, once built. */
+export const TEMPLATE_SCOPES_MAX = 20;
 
 /** Where a hand-off goes when it goes to no role. */
 export const FLAGSHIP = 'flagship';

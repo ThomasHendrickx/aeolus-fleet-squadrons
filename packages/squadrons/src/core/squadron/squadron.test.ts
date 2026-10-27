@@ -2,6 +2,7 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { isModelMismatch, type Member, type Squadron } from './squadron.js';
+import { templateOfOne } from '../../../test/support/template-version.js';
 
 const AT = new Date('2026-10-03T09:00:00.000Z');
 const REPO = 'example.com/templates';
@@ -25,7 +26,7 @@ function aSquadron(pinned: string | null): Squadron {
       memberNames: 'plain',
     },
     templates: [
-      { repository: REPO, name: 'tester', version: 4, file: 'squadrons/fixture.yaml', commit: 't4', committedAt: AT, description: 'Tests.', checkInMinutes: 30, model: pinned, launchNote: null, charter: 'You test.', handoffs: [], crew: {}, parameters: [], scopes: [] },
+      templateOfOne({ repository: REPO, name: 'tester', version: 4, file: 'squadrons/fixture.yaml', commit: 't4', committedAt: AT, description: 'Tests.', checkInMinutes: 30, model: pinned, launchNote: null, charter: 'You test.', handoffs: [], crew: {}, parameters: [], scopes: [] }),
     ],
     flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0000', name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
     members: [],

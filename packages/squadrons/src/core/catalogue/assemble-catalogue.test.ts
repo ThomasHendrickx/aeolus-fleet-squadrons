@@ -53,7 +53,7 @@ describe('a version in the catalogue', () => {
 });
 
 describe('a ship template', () => {
-  it('reads its description, check-in interval in minutes, pinned model from crew.model, launch note, charter and hand-offs', () => {
+  it('reads its description, check-in interval in minutes, pinned model from crew.model, launch note, charter and hand-offs, as a chain of one', () => {
     const { templates: read } = catalogueOf([template({ name: 'tester', version: 4 }, tester)]);
 
     expect(read).toEqual([
@@ -76,6 +76,12 @@ describe('a ship template', () => {
         crew: {},
         parameters: [],
         scopes: [],
+        chain: [{ repository: REPO, name: 'tester', version: 4, commit: 'c0ffee4' }],
+        origins: {
+          charter: [{ layer: 0, text: tester.charter }],
+          fields: { description: 0, checkIn: 0, launchNote: 0, 'crew.model': 0, 'handoffs.on-fail': 0, 'handoffs.on-pass': 0 },
+          filled: [],
+        },
       },
     ]);
   });

@@ -45,5 +45,14 @@ async function refresh(deps: RefreshDeps, { fleetId, scope }: { fleetId: FleetId
   for (const { name, error } of fetched) {
     await deps.store.recordFetch(fleetId, { name, at, error });
   }
-  deps.holder.set(fleetId, assembleCatalogue({ repositories: repositories.map((repository) => repository.name), files, tags }));
+  // A repository not fetched now keeps the reason its last fetch failed, if it did.
+  const fetchFailures = new Map<string, string>();
+  for (const { name, lastFetch } of repositories) {
+    const fetchedNow = fetched.find((each) => each.name === name);
+    const error = fetchedNow === undefined ? (lastFetch?.error ?? null) : fetchedNow.error;
+    if (error !== null) {
+      fetchFailures.set(name, error);
+    }
+  }
+  deps.holder.set(fleetId, assembleCatalogue({ repositories: repositories.map((repository) => repository.name), files, tags, fetchFailures }));
 }

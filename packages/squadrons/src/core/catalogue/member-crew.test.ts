@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import type { BlueprintVersion, TemplateVersion } from './catalogue.js';
 import { fillParameters, memberCrewOf } from './member-crew.js';
+import { templateOfOne } from '../../../test/support/template-version.js';
 
 const REPO = 'github.com/thomashendrickx/squadron-templates';
 const AT = new Date('2026-10-03T08:00:00.000Z');
 
 /** A template with the crew settings, model and parameters a test gives it. */
 function aTemplate(overrides: Partial<TemplateVersion> = {}): TemplateVersion {
-  return {
+  return templateOfOne({
     repository: REPO,
     name: 'tester',
     version: 4,
@@ -25,7 +26,7 @@ function aTemplate(overrides: Partial<TemplateVersion> = {}): TemplateVersion {
     parameters: [],
     scopes: [],
     ...overrides,
-  };
+  });
 }
 
 type Role = BlueprintVersion['roles'][number];

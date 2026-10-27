@@ -38,7 +38,20 @@ const templatesSchema: z.ZodType<TemplateVersion[]> = z.array(
     parameters: z.array(z.object({ name: z.string(), description: z.string() })).default([]),
     // Snapshots stored before templates named scopes grant none.
     scopes: z.array(z.string()).default([]),
-  }),
+    // Snapshots stored before template bases have neither: each is read as a chain of one, its own version, below.
+    chain: z.array(z.object({ repository: z.string(), name: z.string(), version: z.number(), commit: z.string() })).optional(),
+    origins: z
+      .object({
+        charter: z.array(z.object({ layer: z.number(), text: z.string() })),
+        fields: z.record(z.string(), z.number()),
+        filled: z.array(z.object({ name: z.string(), layer: z.number() })),
+      })
+      .optional(),
+  }).transform(({ chain, origins, ...template }) => ({
+    ...template,
+    chain: chain ?? [{ repository: template.repository, name: template.name, version: template.version, commit: template.commit }],
+    origins: origins ?? { charter: [{ layer: 0, text: template.charter }], fields: {}, filled: [] },
+  })),
 );
 const blueprintSchema: z.ZodType<BlueprintVersion> = z.object({
   repository: z.string(),

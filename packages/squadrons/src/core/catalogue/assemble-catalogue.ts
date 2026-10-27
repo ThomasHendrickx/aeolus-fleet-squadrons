@@ -2,14 +2,13 @@ import { crewSettingsSchema, LABEL_HANDLE_MAX_LENGTH, scopeNameSchema, SHIP_HAND
 import { z } from 'zod';
 
 import { err, ok, type Result } from '../shared/result.js';
-import { CHARTER_MAX_BYTES, FLAGSHIP, type BlueprintVersion, type Catalogue, type CatalogueProblem, type CrewDraft, type TemplateReference, type TemplateVersion } from './catalogue.js';
+import { CHARTER_MAX_BYTES, FLAGSHIP, TEMPLATE_SCOPES_MAX, type BlueprintVersion, type Catalogue, type CatalogueProblem, type CrewDraft, type TemplateReference, type TemplateVersion } from './catalogue.js';
 import type { SourceFile, UnreadTag } from './ports.js';
+import { buildTemplates, referenceKey, untaggedReason, type TemplateLayer } from './template-base.js';
 
 const MINUTES_PER_HOUR = 60;
 const CHECK_IN_MAX_MINUTES = 24 * MINUTES_PER_HOUR;
 const COUNT_MAX = 20;
-/** The most scopes a template names for its ships. */
-const TEMPLATE_SCOPES_MAX = 20;
 
 /**
  * Why a field is refused, as the operator reads it after the field's name:
@@ -102,20 +101,13 @@ function crewOf(crew: z.infer<typeof crewSchema> | undefined): CrewDraft {
   return draft;
 }
 
-/** A `{{name}}` placeholder, filled with a parameter's value. */
-const PLACEHOLDER = /\{\{([^{}]*)\}\}/g;
-
-/** The names a text's placeholders use that are not declared: none when every one is. */
-function undeclared(text: string | undefined, declared: ReadonlySet<string>): string[] {
-  return [...(text ?? '').matchAll(PLACEHOLDER)].map(([, name = '']) => name).filter((name) => !declared.has(name));
-}
-
-const templateSchema = z.object({
+const CHARTER = "the role's instructions as text";
+const charterText = text(CHARTER).refine((charter) => new TextEncoder().encode(charter).length <= CHARTER_MAX_BYTES, 'must be at most 48 KB');
+/** The fields of a template file but its check-in, charter and base. */
+const layerFields = {
   description: text('one line of text'),
-  checkIn,
   model: modelElsewhere,
   launchNote: z.string(expecting('text')).optional(),
-  charter: text("the role's instructions as text").refine((charter) => new TextEncoder().encode(charter).length <= CHARTER_MAX_BYTES, 'must be at most 48 KB'),
   handoffs: handleRecord(text('what the hand-off carries'), 'a mapping of hand-off names, each to what it carries').optional(),
   parameters: handleRecord(text('what the parameter stands for'), 'a mapping of parameter names, each to what it stands for').optional(),
   crew: crewSchema.optional(),
@@ -123,7 +115,9 @@ const templateSchema = z.object({
     .array(scopeNameSchema.or(z.never({ error: () => 'must be a scope <namespace>:<action>' })), expecting('a list of scopes, each <namespace>:<action>'))
     .max(TEMPLATE_SCOPES_MAX, `must be at most ${String(TEMPLATE_SCOPES_MAX)} scopes`)
     .optional(),
-});
+};
+/** A template without a base: today's template, its check-in and charter its own. */
+const templateSchema = z.object({ ...layerFields, checkIn, charter: charterText });
 
 /** `<repository>#<name>@<n>`: a configured repository, a template's or blueprint's name, and its tag's version. */
 export const templateReference = z
@@ -133,6 +127,38 @@ export const templateReference = z
     const [repository = '', rest = ''] = raw.split('#');
     const [name = '', version = ''] = rest.split('@');
     return { repository, name, version: Number(version) };
+  });
+
+/** The longest value a template fills into its base's parameter, in UTF-8 bytes, as a form's. */
+const BASE_VALUE_MAX_BYTES = 1024;
+
+/**
+ * A template on a base (docs/squadrons.md, "Template bases"): the base it
+ * names and the values it fills, and only its description required, its
+ * check-in and charter coming from its base unless it sets them. A charter
+ * that replaces its base's must be given.
+ */
+const layeredSchema = z
+  .object({
+    ...layerFields,
+    checkIn: checkIn.optional(),
+    charter: charterText.optional(),
+    base: z.object(
+      {
+        template: templateReference,
+        parameters: handleRecord(
+          text("the value for the base's parameter").refine((value) => new TextEncoder().encode(value).length <= BASE_VALUE_MAX_BYTES, 'must be at most 1 KB'),
+          "a mapping of the base's parameter names, each to its value",
+        ).optional(),
+        replaceCharter: z.boolean(expecting('true or false')).optional(),
+      },
+      expecting('a mapping holding the base template'),
+    ),
+  })
+  .superRefine((layer, context) => {
+    if (layer.base.replaceCharter === true && layer.charter === undefined) {
+      context.addIssue({ code: 'custom', path: ['charter'], message: `is missing: expected ${CHARTER}, as base.replaceCharter replaces its base's` });
+    }
   });
 
 const COUNT = `a whole number from 1 to ${String(COUNT_MAX)}`;
@@ -168,44 +194,45 @@ function firstIssue(kind: SourceFile['kind'], error: z.ZodError): string {
   return field === '' ? `the ${kind} must be a mapping of its fields` : `${field} ${issue?.message ?? 'is not valid'}`;
 }
 
-function templateOf(file: SourceFile): Result<TemplateVersion, string> {
+function layerOf(file: SourceFile): Result<TemplateLayer, string> {
+  if (hasBase(file.content)) {
+    const parsed = layeredSchema.safeParse(file.content);
+    if (!parsed.success) {
+      return err(firstIssue('template', parsed.error));
+    }
+    const { base, checkIn: checkInMinutes, charter, ...fields } = parsed.data;
+    return ok({
+      ...layerFieldsOf(file, fields),
+      base: { reference: base.template, parameters: base.parameters ?? {}, isCharterReplaced: base.replaceCharter ?? false },
+      checkInMinutes,
+      charter,
+    });
+  }
   const parsed = templateSchema.safeParse(file.content);
   if (!parsed.success) {
     return err(firstIssue('template', parsed.error));
   }
-  const { description, checkIn: checkInMinutes, launchNote, charter, handoffs, parameters, crew, scopes } = parsed.data;
-  const declared = new Set(Object.keys(parameters ?? {}));
-  for (const [field, used] of [
-    ['charter', charter],
-    ['crew.firstPrompt', crew?.firstPrompt],
-  ] as const) {
-    const [unknown] = undeclared(used, declared);
-    if (unknown !== undefined) {
-      return err(`${field} uses {{${unknown}}}, a parameter the template does not declare under parameters`);
-    }
-  }
-  const { repository, name, version, file: path, commit, committedAt } = file;
-  return ok({
-    repository,
-    name,
-    version,
-    file: path,
-    commit,
-    committedAt,
-    description,
-    checkInMinutes,
-    model: crew?.model ?? null,
-    launchNote: launchNote ?? null,
-    charter,
-    handoffs: Object.entries(handoffs ?? {}).map(([handoff, carries]) => ({ name: handoff, carries })),
-    crew: crewOf(crew),
-    parameters: Object.entries(parameters ?? {}).map(([parameter, description]) => ({ name: parameter, description })),
-    scopes: scopes ?? [],
-  });
+  const { checkIn: checkInMinutes, charter, ...fields } = parsed.data;
+  return ok({ ...layerFieldsOf(file, fields), base: null, checkInMinutes, charter });
 }
 
-function keyOf(reference: TemplateReference): string {
-  return `${reference.repository}#${reference.name}@${String(reference.version)}`;
+/** Whether a template file names a base: then its check-in and charter may come from it. */
+function hasBase(content: unknown): boolean {
+  return typeof content === 'object' && content !== null && 'base' in content && content.base !== undefined;
+}
+
+function layerFieldsOf(file: SourceFile, fields: Omit<z.infer<typeof templateSchema>, 'checkIn' | 'charter'>): Omit<TemplateLayer, 'base' | 'checkInMinutes' | 'charter'> {
+  const { description, launchNote, handoffs, parameters, crew, scopes } = fields;
+  return {
+    file,
+    description,
+    launchNote,
+    model: crew?.model,
+    handoffs: Object.entries(handoffs ?? {}).map(([handoff, carries]) => ({ name: handoff, carries })),
+    parameters: Object.entries(parameters ?? {}).map(([parameter, description]) => ({ name: parameter, description })),
+    crew: crewOf(crew),
+    scopes: scopes ?? [],
+  };
 }
 
 /** A tag that names a version: a handle, `@`, and a whole number from 1. */
@@ -232,18 +259,14 @@ function missingReason(reference: TemplateReference, known: Known): string | und
       ? `squadrons knows no repository ${repository}`
       : `squadrons knows no repository ${repository}; it knows ${named}, and a reference must match its name exactly, letter case too`;
   }
-  if (known.templates.has(keyOf(reference))) {
+  if (known.templates.has(referenceKey(reference))) {
     return undefined;
   }
   const versions = known.tagged.get(`${repository}#${name}`) ?? [];
-  if (versions.length === 0) {
-    return `${repository} has no template ${name} at any tag`;
-  }
   if (versions.includes(version)) {
-    return `${keyOf(reference)} is left out itself, for its own reason`;
+    return `${referenceKey(reference)} is left out itself, for its own reason`;
   }
-  const tags = versions.toSorted((one, other) => one - other).map((each) => `${name}@${String(each)}`);
-  return `${repository} has no ${name}@${String(version)}, only ${tags.join(', ')}`;
+  return untaggedReason(reference, versions);
 }
 
 function blueprintOf(file: SourceFile, known: Known): Result<BlueprintVersion, string> {
@@ -265,7 +288,7 @@ function blueprintOf(file: SourceFile, known: Known): Result<BlueprintVersion, s
   const declared = new Set<string>();
   for (const role of roles) {
     const missing = missingReason(role.template, known);
-    const template = known.templates.get(keyOf(role.template));
+    const template = known.templates.get(referenceKey(role.template));
     if (missing !== undefined || !template) {
       return err(`roles.${role.name}.template: ${missing ?? 'is no template'}`);
     }
@@ -274,7 +297,7 @@ function blueprintOf(file: SourceFile, known: Known): Result<BlueprintVersion, s
     }
     const unknown = Object.keys(role.parameters).find((parameter) => !template.parameters.some((each) => each.name === parameter));
     if (unknown !== undefined) {
-      return err(`roles.${role.name}.parameters: ${unknown} is a parameter its template ${keyOf(role.template)} does not declare`);
+      return err(`roles.${role.name}.parameters: ${unknown} is a parameter its template ${referenceKey(role.template)} does not declare`);
     }
   }
 
@@ -324,29 +347,39 @@ function invalidYaml(file: SourceFile & { parseError: string }): string {
  * give one name are all left out, as no one of them is that name, and so is a
  * blueprint named as a template of its repository, which stays.
  */
-export function assembleCatalogue(read: { repositories: readonly string[]; files: readonly SourceFile[]; tags: readonly UnreadTag[] }): Catalogue {
+export function assembleCatalogue(read: {
+  repositories: readonly string[];
+  files: readonly SourceFile[];
+  tags: readonly UnreadTag[];
+  /** Why a repository could not be read at its last fetch, by its name: none when every one was. */
+  fetchFailures?: ReadonlyMap<string, string>;
+}): Catalogue {
   const problems: CatalogueProblem[] = read.tags.map(tagProblem);
   const problemOf = (file: SourceFile, message: string): CatalogueProblem => {
     const { repository, kind, name, version } = file;
     return { repository, kind, name, version, message };
   };
 
-  const templates: TemplateVersion[] = [];
   const templateFiles = read.files.filter((each) => each.kind === 'template');
-  for (const file of templateFiles) {
-    const parsed = file.parseError === undefined ? templateOf(file) : err(invalidYaml({ ...file, parseError: file.parseError }));
-    if (parsed.isOk) {
-      templates.push(parsed.value);
-    } else {
-      problems.push(problemOf(file, parsed.error));
-    }
-  }
-
   const tagged = new Map<string, number[]>();
   for (const { repository, name, version } of templateFiles) {
     tagged.set(`${repository}#${name}`, [...(tagged.get(`${repository}#${name}`) ?? []), version]);
   }
-  const known: Known = { templates: new Map(templates.map((template) => [keyOf(template), template])), tagged, repositories: new Set(read.repositories) };
+  const layers = new Map(
+    templateFiles.map((file) => [referenceKey(file), { file, layer: file.parseError === undefined ? layerOf(file) : err(invalidYaml({ ...file, parseError: file.parseError })) }] as const),
+  );
+  const built = buildTemplates({ layers, tagged, repositories: new Set(read.repositories), fetchFailures: read.fetchFailures ?? new Map() });
+  const templates: TemplateVersion[] = [];
+  for (const file of templateFiles) {
+    const result = built.get(referenceKey(file)) ?? err(`${referenceKey(file)} is no template`);
+    if (result.isOk) {
+      templates.push(result.value);
+    } else {
+      problems.push(problemOf(file, result.error));
+    }
+  }
+
+  const known: Known = { templates: new Map(templates.map((template) => [referenceKey(template), template])), tagged, repositories: new Set(read.repositories) };
   const followingSpec: { file: SourceFile; blueprint: BlueprintVersion }[] = [];
   for (const file of read.files.filter((each) => each.kind === 'blueprint')) {
     const parsed = file.parseError === undefined ? blueprintOf(file, known) : err(invalidYaml({ ...file, parseError: file.parseError }));
