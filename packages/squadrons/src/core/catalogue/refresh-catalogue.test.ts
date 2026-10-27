@@ -136,3 +136,51 @@ describe('refreshing the catalogue', () => {
     expect((await store.list(FLEET)).every((repository) => repository.lastFetch === null)).toBe(true);
   });
 });
+
+/** A template in acme/one on the tester of acme/two. */
+function onTester(): SourceFile {
+  return {
+    ...tester('github.com/acme/one'),
+    name: 'reviewer',
+    file: '.aeolus/squadrons/templates/reviewer.yaml',
+    content: { base: { template: 'github.com/acme/two#tester@1' }, description: 'Reviews.' },
+  };
+}
+
+describe('refreshing a template on a base in another repository', () => {
+  it("names the fetch's reason when the base's repository could not be read", async () => {
+    source.files.set('github.com/acme/one', [onTester()]);
+    source.failing.set('github.com/acme/two', 'GitHub answered 401 Bad credentials: its token cannot read it');
+
+    await refresh(FLEET, 'all');
+
+    expect(holder.get(FLEET).problems.map((problem) => problem.message)).toEqual([
+      'base.template: github.com/acme/two#tester@1 is in github.com/acme/two, which could not be read: GitHub answered 401 Bad credentials: its token cannot read it',
+    ]);
+  });
+
+  it("still names the reason of the base repository's last fetch at a refresh that fetches none", async () => {
+    source.files.set('github.com/acme/one', [onTester()]);
+    source.failing.set('github.com/acme/two', 'GitHub answered 401 Bad credentials: its token cannot read it');
+    await refresh(FLEET, 'all');
+
+    await refresh(FLEET, 'none');
+
+    expect(holder.get(FLEET).problems.map((problem) => problem.message)).toEqual([
+      'base.template: github.com/acme/two#tester@1 is in github.com/acme/two, which could not be read: GitHub answered 401 Bad credentials: its token cannot read it',
+    ]);
+  });
+
+  it("keeps the template built from what its base's repository last read when its next fetch fails", async () => {
+    source.files.set('github.com/acme/one', [onTester()]);
+    await refresh(FLEET, 'all');
+    source.failing.set('github.com/acme/two', 'GitHub could not be reached');
+
+    await refresh(FLEET, 'all');
+
+    expect(holder.get(FLEET).templates.map(({ name, charter }) => ({ name, charter }))).toEqual([
+      { name: 'reviewer', charter: 'You test.' },
+      { name: 'tester', charter: 'You test.' },
+    ]);
+  });
+});
