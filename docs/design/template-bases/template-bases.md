@@ -1,6 +1,6 @@
-# Template bases: stage 1, purpose, lessons, questions
+# Template bases: stage 2, decisions and design
 
-Issue: [aeolus-fleet#1311](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1311). Stage 1 only: no detailed decisions until Thomas agrees the purpose and answers the questions.
+Issue: [aeolus-fleet#1311](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1311).
 
 ## Purpose
 
@@ -26,16 +26,17 @@ Thomas, 26 Oct 2026: "it would be nice if we can make ship templates like Docker
 | Docker | How it works | Fit for ship templates |
 | --- | --- | --- |
 | `FROM image:tag` | A Dockerfile names one base image; everything after it builds on that. One base per stage. | Good: a template names one base template version. |
-| The result is an image | A built image is itself a base for the next `FROM`. Any image runs, a base or not. | Good: a template with a base is a template version like any other. See question 8 for whether a template may be a base only. |
-| Layers | Each instruction adds a layer over the ones below; a file deleted in a later layer still sits in the one below, so nothing is truly removed. | Partly: a template is text and fields, not files, so it can replace a part outright. What it may remove (a hand-off, a scope) is question 3. |
+| The result is an image | A built image is itself a base for the next `FROM`. Any image runs, a base or not. | Good: a template with a base is a template version like any other. Every template stays formable: decision 8. |
+| Layers | Each instruction adds a layer over the ones below; a file deleted in a later layer still sits in the one below, so nothing is truly removed. | Partly: a template is text and fields, not files, so it can replace a part outright. Nothing is removed: decision 3. |
 | `ENV`, `LABEL` | Per key, the later value wins; the rest of the base's keys stay. | Good: matches crew settings today, nearest wins per field, `options` per key ([Crew settings](../../squadrons.md#crew-settings)). |
-| `CMD`, `ENTRYPOINT` | The last one wins whole; there is no "add to the base's command". | The charter is the closest thing: whole replacement alone loses the point of a shared base. Question 1. |
-| `ARG` | A build value, given at build time; an `ARG` of the base is gone once the base is built, and a child declares its own to use one. | Good: a template filling its base's parameters bakes the value in, as a build value does. What stays open is question 2. |
+| `CMD`, `ENTRYPOINT` | The last one wins whole; there is no "add to the base's command". | The charter is the closest thing: added after the base by default, replaced whole when stated: decision 1. |
+| `ARG` | A build value, given at build time; an `ARG` of the base is gone once the base is built, and a child declares its own to use one. | Good: a template filling its base's parameters bakes the value in, as a build value does. A filled parameter is final: decision 2. |
 | `ONBUILD` | Instructions a base sets to run when a child builds on it. Widely found confusing; Docker's docs warn against surprises. | Bad: left out. |
 | Tags and digests | A tag (`node:20`) can be moved to another image; a digest (`@sha256:...`) never changes. Reproducible builds pin by digest. | Good: a version is the tag `<name>@<n>`, which is never moved ([Step by step](../../squadrons.md#step-by-step), step 2), and squadrons records each version's commit, its digest. |
-| A new base does not reach children | A child image keeps the base it was built on until it is built again; tools such as Renovate open pull requests to bump `FROM`. | Good with a price: a squadron never changes, but a fix in a base reaches a child only through a new child version. Question 4. |
-| `docker history`, `docker inspect` | `inspect` shows the final configuration, `history` each layer and the instruction that made it. | Good: the console shows the resolved template, and the chain of bases it came from. Question 6. |
-| Layer limit | An image holds at most 127 layers. | A limit on how deep a chain may go. Question 5. |
+| A new base does not reach children | A child image keeps the base it was built on until it is built again; tools such as Renovate open pull requests to bump `FROM`. | Good with a price: a squadron never changes, but a fix in a base reaches a child only through a new child version: decision 4. |
+| `docker history`, `docker inspect` | `inspect` shows the final configuration, `history` each layer and the instruction that made it. | Good: the console shows the resolved template, and the chain of bases it came from: decision 6. |
+| Layer limit | An image holds at most 127 layers. | A limit on how deep a chain may go: 10, decision 5. |
+| Build cache | A built layer is kept by the hash of what made it and reused until pruned. | Good: a template version is built once into its full template, kept by its hash: [Build and hash](#build-and-hash). |
 | Multi-stage builds, `COPY --from` | Take parts from several images into one. | Bad: two bases is what Thomas's "keep it simple" rules out. |
 
 ### This codebase
@@ -50,84 +51,207 @@ Thomas, 26 Oct 2026: "it would be nice if we can make ship templates like Docker
 - **Shared templates.** ThomasHendrickx/skills holds shared templates in `squadrons/templates/`, configured with `path: squadrons`, tagged `designer@1` beside the skills' own `v3.x` tags, which squadrons ignores (ThomasHendrickx/skills#23). An Aeolus base ship template would live there too.
 - **The designer template.** [designer.yaml](https://github.com/ThomasHendrickx/skills/blob/main/squadrons/templates/designer.yaml) is the clearest case of shared text: about half its charter (report to the lead over the fleet, never ask in the terminal, invent no vocabulary, say each thing once) applies to any ship, not only to a designer.
 
-## Questions for Thomas
+## Decisions
 
-### 1. How a template's charter builds on its base's
+Thomas agreed the purpose as written and answered the stage 1 questions on 27 Oct 2026.
 
-Context: the charter is the role's instructions, most of a template. Docker's `CMD` is replaced whole; replacing whole here means the shared text is copied again, which is the problem. Parameters already give a base named slots a child fills, as `ARG` does.
+1. **The charter.** A template's charter is added after its base's; the template may instead replace its base's charter whole, stated in the file. A part a template should change is a parameter of the base, which the template fills.
+2. **Parameters and crew settings.** A parameter a template fills is final: it is no longer a parameter of that template, and neither a blueprint nor a form sees it. A parameter left open stays open, and the template may declare its own. Crew settings merge base, template, blueprint role, form: nearest wins, `options` per key.
+3. **The other fields.** `checkIn` and `launchNote` a template sets replace its base's; `handoffs` and `scopes` only add, none is removed. Every template has its own `description`.
+4. **The base reference.** One exact version, as a blueprint names one: `<repository>#<name>@<n>`.
+5. **The depth.** Thomas: "Lets pick 10 instead of 5, we'll see what that gets us." A chain holds at most 10 templates, the template itself included; a loop is refused.
+6. **The snapshot.** Each role's template as built, plus its chain. Thomas: "It is the list of bases build on top", base-layer-0 first:
+   ```
+   <base-layer-0>
+   <base-layer-1>
+   <base-layer-2>
+   ...
+   ```
+7. **Where bases live.** Any repository the fleet configured. Thomas: "When loading the templates, squadrons checks if it has access to all required templates (bases included). If not it gives a warning why that template cannot be included and what repository is missing."
+8. **Every template is complete and formable**, a base too.
+9. **Built once, kept.** Thomas: "important --> full template gets build and hashed based on the version. They are kept for x amount of time. Else calculating it every single time from scratch becomes hard, same as the docker images that get build each deploy." A template version is built once into its full template, identified by a hash, and kept; forming and reading use the built one. How long is open question 1.
 
-1. **Replace only.** A child's charter replaces its base's whole. Simplest, but shares no charter text.
-2. **Add only.** A child's charter is added after its base's. Shares text; a child cannot take a sentence back.
-3. **Add by default, replace whole when it says so.** A child's charter is added after its base's; a child may instead replace the base's charter whole, stated in the file. A part a child should change is a parameter of the base, which the child fills.
-4. **Named sections.** A base's charter is split into named sections; a child adds a section, or replaces one by name. Most flexible, and a new structure every template author has to learn.
+## Design
 
-Pick: 3. The shared text is written once, the part a child changes is a parameter (a mechanism that exists), and whole replacement covers the rare child that must not inherit the text. Option 4 is the build language Thomas asked to avoid.
+### The file
 
-### 2. How parameters and crew settings merge along the chain
+A template names its base in one field, `base`, shaped as a blueprint role is: a reference and the values it fills.
 
-Context: today parameters are filled by a blueprint role, then the form; crew settings merge template, role, form, nearest wins, `options` per key. A base adds a layer below. Docker's `ARG` is baked in once built.
+```yaml
+# templates/typescript-implementer.yaml
+base:
+  template: github.com/ThomasHendrickx/skills#implementer@2
+  parameters:
+    language: TypeScript
+description: Implements a slice in a TypeScript repository
+crew:
+  model: claude-opus-5-5
+charter: |
+  Run npm run typecheck before every commit.
+```
 
-1. **A parameter a template fills is final.** A child that fills its base's parameter bakes the value in: it is no longer a parameter of the child, and neither a blueprint nor a form sees it. A parameter the child leaves open stays open for the blueprint and the form, and the child may declare its own. Crew settings merge as today, with the base below the template: base, template, role, form, nearest wins, `options` per key.
-2. **Every filled value is a default.** A filled value can be filled again by any nearer layer (a child, a role, a form). Crew settings as in 1.
-3. **As 1, but crew settings deep merge.** Lists such as `machineLabels` are joined rather than replaced.
+| Field | Required | Rule |
+| --- | --- | --- |
+| `base.template` | yes, with `base` | `<repository>#<name>@<n>`: a repository the fleet configured, a template's name and a version tagged in it. Only tags, letter case exact, as a blueprint's reference |
+| `base.parameters` | no | Values for parameters the base leaves open, by name, each at most 1 KB. A name the base does not leave open is refused, naming the parameters it does |
+| `base.replaceCharter` | no | `true`: this template's `charter` replaces its base's whole, and is then required. Left out: the charter is added after the base's |
 
-Pick: 1. What a template version fills is part of what that version means (a TypeScript implementer that a blueprint can turn into a Go one is no TypeScript implementer), and a value meant to stay open stays a parameter. Crew settings keep the one rule they have.
+With `base`, only `description` is required: `checkIn` and `charter` come from the base unless the template sets them. Without `base`, a template is as today, and nothing about it changes.
 
-### 3. What a child may change of its base's other fields
+### Building
 
-Context: besides the charter, parameters and crew, a template has `description`, `checkIn`, `launchNote`, `handoffs` and `scopes`. In Docker nothing below is truly removed.
+Building a template version walks its chain from base-layer-0, the template without a base, up to the version itself, and applies each layer over the full template below it:
 
-1. **Single values replace, lists add.** `description`, `checkIn` and `launchNote` the child sets replace its base's; `handoffs` and `scopes` it names are added to its base's, and none is removed.
-2. **Every field the child sets replaces its base's whole**, lists too, so a child can drop a hand-off or a scope.
-3. **As 1, with `description` required in every template** so each version in the catalogue says what it is itself.
+| Part | Rule per layer |
+| --- | --- |
+| `charter` | Added after the charter below, one blank line between; replaced whole with `base.replaceCharter: true` |
+| `base.parameters` | Each value is filled into the charter and `crew.firstPrompt` below; the parameter is then no longer the template's |
+| `parameters` | The layer's own, added to those left open below. A name already a parameter below, open or filled, is refused |
+| `description`, `checkIn`, `launchNote` | Set: replaces the one below. `description` is never taken from below |
+| `handoffs` | Added. A name already declared below is refused |
+| `scopes` | Added; one already below is kept once |
+| `crew` | Each field set replaces the one below whole, `options` per key, as a blueprint role does over a template |
 
-Pick: 3. A base's hand-offs are what its charter refers to, so a child dropping one breaks the base's text; a child that needs fewer scopes builds on a smaller base. Scopes added stay within the subset rule, checked at forming as now. Each catalogue entry needs its own one line.
+A placeholder in the layer's own text must be a parameter of the full template at that layer, open or filled by that layer; any other is refused, as today. The full template then holds what a template without a base holds, and every check of today runs on it: the limits, the subset rule for scopes at forming, the blueprint binding exactly its hand-offs.
 
-### 4. How a template names its base
+### Build and hash
 
-Context: a blueprint names a template as `<repository>#<name>@<n>`, an existing tag, and squadrons records its commit. Docker pins by digest for reproducible builds and needs a tool to bump `FROM`.
+A version is built once, when the catalogue is read: at a repository's add, at Refresh and at start. Building needs no more GitHub calls, since every base is a version of a configured repository and read with it.
 
-1. **One exact version, as a blueprint does:** `<repository>#<name>@<n>`. A fix in a base reaches a child only through a new child version naming the new base.
-2. **Exact, with the repository left out meaning the template's own:** `<name>@<n>` as a shorthand.
-3. **A newest version** (`<name>@latest`, or a range), resolved when the catalogue is read.
+- **The hash** is the SHA-256 of the chain, base-layer-0 first: for each layer its repository, name, version, commit and the SHA-256 of its file's text. One chain gives one hash, and one hash one built template.
+- **Kept** in Postgres, per fleet (`fleet_id` and hash), with the chain, the full template, which layer each charter part and field came from, when it was built and when it was last used. A fleet never finds another fleet's built template, so a base read with one fleet's token never reaches another.
+- **Looked up first.** Reading the catalogue computes each version's hash and takes the kept one when there is one; it builds and keeps only what is missing. Two reads building one hash at once keep one: the same chain builds the same template.
+- **Used.** The catalogue, the console and forming read the built template, never the files again. Each use sets its last use.
+- **Deleted** once unused for the time of open question 1, on a fleet's rescan. A version still in the catalogue whose built template was deleted is built again at its next use, from what the catalogue read, to the same hash and the same template. Deleting a fleet forgets its built templates with the rest.
 
-Pick: 1. One reference form everywhere, and a template version means the same text forever, which is what a squadron snapshot and "a squadron never changes" rest on. Option 3 makes `implementer@2` change meaning when a base is tagged. The price is a new child tag per base fix; a helper that bumps bases, like Renovate, can come later as its own issue if wanted.
+### The catalogue's warnings
 
-### 5. How deep a chain may go
+A version that cannot be built is left out of the catalogue, and Settings shows it under its repository with why, as a version left out today. Its blueprints are left out too, naming it.
 
-Context: Thomas's example is three deep (Aeolus base, implementer, TypeScript implementer). Docker stops at 127 layers. Every level is one more file a reader opens to know what a ship gets. Tags make a loop possible (`a@2` names `b@1`, tagged later naming `a@2`).
+| Case | Shown |
+| --- | --- |
+| A base in a repository the fleet has not configured | "typescript-implementer@1 cannot be included: its base github.com/ThomasHendrickx/skills#implementer@2 is in github.com/ThomasHendrickx/skills, which this fleet has not added. Add it under Settings, Repositories." |
+| A base's repository configured but not read (its fetch failed, a private one without a token that reads it) | Names the base, its repository and the fetch's reason |
+| A base at no tag, or a version not tagged | Names the reference, as a blueprint's |
+| A base left out itself | Names the base and its reason; a chain left out low leaves out every version above it |
+| A loop | Names the loop: "a@2 builds on b@1, which builds on a@2" |
+| Too deep | "typescript-implementer@1 builds on 11 templates; a chain holds at most 10", with the chain |
+| A rule of [Building](#building) broken | Names the layer and the field: a parameter not left open, a name declared twice, an undeclared placeholder |
+| A limit broken once built | Names the limit and the full size: a charter over 48 KB, a first prompt over 8 KB, over 20 scopes |
 
-1. **No limit**, a loop refused.
-2. **A small limit**, such as 5 templates in a chain, base included, a loop refused.
-3. **One level**: a base cannot have a base.
+### The snapshot
 
-Pick: 2, at 5. Room for Thomas's example and one more level each side; deeper is a sign the parts want splitting, and the catalogue says so. Option 3 rules out his own example.
+Forming stores each role's built template in the squadron's `templates`, as it stores a template now, and beside it the hash and the chain, base-layer-0 first, each layer's repository, name, version and commit. Adding a member, the flagship and the role message read the snapshot only, as now; a built template deleted later changes nothing. A snapshot from before bases is read as a chain of one, its own version.
 
-### 6. What a squadron's snapshot records
+### The console
 
-Context: the snapshot stores each role's template version as read; adding a member reads it, never the catalogue. Docker keeps both the final configuration (`inspect`) and its layers (`history`).
+Wherever a template version shows (Settings, the blueprint's roles, a squadron's roles), it shows its full template, and Built from, its chain base-layer-0 first:
 
-1. **The resolved template, and its chain by reference.** Each role's template as resolved (one charter, merged fields), as the snapshot holds a template now, plus the list of versions it was built from, each with repository, name, version and commit, for the console.
-2. **Every version in the chain, whole, resolved when read.** The snapshot keeps the files' parts; squadrons merges them each time it needs a member's role.
-3. **The resolved template only.**
+```
+github.com/ThomasHendrickx/skills#aeolus-ship@3      4f2a91c
+github.com/ThomasHendrickx/skills#implementer@2      9b0c1de
+github.com/tidewater-labs/squadron-templates#typescript-implementer@1   e77a020
+```
 
-Pick: 1. The flagship, adding a member and the role message read one resolved template, as they do now, so nothing downstream changes; the chain by reference is enough for the console to show where each version came from. Option 2 makes merging rules part of reading old snapshots forever.
+Each charter part and each field set by a layer is marked with that layer's version, so a reader sees which version gave what.
 
-### 7. Where base templates live
+### Flow
 
-Context: a blueprint may name templates of any configured repository; the shared designer template lives in ThomasHendrickx/skills, configured with `path: squadrons`. A fleet's own repository may hold templates too.
+```mermaid
+flowchart TD
+  A[Add, Refresh or start] --> B[Read each repository's tags and files]
+  B -->|fetch fails| B1[Keep the repository with why and what it last read]
+  B --> C[For each template version: walk its chain]
+  C -->|base repository not added| W1[Leave out: warn which repository is missing]
+  C -->|base repository not read| W2[Leave out: warn with the fetch's reason]
+  C -->|base not tagged or left out| W3[Leave out: name the base and why]
+  C -->|loop| W4[Leave out: name the loop]
+  C -->|over 10 templates| W5[Leave out: name the chain]
+  C --> D[Compute the hash]
+  D --> E{Kept for this fleet?}
+  E -->|yes| F[Use it, set last use]
+  E -->|no| G[Build layer by layer]
+  G -->|rule broken| W6[Leave out: name the layer and field]
+  G -->|limit broken| W7[Leave out: name the limit and size]
+  G --> H[Keep it by fleet and hash]
+  H --> F
+  F --> I[Catalogue: version with its built template]
+  W1 & W2 & W3 & W4 & W5 & W6 & W7 --> J[Its blueprints left out, naming it]
+  I --> K[Form a blueprint]
+  K --> L{Built template kept?}
+  L -->|yes| M[Use it, set last use]
+  L -->|deleted| N[Build again from the catalogue: same hash]
+  N --> M
+  M --> O[Checks of today: scopes subset, hand-offs, form limits]
+  O -->|refused| P[Refused before anything is commissioned]
+  O --> Q[Snapshot: built template, hash, chain]
+  Q --> R[Members check in: one charter, as now]
+  S[Rescan] --> T[Delete built templates unused for the kept time]
+```
 
-1. **Any configured repository.** A base may live in another configured repository than its child; a child whose base's repository is not configured in the fleet is left out of the catalogue, saying which. Shared bases, the Aeolus base ship template first, live in ThomasHendrickx/skills `squadrons/templates/`.
-2. **The child's own repository only.** Simpler to read; a fleet's own template cannot build on a shared base.
-3. **ThomasHendrickx/skills only** for bases.
+## Scenarios
 
-Pick: 1. It is how blueprints already reach templates, and building a fleet's own template on a shared base is the point of sharing. A base is a template, so it needs no folder of its own.
+### How big
 
-### 8. Whether a template may be a base only
+- **Given** a chain of 10 templates, base-layer-0 to the template, **when** the catalogue is read, **then** the template is in the catalogue with its full template and a chain of 10.
+- **Given** a chain of 11, **when** the catalogue is read, **then** the 11th is left out, saying it builds on 11 templates and a chain holds at most 10, and every layer below it stays.
+- **Given** three layers whose charters are 20 KB each, **when** the catalogue is read, **then** the top one is left out: its charter is 60 KB once built, over 48 KB. The two below stay.
+- **Given** a built charter of 48 KB with a `{{area}}` left open, **when** a form fills `area` past 48 KB, **then** forming is refused before anything is commissioned, naming the member, as today.
+- **Given** a base with 15 scopes and a template adding 6 others, **when** the catalogue is read, **then** the template is left out: 21 scopes, over 20.
 
-Context: in Docker any image runs, a base or not. A template today must have `description`, `checkIn` and `charter`, so any template can be formed. An Aeolus base ship template may have no sensible `checkIn` of its own.
+### Who may
 
-1. **Every template is complete and can be formed**, a base too (with a `checkIn` a child may replace).
-2. **A template may say it is a base only:** it may leave out `checkIn`, and no blueprint may name it; the template that builds on it must complete it.
+- **Given** a template in the fleet's own repository whose base is in ThomasHendrickx/skills, which the fleet added, **when** the catalogue is read, **then** it is built and in the catalogue.
+- **Given** a base in a private repository added by fleet A with a token, **when** fleet B, which has not added it, reads a template on that base, **then** B's template is left out, saying which repository is missing, and B finds nothing A built.
+- **Given** a ship holding `squadrons:form`, **when** it forms a blueprint whose role's template has a base, **then** it is formed as any other: bases add no scope and no new check of who may form.
 
-Pick: 1. One kind of file and one rule; a base that can be formed can be tried on its own; a base's `checkIn` is a fair default each child replaces.
+### What when it fails
+
+- **Missing base:** **Given** `implementer@3` names `aeolus-ship@4`, which is not tagged, **when** the catalogue is read, **then** `implementer@3` is left out naming the reference, and so is every blueprint naming it.
+- **Missing repository:** **Given** a base in github.com/ThomasHendrickx/skills, which the fleet has not added, **when** the catalogue is read, **then** the template is left out with a warning naming that repository and saying to add it under Settings, Repositories.
+- **Loop:** **Given** `a@2` names `b@1` and `b@1` names `a@2`, **when** the catalogue is read, **then** both are left out, each naming the loop.
+- **Too deep:** as under How big.
+- **Unreadable version:** **Given** `aeolus-ship@3` is invalid YAML, **when** the catalogue is read, **then** it is left out with why, and each template on it is left out naming `aeolus-ship@3` and its reason.
+- **Rule broken:** **Given** a template whose `base.parameters` fills `lead`, which its base already filled, **when** the catalogue is read, **then** it is left out, saying `lead` is not a parameter its base leaves open, and naming those that are.
+- **A fetch fails:** **Given** the base's repository was read before and its next fetch fails, **when** the catalogue is read, **then** the repository keeps what it last read, and the template stays as built from it.
+
+### The guarantees
+
+- **A squadron never changes.** **Given** a squadron formed from `typescript-implementer@1` on `implementer@2`, **when** `implementer@3` is tagged, or the base's repository is removed, or its built template is deleted, **then** a member added later gets the charter the squadron formed with, read from its snapshot.
+- **A version means the same forever.** **Given** `typescript-implementer@1` built to hash H, **when** the catalogue is read again, after a restart, or after H was deleted, **then** it builds to H and the same full template.
+- **A fix in a base reaches only new versions.** **Given** `implementer@3` fixes `implementer@2`, **when** the catalogue is read, **then** `typescript-implementer@1` still builds on `implementer@2`, and only a `typescript-implementer@2` naming `implementer@3` gets the fix.
+- **Built once.** **Given** H is kept for the fleet, **when** the catalogue is read or a squadron formed, **then** nothing is built again and the last use of H is set.
+- **One build per hash.** **Given** two reads of one catalogue at once, **when** both build H, **then** one built template H is kept, and both use it.
+- **Nothing changes without a base.** **Given** a template without `base` and a snapshot from before bases, **when** the catalogue is read and a member added, **then** both behave as today, the snapshot read as a chain of one.
+
+## Open questions for Thomas
+
+### 1. How long a built template is kept
+
+Context: a built template is kept per fleet by its hash; one deleted is built again at its next use to the same template, from what the catalogue read, without GitHub. A squadron never needs it: its snapshot holds its own copy. So the time trades storage against building again, never correctness.
+
+1. **7 days since last used.**
+2. **30 days since last used.**
+3. **30 days since built**, used or not.
+4. **A setting**, as the forming limits are, 30 days since last used when unset.
+
+Pick: 2. Counting from last use keeps what fleets use and deletes what nobody forms from, as pruning unused images does; 30 days covers a blueprint formed once a month. A setting adds a knob nobody has asked for yet.
+
+### 2. When a version tag is moved
+
+Context: a tag is never to be moved ([Step by step](../../squadrons.md#step-by-step)), but git allows it. Today squadrons reads the tag's new commit. With built templates kept, squadrons can see that `implementer@2` now has another commit than the one it built from. A moved tag gives a new hash, so no squadron changes either way.
+
+1. **Use the new commit, and warn.** The version is built from the new commit; Settings shows "implementer@2 moved from 9b0c1de to 3a7f210: a version tag is never moved".
+2. **Leave the version out** with that warning, until the tag is put back.
+3. **As today:** use the new commit, say nothing.
+
+Pick: 1. Templates on it keep working, and the warning tells the author what broke the rule; option 2 breaks every chain above a moved base.
+
+### 3. When a later squadrons changes how a chain is built
+
+Context: "a version means the same forever" holds while the rules of [Building](#building) hold. A later squadrons might change one (say, the separator between charters).
+
+1. **The rules never change what an existing file builds to.** A new behaviour comes as a new optional field; a file without it builds as before.
+2. **The hash also covers the rules' number.** A changed rule builds anew; a version formed later may then get another full template than one formed before.
+
+Pick: 1. It keeps the guarantee whole; option 2 breaks it with each change.
