@@ -140,7 +140,7 @@ beforeEach(async () => {
   await giveOperatorLogin(fleetDatabase, founded.fleetId);
   fleetId = founded.fleetId;
   const commissioned = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'fleet:on-behalf'] }),
   );
   management = { shipId: commissioned.shipId, secret: secretOf(commissioned.secret) };
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
