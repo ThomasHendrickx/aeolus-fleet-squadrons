@@ -19,6 +19,7 @@ function tester(repository: string): SourceFile {
     file: '.aeolus/squadrons/templates/tester.yaml',
     commit: 'c1',
     committedAt: ADDED,
+    text: 'description: Tests.',
     content: { description: 'Tests.', checkIn: '30m', charter: 'You test.' },
   };
 }

@@ -60,6 +60,7 @@ describe('the GitHub repository reader', () => {
       file: '.aeolus/squadrons/templates/tester.yaml',
       commit: tester2.sha,
       committedAt: new Date('2026-10-02T10:00:00.000Z'),
+      text: 'description: Tests well.\ncheckIn: 15m\ncharter: You test.\n',
       content: { description: 'Tests well.', checkIn: '15m', charter: 'You test.' },
     });
   });

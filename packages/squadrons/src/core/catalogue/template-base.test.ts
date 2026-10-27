@@ -10,7 +10,7 @@ const KB = 1024;
 
 function layer(tagged: { repository?: string; name: string; version: number; commit?: string }, content: unknown): SourceFile {
   const { repository = SKILLS, name, version, commit = `${name}-${String(version)}` } = tagged;
-  return { repository, kind: 'template', name, version, file: `squadrons/templates/${name}.yaml`, commit, committedAt: AT, content };
+  return { repository, kind: 'template', name, version, file: `squadrons/templates/${name}.yaml`, commit, committedAt: AT, text: JSON.stringify(content), content };
 }
 
 function catalogueOf(files: SourceFile[], options: { repositories?: string[]; fetchFailures?: ReadonlyMap<string, string> } = {}) {
@@ -187,6 +187,7 @@ describe('a template on a base', () => {
       file: 'squadrons/blueprints/team.yaml',
       commit: 'team-1',
       committedAt: AT,
+      text: 'description: A team.',
       content: { description: 'A team.', roles: { builder: { template: `${OWN}#typescript-implementer@1` } }, handoffs: { 'builder.report': 'flagship' } },
     };
 

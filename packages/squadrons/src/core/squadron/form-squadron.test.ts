@@ -708,6 +708,7 @@ describe('forming from a template on a base', () => {
     file: `squadrons/${tagged.kind}s/${tagged.name}.yaml`,
     commit: `c-${tagged.name}`,
     committedAt: AT,
+    text: JSON.stringify(content),
     content,
   });
   /** A catalogue of builders@1, one builder on builder@1, which builds on aeolus-ship@1 of another repository. */

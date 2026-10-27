@@ -8,11 +8,11 @@ const REPO = 'github.com/thomashendrickx/squadron-templates';
 const AT = new Date('2026-10-03T08:00:00.000Z');
 
 function template(tagged: { name: string; version: number }, content: unknown): SourceFile {
-  return { repository: REPO, kind: 'template', ...tagged, file: `squadrons/templates/${tagged.name}.yaml`, commit: `c0ffee${String(tagged.version)}`, committedAt: AT, content };
+  return { repository: REPO, kind: 'template', ...tagged, file: `squadrons/templates/${tagged.name}.yaml`, commit: `c0ffee${String(tagged.version)}`, committedAt: AT, text: JSON.stringify(content), content };
 }
 
 function blueprint(tagged: { name: string; version: number }, content: unknown): SourceFile {
-  return { repository: REPO, kind: 'blueprint', ...tagged, file: `squadrons/blueprints/${tagged.name}.yaml`, commit: `b1ue${String(tagged.version)}`, committedAt: AT, content };
+  return { repository: REPO, kind: 'blueprint', ...tagged, file: `squadrons/blueprints/${tagged.name}.yaml`, commit: `b1ue${String(tagged.version)}`, committedAt: AT, text: JSON.stringify(content), content };
 }
 
 /** The catalogue of the files and tags read from REPO, the one repository squadrons is given. */

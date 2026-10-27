@@ -10,6 +10,8 @@ export interface SourceFile {
   /** The commit the tag points at. */
   commit: string;
   committedAt: Date;
+  /** The YAML as read, which a built template's hash covers. */
+  text: string;
   /** The YAML, parsed; whatever it holds is checked here. */
   content: unknown;
   /** Why the YAML could not be parsed, when it could not. */
