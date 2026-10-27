@@ -424,8 +424,8 @@ describe('the hash of a built template', () => {
 });
 
 describe('labels on a template', () => {
-  const labelled = (labels: unknown, base = false) =>
-    layer({ repository: OWN, name: 'labelled', version: 1 }, base ? { base: { template: `${SKILLS}#aeolus-ship@3` }, description: 'Labelled.', labels } : { description: 'Labelled.', checkIn: '1h', charter: 'Go.', labels });
+  const labelled = (labels: unknown, isOnBase = false) =>
+    layer({ repository: OWN, name: 'labelled', version: 1 }, isOnBase ? { base: { template: `${SKILLS}#aeolus-ship@3` }, description: 'Labelled.', labels } : { description: 'Labelled.', checkIn: '1h', charter: 'Go.', labels });
 
   it('are read as key=value, each a label every member formed from it carries', () => {
     expect(builtOf([labelled(['team=platform', 'tier=one'])], 'labelled')?.labels).toEqual([

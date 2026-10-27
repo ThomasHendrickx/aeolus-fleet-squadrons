@@ -4,6 +4,7 @@ import type { FleetDoor, FleetRefusal, ManagementCrew, ManagementCrewStore } fro
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { OperatorNotices, SquadronRepository } from '../squadron/ports.js';
+import { templateOf } from '../squadron/squadron.js';
 import type { LabelledShip, ListedLabel, NetworkDoor } from './ports.js';
 
 /** The label that names each squadron's ships by its id, for reach within the squadron (#573). Membership stays the ship type. */
@@ -39,7 +40,8 @@ const NO_LABEL_SCOPES = 'its management ship holds no label scopes, and scopes n
  * "Labels and reach"). squadrons defines squadron, with a value per squadron
  * that is not disbanded, and squadron-role, which it owns. Each such
  * squadron's flagship carries squadron=<id> and squadron-role=flagship, each
- * member that serves squadron=<id>, and squadrons' own ship
+ * member that serves squadron=<id> and its template's labels, under keys
+ * squadrons defines when the fleet has none, and squadrons' own ship
  * squadron-role=squadrons. The wanted value goes on first, then any other
  * value of the label comes off. A value no ship carries any more and no
  * squadron needs is removed; a squadron the 50 values leave out is not
@@ -81,7 +83,9 @@ export function createLabelSquadrons(deps: {
     for (const squadron of serving) {
       wanted.set(squadron.flagship.shipId, { [SQUADRON_LABEL]: squadron.id, [SQUADRON_ROLE_LABEL.key]: SQUADRON_ROLE_LABEL.flagship });
       for (const member of squadron.members.filter((each) => each.retiredAt === null)) {
-        wanted.set(member.shipId, { [SQUADRON_LABEL]: squadron.id });
+        // Its template's labels, as built, beside its squadron; a template never sets squadron or squadron-role.
+        const own = Object.fromEntries((templateOf(squadron, member)?.labels ?? []).map(({ key, value }) => [key, value]));
+        wanted.set(member.shipId, { ...own, [SQUADRON_LABEL]: squadron.id });
       }
     }
     const done = await labelPass(deps.door, { crew, wanted, squadronIds: serving.map((squadron) => squadron.id) });
@@ -143,6 +147,20 @@ async function labelPass(door: NetworkDoor, pass: { crew: ManagementCrew; wanted
     outcome.defined += squadron.value.isDefined ? 1 : 0;
     outcome.valuesChanged += squadron.value.isChanged ? 1 : 0;
   }
+  // Each key a member's template labels it with, defined by squadrons when the fleet has none; one another ship owns is left alone.
+  const templateKeys = [...new Set([...wanted.values()].flatMap((values) => Object.keys(values)))].filter((key) => key !== SQUADRON_LABEL && key !== SQUADRON_ROLE_LABEL.key);
+  for (const key of templateKeys) {
+    const needed = [...new Set([...wanted.values()].flatMap((values) => values[key] ?? []))];
+    const owned = await ownedLabel(door, { crew, listed: listed.value ?? [], key, values: (existing) => keptValues({ label: existing, needed, ships: fleetShips }) });
+    if (!owned.isOk) {
+      return owned;
+    }
+    if (owned.value !== undefined) {
+      labels.push(owned.value.label);
+      outcome.defined += owned.value.isDefined ? 1 : 0;
+      outcome.valuesChanged += owned.value.isChanged ? 1 : 0;
+    }
+  }
   const labelled = squadron.value?.label.values.map((value) => value.value) ?? [];
   // A key another ship owns leaves every squadron unlabelled by its own choice, not by the limit.
   outcome.unlabelled = squadron.value === undefined && listed.value?.some((each) => each.key === SQUADRON_LABEL) === true ? [] : squadronIds.filter((id) => !labelled.includes(id));
@@ -176,10 +194,18 @@ async function labelPass(door: NetworkDoor, pass: { crew: ManagementCrew; wanted
  * new squadrons are left out.
  */
 function squadronValues(of: { label: ListedLabel | undefined; squadronIds: string[]; ships: LabelledShip[] }): string[] {
+  return keptValues({ label: of.label, needed: of.squadronIds, ships: of.ships });
+}
+
+/**
+ * A label's values from now on: those it has that a ship carries or that
+ * are needed, in their order, then each new one needed, up to the limit.
+ */
+function keptValues(of: { label: ListedLabel | undefined; needed: readonly string[]; ships: LabelledShip[] }): string[] {
   const existing = of.label?.values ?? [];
   const isCarried = (valueId: LabelValueId): boolean => of.ships.some((ship) => ship.labels.some((each) => each.valueId === valueId));
-  const kept = existing.filter((value) => of.squadronIds.includes(value.value) || isCarried(value.valueId)).map((value) => value.value);
-  const added = of.squadronIds.filter((id) => !existing.some((value) => value.value === id));
+  const kept = existing.filter((value) => of.needed.includes(value.value) || isCarried(value.valueId)).map((value) => value.value);
+  const added = of.needed.filter((value) => !existing.some((each) => each.value === value));
   return [...kept, ...added].slice(0, LABEL_VALUES_MAX);
 }
 
