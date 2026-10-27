@@ -341,9 +341,10 @@ const TYPESCRIPT_IMPLEMENTER = {
 };
 
 describe('a squadron formed from a template on a base', () => {
-  it('keeps the built template with its chain, base-layer-0 first, and which layer gave each part', async () => {
+  it('keeps the built template with its hash and its chain, base-layer-0 first, and which layer gave each part', async () => {
     const built = {
       ...TYPESCRIPT_IMPLEMENTER,
+      hash: '4f2a91c0d1e2f3a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c',
       chain: [
         { repository: 'github.com/ThomasHendrickx/skills', name: 'implementer', version: 2, commit: 'i2' },
         { repository: REPO, name: 'typescript-implementer', version: 1, commit: 't1' },
@@ -368,12 +369,13 @@ describe('a squadron formed from a template on a base', () => {
 });
 
 describe('a squadron formed before template bases', () => {
-  it('reads each template as a chain of one, its own version, giving its whole charter', async () => {
+  it('reads each template as a chain of one, its own version, giving its whole charter, with no hash', async () => {
     await prisma.$executeRaw`UPDATE squadrons SET templates = ${JSON.stringify([TYPESCRIPT_IMPLEMENTER])}::jsonb`;
 
     const [stored] = await createPrismaSquadronRepository(prisma, clock).list(FLEET);
 
     expect(stored?.templates[0]).toMatchObject({
+      hash: null,
       chain: [{ repository: REPO, name: 'typescript-implementer', version: 1, commit: 't1' }],
       origins: { charter: [{ layer: 0, text: 'Report to the flagship.\n\nRun npm run typecheck.' }], fields: {}, filled: [] },
     });

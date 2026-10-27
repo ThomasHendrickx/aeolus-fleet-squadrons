@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 
 import { assembleCatalogue } from './assemble-catalogue.js';
+import type { TemplateVersion } from './catalogue.js';
 import type { SourceFile } from './ports.js';
 
 const OWN = 'github.com/tidewater-labs/squadron-templates';
@@ -13,8 +14,22 @@ function layer(tagged: { repository?: string; name: string; version: number; com
   return { repository, kind: 'template', name, version, file: `squadrons/templates/${name}.yaml`, commit, committedAt: AT, text: JSON.stringify(content), content };
 }
 
-function catalogueOf(files: SourceFile[], options: { repositories?: string[]; fetchFailures?: ReadonlyMap<string, string> } = {}) {
-  return assembleCatalogue({ repositories: options.repositories ?? [OWN, SKILLS], files, tags: [], ...(options.fetchFailures === undefined ? {} : { fetchFailures: options.fetchFailures }) });
+/** A hash a reader can follow: what it hashes, in sha(...). */
+function sha(text: string): string {
+  return `sha(${text})`;
+}
+
+function catalogueOf(files: SourceFile[], options: { repositories?: string[]; fetchFailures?: ReadonlyMap<string, string>; buildRules?: number; kept?: readonly TemplateVersion[] } = {}) {
+  const { repositories = [OWN, SKILLS], fetchFailures, buildRules, kept } = options;
+  return assembleCatalogue({
+    repositories,
+    files,
+    tags: [],
+    hash: sha,
+    ...(fetchFailures === undefined ? {} : { fetchFailures }),
+    ...(buildRules === undefined ? {} : { buildRules }),
+    ...(kept === undefined ? {} : { kept }),
+  });
 }
 
 function reasonOf(files: SourceFile[], name: string): string | undefined {
@@ -351,5 +366,52 @@ describe('the guarantees', () => {
 
   it('builds a template without a base as today, as a chain of one', () => {
     expect(builtOf(chain, 'aeolus-ship')?.chain).toEqual([{ repository: SKILLS, name: 'aeolus-ship', version: 3, commit: 'aeolus-ship-3' }]);
+  });
+});
+
+describe('the hash of a built template', () => {
+  const plain = layer({ repository: OWN, name: 'plain', version: 1 }, { base: { template: `${SKILLS}#aeolus-ship@3`, parameters: { lead: 'argo' } }, description: 'Plain.' });
+  const hashOf = (files: SourceFile[], options: Parameters<typeof catalogueOf>[1] = {}) => catalogueOf(files, options).templates.find((template) => template.name === 'plain')?.hash;
+
+  it("is the SHA-256 of the build rules number and its chain, base-layer-0 first: each layer's repository, name, version, commit and its file's SHA-256", () => {
+    const chainText = [
+      `{"repository":"${SKILLS}","name":"aeolus-ship","version":3,"commit":"aeolus-ship-3","file":"sha(${aeolusShip.text})"}`,
+      `{"repository":"${OWN}","name":"plain","version":1,"commit":"plain-1","file":"sha(${plain.text})"}`,
+    ];
+
+    expect(hashOf([aeolusShip, plain])).toBe(`sha({"buildRules":1,"chain":[${chainText.join(',')}]})`);
+  });
+
+  it('builds one chain to the same hash and the same full template whenever it is read', () => {
+    expect(catalogueOf([aeolusShip, plain]).templates).toEqual(catalogueOf([aeolusShip, plain]).templates);
+  });
+
+  it('builds a version whose tag was moved from its new commit to a new hash, with no warning', () => {
+    const moved = { ...aeolusShip, commit: '3a7f210' };
+
+    expect(hashOf([moved, plain])).not.toBe(hashOf([aeolusShip, plain]));
+    expect(catalogueOf([moved, plain]).problems).toEqual([]);
+  });
+
+  it("builds anew to another hash once a file's text changes at its commit", () => {
+    expect(hashOf([{ ...aeolusShip, text: `${aeolusShip.text} ` }, plain])).not.toBe(hashOf([aeolusShip, plain]));
+  });
+
+  it('builds anew to another hash under a raised build rules number', () => {
+    expect(hashOf([aeolusShip, plain], { buildRules: 2 })).not.toBe(hashOf([aeolusShip, plain]));
+  });
+
+  it('keeps the hash of a version on its base when a new version of the base is tagged', () => {
+    const next = layer({ name: 'aeolus-ship', version: 4 }, { description: 'Fixed.', checkIn: '30m', charter: 'Report to {{lead}}, briefly.', parameters: { lead: 'the lead' } });
+
+    expect(hashOf([aeolusShip, next, plain])).toBe(hashOf([aeolusShip, plain]));
+  });
+
+  it('takes a built template kept by its hash rather than building it again', () => {
+    const built = catalogueOf([aeolusShip, plain]).templates.find((template) => template.name === 'plain');
+    assert(built !== undefined);
+    const kept = { ...built, description: 'As kept.' };
+
+    expect(catalogueOf([aeolusShip, plain], { kept: [kept] }).templates.find((template) => template.name === 'plain')).toEqual(kept);
   });
 });
