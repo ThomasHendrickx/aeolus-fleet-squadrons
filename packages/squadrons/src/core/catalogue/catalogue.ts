@@ -42,6 +42,12 @@ export interface TemplateVersion {
   parameters: { name: string; description: string }[];
   /** The scopes its ships get at commission, granted by squadrons within the subset rule (decision 0017). */
   scopes: string[];
+  /**
+   * What it is built from, as one SHA-256: the build rules number and its
+   * chain (docs/squadrons.md, "Built once"). Null in a snapshot from before
+   * template bases.
+   */
+  hash: string | null;
   /** The versions it is built from, base-layer-0 first and itself last: one, itself, without a base. */
   chain: ChainLayer[];
   /** Which layer of its chain gave each part of it. */

@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { fakeCatalogueSource, memoryCatalogueHolder, memoryRepositoryStore } from '../../../test/support/memory-catalogue.js';
+import { fakeCatalogueSource, memoryCatalogueHolder, memoryRepositoryStore, readableHash } from '../../../test/support/memory-catalogue.js';
 import type { SourceFile } from './ports.js';
 import { createRefreshCatalogue } from './refresh-catalogue.js';
 
@@ -33,7 +33,7 @@ beforeEach(async () => {
   store = memoryRepositoryStore();
   source = fakeCatalogueSource();
   holder = memoryCatalogueHolder();
-  refresh = createRefreshCatalogue({ store, source, holder, clock: { now: () => NOW } });
+  refresh = createRefreshCatalogue({ store, source, holder, clock: { now: () => NOW }, hash: readableHash });
   for (const name of ['github.com/acme/one', 'github.com/acme/two']) {
     await store.add({ fleetId: FLEET, name, url: `https://${name}`, path: '.aeolus/squadrons', token: name.endsWith('two') ? 'ghp_two' : null, addedAt: ADDED, lastFetch: null });
     source.files.set(name, [tester(name)]);
@@ -120,7 +120,7 @@ describe('refreshing the catalogue', () => {
   it('runs the next refresh after one that failed', async () => {
     let isDown = true;
     const flaky = { ...store, list: (fleetId: FleetId) => (isDown ? Promise.reject(new Error('database down')) : store.list(fleetId)) };
-    const refreshing = createRefreshCatalogue({ store: flaky, source, holder, clock: { now: () => NOW } });
+    const refreshing = createRefreshCatalogue({ store: flaky, source, holder, clock: { now: () => NOW }, hash: readableHash });
     await expect(refreshing(FLEET, 'all')).rejects.toThrow('database down');
     isDown = false;
 

@@ -26,6 +26,8 @@ interface RefreshDeps {
   source: RepositoryReader;
   holder: CatalogueHolder;
   clock: Clock;
+  /** A text's SHA-256, in hex. */
+  hash: (text: string) => string;
 }
 
 export function createRefreshCatalogue(deps: RefreshDeps): RefreshCatalogue {
@@ -54,5 +56,5 @@ async function refresh(deps: RefreshDeps, { fleetId, scope }: { fleetId: FleetId
       fetchFailures.set(name, error);
     }
   }
-  deps.holder.set(fleetId, assembleCatalogue({ repositories: repositories.map((repository) => repository.name), files, tags, fetchFailures }));
+  deps.holder.set(fleetId, assembleCatalogue({ repositories: repositories.map((repository) => repository.name), files, tags, fetchFailures, hash: deps.hash }));
 }

@@ -8,6 +8,7 @@ import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
 import { createRestScopeDoor } from './adapters/fleet/rest-scope-door.js';
 import { createRestNetworkDoor } from './adapters/fleet/rest-network-door.js';
 import { sha256RequestHasher } from './adapters/crypto/request-hasher.js';
+import { sha256 } from './adapters/crypto/sha256.js';
 import { createGithubRepositoryReader } from './adapters/github/github-repository-reader.js';
 import { createPrismaFleetForgetter } from './adapters/prisma/fleet-forgetter.js';
 import { createPrismaFleetSwitches } from './adapters/prisma/fleet-switches.js';
@@ -156,6 +157,7 @@ export function createSquadronsApp(options: {
       },
     },
     clock,
+    hash: sha256,
   });
   // Each connected fleet's catalogue, fetched; one fleet's failure leaves the others' as they are.
   const refreshFleet = async (fleetId: FleetId, scope: RefreshScope): Promise<void> => {

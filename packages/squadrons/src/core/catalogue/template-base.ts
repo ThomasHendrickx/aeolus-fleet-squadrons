@@ -17,6 +17,13 @@ import type { SourceFile } from './ports.js';
 /** The most templates a chain holds, the template itself included (decision 5). */
 export const CHAIN_MAX_TEMPLATES = 10;
 
+/**
+ * The build rules number, which every hash covers: raised whenever a rule
+ * of building changes, so each version builds anew under the new rules
+ * (decision 11).
+ */
+export const BUILD_RULES = 1;
+
 const BYTES_PER_KB = 1024;
 /** Tenths per whole: a size over a limit is shown to one decimal, rounded up. */
 const TENTHS = 10;
@@ -123,6 +130,7 @@ function rootOf(layer: TemplateLayer & { base: null }): Result<TemplateVersion, 
     crew: layer.crew,
     parameters: layer.parameters,
     scopes: layer.scopes,
+    hash: null,
     chain: [linkOf(layer.file)],
     origins: { charter: [{ layer: 0, text: layer.charter }], fields: fieldsSetBy(layer, 0), filled: [] },
   });
@@ -195,6 +203,7 @@ function buildOn(below: TemplateVersion, layer: TemplateLayer & { base: Base }):
     crew,
     parameters: [...below.parameters.filter((parameter) => !(parameter.name in values)), ...layer.parameters],
     scopes: [...new Set([...below.scopes, ...layer.scopes])],
+    hash: null,
     chain: [...below.chain, linkOf(layer.file)],
     origins,
   });
@@ -240,6 +249,44 @@ export interface ToBuild {
   repositories: ReadonlySet<string>;
   /** Why a repository could not be read at its last fetch, by its name. */
   fetchFailures: ReadonlyMap<string, string>;
+  /** A text's SHA-256, in hex. */
+  hash: (text: string) => string;
+  buildRules: number;
+  /** Templates built before, by their hash: taken instead of building them again. */
+  kept: ReadonlyMap<string, TemplateVersion>;
+}
+
+/** The files of a version's chain, base-layer-0 first: undefined while a layer is missing, is no layer, or the chain loops or runs over 10. */
+function chainFilesOf(key: string, layers: ToBuild['layers']): SourceFile[] | undefined {
+  const files: SourceFile[] = [];
+  let next: string | undefined = key;
+  while (next !== undefined) {
+    const entry = layers.get(next);
+    if (entry === undefined || !entry.layer.isOk || files.length === CHAIN_MAX_TEMPLATES) {
+      return undefined;
+    }
+    files.unshift(entry.file);
+    next = baseKeyOf(entry);
+  }
+  return files;
+}
+
+/** The hash of a chain under a build rules number: one chain, one hash, one built template. */
+function hashOfChain(files: readonly SourceFile[], input: Pick<ToBuild, 'hash' | 'buildRules'>): string {
+  const chain = files.map((file) => ({ ...linkOf(file), file: input.hash(file.text) }));
+  return input.hash(JSON.stringify({ buildRules: input.buildRules, chain }));
+}
+
+/** The hash of every version whose chain can be walked, by its reference key, so what was built before can be looked up first. */
+export function chainHashes(input: Pick<ToBuild, 'layers' | 'hash' | 'buildRules'>): Map<string, string> {
+  const hashes = new Map<string, string>();
+  for (const key of input.layers.keys()) {
+    const files = chainFilesOf(key, input.layers);
+    if (files !== undefined) {
+      hashes.set(key, hashOfChain(files, input));
+    }
+  }
+  return hashes;
 }
 
 /** The base each layer names, by key: none for one without a base or that is no layer. */
@@ -285,14 +332,18 @@ function baseMissingReason(layer: { file: SourceFile; reference: TemplateReferen
  */
 export function buildTemplates(input: ToBuild): Map<string, Result<TemplateVersion, string>> {
   const built = new Map<string, Result<TemplateVersion, string>>();
+  const hashes = chainHashes(input);
   const build = (key: string): Result<TemplateVersion, string> => {
     const known = built.get(key);
     if (known !== undefined) {
       return known;
     }
-    const result = buildOne(key);
-    built.set(key, result);
-    return result;
+    const hash = hashes.get(key);
+    const kept = hash === undefined ? undefined : input.kept.get(hash);
+    const result = kept === undefined ? buildOne(key) : ok(kept);
+    const hashed = result.isOk && hash !== undefined ? ok({ ...result.value, hash }) : result;
+    built.set(key, hashed);
+    return hashed;
   };
   const buildOne = (key: string): Result<TemplateVersion, string> => {
     const entry = input.layers.get(key);

@@ -6,6 +6,7 @@ import type { FleetId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createGithubRepositoryReader } from '../src/adapters/github/github-repository-reader.js';
+import { sha256 } from '../src/adapters/crypto/sha256.js';
 import { assembleCatalogue } from '../src/core/catalogue/assemble-catalogue.js';
 import { memberCrewOf } from '../src/core/catalogue/member-crew.js';
 import { DEFAULT_PATH } from '../src/core/catalogue/template-repository.js';
@@ -53,7 +54,7 @@ describe('the example squadron files', () => {
       [{ fleetId: FLEET, name: REPOSITORY.name, url: `https://${REPOSITORY.name}`, path: DEFAULT_PATH, token: null }],
       { fetch: () => true },
     );
-    const catalogue = assembleCatalogue({ repositories: [REPOSITORY.name], files: read, tags });
+    const catalogue = assembleCatalogue({ repositories: [REPOSITORY.name], files: read, tags, hash: sha256 });
 
     expect(catalogue.problems).toEqual([]);
     expect(catalogue.templates.map((template) => `${template.name}@${String(template.version)}`).sort()).toEqual(['implementer@1', 'planner@1', 'reviewer@1', 'tester@1']);
@@ -68,7 +69,7 @@ describe('the example squadron files', () => {
       [{ fleetId: FLEET, name: REPOSITORY.name, url: `https://${REPOSITORY.name}`, path: DEFAULT_PATH, token: null }],
       { fetch: () => true },
     );
-    const catalogue = assembleCatalogue({ repositories: [REPOSITORY.name], files: read, tags });
+    const catalogue = assembleCatalogue({ repositories: [REPOSITORY.name], files: read, tags, hash: sha256 });
     const role = catalogue.blueprints.find((blueprint) => blueprint.name === 'tidewater-fix')?.roles.find((each) => each.name === 'implementer');
     const template = catalogue.templates.find((each) => each.name === 'implementer');
     if (role === undefined || template === undefined) {

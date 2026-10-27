@@ -716,6 +716,7 @@ describe('forming from a template on a base', () => {
     return assembleCatalogue({
       repositories: [REPO, SKILLS],
       tags: [],
+      hash: (text) => `sha(${text})`,
       files: [
         file({ repository: SKILLS, kind: 'template', name: 'aeolus-ship' }, { description: 'Any ship.', checkIn: '30m', charter: baseCharter, scopes: ['fleet:read'] }),
         file({ repository: REPO, kind: 'template', name: 'builder' }, { base: { template: `${SKILLS}#aeolus-ship@1` }, description: 'Builds.', charter: 'Work on {{area}}.', parameters: { area: 'what to build' } }),

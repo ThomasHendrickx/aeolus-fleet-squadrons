@@ -17,7 +17,7 @@ function blueprint(tagged: { name: string; version: number }, content: unknown):
 
 /** The catalogue of the files and tags read from REPO, the one repository squadrons is given. */
 function catalogueOf(files: SourceFile[], tags: UnreadTag[] = []) {
-  return assembleCatalogue({ repositories: [REPO], files, tags });
+  return assembleCatalogue({ repositories: [REPO], files, tags, hash: (text) => `sha(${text})` });
 }
 
 const tester = {
@@ -56,7 +56,7 @@ describe('a ship template', () => {
   it('reads its description, check-in interval in minutes, pinned model from crew.model, launch note, charter and hand-offs, as a chain of one', () => {
     const { templates: read } = catalogueOf([template({ name: 'tester', version: 4 }, tester)]);
 
-    expect(read).toEqual([
+    expect(read.map((template) => ({ ...template, hash: 'checked apart' }))).toEqual([
       {
         repository: REPO,
         name: 'tester',
@@ -76,6 +76,7 @@ describe('a ship template', () => {
         crew: {},
         parameters: [],
         scopes: [],
+        hash: 'checked apart',
         chain: [{ repository: REPO, name: 'tester', version: 4, commit: 'c0ffee4' }],
         origins: {
           charter: [{ layer: 0, text: tester.charter }],
@@ -383,7 +384,7 @@ describe('why a version is left out', () => {
 
   it('finds the templates of a repository it is given that holds no version yet', () => {
     const content = { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: 'github.com/acme/empty#tester@1' } } };
-    const { problems } = assembleCatalogue({ repositories: [REPO, 'github.com/acme/empty'], files: [...templates, blueprint({ name: 'hemma-feature', version: 4 }, content)], tags: [] });
+    const { problems } = assembleCatalogue({ repositories: [REPO, 'github.com/acme/empty'], files: [...templates, blueprint({ name: 'hemma-feature', version: 4 }, content)], tags: [], hash: (text) => `sha(${text})` });
 
     expect(problems.map((problem) => problem.message)).toEqual(['roles.tester.template: github.com/acme/empty has no template tester at any tag']);
   });

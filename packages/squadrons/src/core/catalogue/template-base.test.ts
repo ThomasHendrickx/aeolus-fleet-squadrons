@@ -82,9 +82,12 @@ function chainOf(length: number, charterOf: (number: number) => string = (number
   });
 }
 
+/** Where a test of the whole built template leaves out its hash: "the hash of a built template" tests it. */
+const HASH_CHECKED_APART = 'checked apart';
+
 describe('a template on a base', () => {
   it('is built from its chain, base-layer-0 first, into one full template', () => {
-    expect(builtOf(chain, 'typescript-implementer')).toEqual({
+    expect({ ...builtOf(chain, 'typescript-implementer'), hash: HASH_CHECKED_APART }).toEqual({
       repository: OWN,
       name: 'typescript-implementer',
       version: 1,
@@ -100,6 +103,7 @@ describe('a template on a base', () => {
       crew: { harness: 'claude-code', options: { effort: 'high', verbosity: 'low' } },
       parameters: [],
       scopes: ['notes:read'],
+      hash: HASH_CHECKED_APART,
       chain: [
         { repository: SKILLS, name: 'aeolus-ship', version: 3, commit: 'aeolus-ship-3' },
         { repository: SKILLS, name: 'implementer', version: 2, commit: 'implementer-2' },
@@ -375,11 +379,11 @@ describe('the hash of a built template', () => {
 
   it("is the SHA-256 of the build rules number and its chain, base-layer-0 first: each layer's repository, name, version, commit and its file's SHA-256", () => {
     const chainText = [
-      `{"repository":"${SKILLS}","name":"aeolus-ship","version":3,"commit":"aeolus-ship-3","file":"sha(${aeolusShip.text})"}`,
-      `{"repository":"${OWN}","name":"plain","version":1,"commit":"plain-1","file":"sha(${plain.text})"}`,
+      `{"repository":"${SKILLS}","name":"aeolus-ship","version":3,"commit":"aeolus-ship-3","file":"sha(base text)"}`,
+      `{"repository":"${OWN}","name":"plain","version":1,"commit":"plain-1","file":"sha(plain text)"}`,
     ];
 
-    expect(hashOf([aeolusShip, plain])).toBe(`sha({"buildRules":1,"chain":[${chainText.join(',')}]})`);
+    expect(hashOf([{ ...aeolusShip, text: 'base text' }, { ...plain, text: 'plain text' }])).toBe(`sha({"buildRules":1,"chain":[${chainText.join(',')}]})`);
   });
 
   it('builds one chain to the same hash and the same full template whenever it is read', () => {

@@ -95,6 +95,11 @@ export function fakeCatalogueSource(): RepositoryReader & {
   return source;
 }
 
+/** A hash a reader can follow, standing in for SHA-256: what it hashes, in sha(...). */
+export function readableHash(text: string): string {
+  return `sha(${text})`;
+}
+
 const EMPTY: Catalogue = { templates: [], blueprints: [], problems: [] };
 
 /** The catalogue holder in memory, one catalogue per fleet. */
