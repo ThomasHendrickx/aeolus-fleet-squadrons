@@ -207,3 +207,19 @@ model Relay {
   @@id([fleetId, relayMessageId])
   @@map("relays")
 }
+
+/// A template version built over its chain of bases, kept per fleet by its
+/// hash (docs/squadrons.md, "Built once"): one hash, one built template.
+/// Deleted once unused for the kept time, at the fleet's rescan.
+model BuiltTemplate {
+  fleetId    String   @map("fleet_id")
+  hash       String
+  chain      Json
+  template   Json
+  builtAt    DateTime @map("built_at") @db.Timestamptz(3)
+  lastUsedAt DateTime @map("last_used_at") @db.Timestamptz(3)
+
+  @@id([fleetId, hash])
+  @@index([fleetId, lastUsedAt])
+  @@map("built_templates")
+}

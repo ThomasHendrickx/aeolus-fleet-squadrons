@@ -68,7 +68,7 @@ afterEach(async () => {
 describe('the built template store', () => {
   it('keeps a built template by fleet and hash, whole, with its chain, built and last used when first used', async () => {
     const store = createPrismaBuiltTemplateStore(prisma);
-    await store.use(FLEET, [aBuiltTemplate('h1')], BUILT);
+    await store.use(FLEET, { templates: [aBuiltTemplate('h1')], at: BUILT });
 
     await expect(store.find(FLEET, ['h1', 'h2'])).resolves.toEqual([aBuiltTemplate('h1')]);
     await expect(timesOf(FLEET)).resolves.toEqual({ h1: { builtAt: BUILT, lastUsedAt: BUILT } });
@@ -76,9 +76,9 @@ describe('the built template store', () => {
 
   it('sets its last use at each use, and keeps when it was built and what it holds', async () => {
     const store = createPrismaBuiltTemplateStore(prisma);
-    await store.use(FLEET, [aBuiltTemplate('h1')], BUILT);
+    await store.use(FLEET, { templates: [aBuiltTemplate('h1')], at: BUILT });
 
-    await store.use(FLEET, [{ ...aBuiltTemplate('h1'), description: 'Built again to the same hash.' }], LATER);
+    await store.use(FLEET, { templates: [{ ...aBuiltTemplate('h1'), description: 'Built again to the same hash.' }], at: LATER });
 
     await expect(timesOf(FLEET)).resolves.toEqual({ h1: { builtAt: BUILT, lastUsedAt: LATER } });
     await expect(store.find(FLEET, ['h1'])).resolves.toEqual([aBuiltTemplate('h1')]);
@@ -87,7 +87,7 @@ describe('the built template store', () => {
   it('keeps one built template per hash when two reads keep it at once, and both use it', async () => {
     const store = createPrismaBuiltTemplateStore(prisma);
 
-    await Promise.all([store.use(FLEET, [aBuiltTemplate('h1')], BUILT), store.use(FLEET, [aBuiltTemplate('h1')], BUILT)]);
+    await Promise.all([store.use(FLEET, { templates: [aBuiltTemplate('h1')], at: BUILT }), store.use(FLEET, { templates: [aBuiltTemplate('h1')], at: BUILT })]);
 
     await expect(prisma.builtTemplate.count({ where: { fleetId: FLEET } })).resolves.toBe(1);
     await expect(store.find(FLEET, ['h1'])).resolves.toEqual([aBuiltTemplate('h1')]);
@@ -95,16 +95,16 @@ describe('the built template store', () => {
 
   it('finds nothing another fleet built, though of the same hash', async () => {
     const store = createPrismaBuiltTemplateStore(prisma);
-    await store.use(FLEET, [aBuiltTemplate('h1')], BUILT);
+    await store.use(FLEET, { templates: [aBuiltTemplate('h1')], at: BUILT });
 
     await expect(store.find(OTHER_FLEET, ['h1'])).resolves.toEqual([]);
   });
 
   it('deletes the built templates a fleet last used before a time, and keeps the others and every other fleet\'s', async () => {
     const store = createPrismaBuiltTemplateStore(prisma);
-    await store.use(FLEET, [aBuiltTemplate('old'), aBuiltTemplate('recent')], BUILT);
-    await store.use(FLEET, [aBuiltTemplate('recent')], LATER);
-    await store.use(OTHER_FLEET, [aBuiltTemplate('old')], BUILT);
+    await store.use(FLEET, { templates: [aBuiltTemplate('old'), aBuiltTemplate('recent')], at: BUILT });
+    await store.use(FLEET, { templates: [aBuiltTemplate('recent')], at: LATER });
+    await store.use(OTHER_FLEET, { templates: [aBuiltTemplate('old')], at: BUILT });
 
     await expect(store.deleteUnusedSince(FLEET, LATER)).resolves.toBe(1);
 
