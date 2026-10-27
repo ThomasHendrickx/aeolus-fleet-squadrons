@@ -212,6 +212,7 @@ flowchart TD
 - **Given** a template sets `team` twice, **when** the catalogue is read, **then** it is left out: a member carries one value of a label.
 - **Given** a squadron formed from a template labelled `company=aeolus` in a fleet with no label `company`, **when** squadrons labels its squadrons, **then** squadrons defines `company` and every member carries `company=aeolus` and `squadron=<id>`; the flagship carries none of the template's.
 - **Given** the label `company` is owned by the ship company-registry, **when** a blueprint whose template sets `company=aeolus` is formed, **then** forming is refused before anything is commissioned, naming `company` and company-registry.
+- **Given** the label `company` is owned by squadrons and holds 50 values that ships carry, **when** a blueprint whose template sets `company=aeolus`, a 51st value, is formed, **then** forming is refused before anything is commissioned, naming `company` and its limit of 50 values.
 
 ### Who may
 
