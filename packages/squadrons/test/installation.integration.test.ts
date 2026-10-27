@@ -170,9 +170,10 @@ describe('an enabled installation, with an installation token', () => {
       squadronsDatabase.installationRequest.count(where),
       squadronsDatabase.formRefusal.count(where),
       squadronsDatabase.relay.count(where),
+      squadronsDatabase.builtTemplate.count(where),
     ]);
     await squadronsDatabase.$disconnect();
-    expect(left).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(left).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
   it('answers a replayed request id with its first answer, and refuses one used for another request', async () => {

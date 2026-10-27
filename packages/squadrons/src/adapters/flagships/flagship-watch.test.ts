@@ -636,3 +636,36 @@ describe("a fleet's rescans (#626)", () => {
     expect(done).toEqual(['declared', 'withdrawn']);
   });
 });
+
+describe("each fleet's built templates", () => {
+  it('unused for the kept time are deleted at every rescan of a fleet squadrons serves', async () => {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    await store.save({ fleetId: OTHER_FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_other', crewedAt: AT });
+    const deleted: string[] = [];
+    const watch = watchFlagships({
+      door: fakeManagementFleet().door,
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
+      handle: (): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept')),
+      advanceStandDowns: () => Promise.resolve(),
+      recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: (fleetId) => {
+        deleted.push(fleetId);
+        return Promise.resolve(0);
+      },
+      isServed: (fleetId) => Promise.resolve(fleetId === FLEET_ID),
+      operator: { tell: () => Promise.resolve() },
+      reach: untouchedReach,
+      turns: createFleetTurns(),
+      log: silentLog,
+      rescanMs: 60_000,
+    });
+
+    await watch.rescan();
+    await watch.rescan();
+    await watch.stop();
+
+    expect(deleted).toEqual([FLEET_ID, FLEET_ID]);
+  });
+});
