@@ -1,6 +1,6 @@
 /**
  * Asks the fleet whether a forwarded console session cookie is a signed-in
- * operator's or a viewer's, with its scopes, with `console.session`
+ * operator's, viewer's or account's, with its scopes, with `console.session`
  * (decisions 0012 and 0022): the cookie travels from the web app's server,
  * server to server.
  */
