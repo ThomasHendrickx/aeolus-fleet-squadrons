@@ -35,6 +35,7 @@ function aBuiltTemplate(hash: string): TemplateVersion {
     crew: { harness: 'claude-code', options: { effort: 'high' } },
     parameters: [],
     scopes: ['notes:read'],
+    labels: [{ key: 'company', value: 'aeolus' }],
     hash,
     chain: [
       { repository: SKILLS, name: 'implementer', version: 2, commit: '9b0c1de' },

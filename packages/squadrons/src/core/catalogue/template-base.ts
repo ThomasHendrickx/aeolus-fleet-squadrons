@@ -7,12 +7,15 @@
  * A chain holds at most 10 templates and never loops; the full template is
  * then held to every limit a template without a base is.
  */
-import { FIRST_PROMPT_MAX_BYTES } from '@aeolus-fleet/common';
+import { FIRST_PROMPT_MAX_BYTES, SHIP_LABELS_MAX } from '@aeolus-fleet/common';
 
 import { err, ok, type Result } from '../shared/result.js';
 import { CHARTER_MAX_BYTES, TEMPLATE_SCOPES_MAX, type ChainLayer, type CrewDraft, type TemplateOrigins, type TemplateReference, type TemplateVersion } from './catalogue.js';
 import { fillParameters } from './member-crew.js';
 import type { SourceFile } from './ports.js';
+
+/** The most labels a template gives its members: as many as a ship carries, but squadrons' own squadron=<id>. */
+const TEMPLATE_LABELS_MAX = SHIP_LABELS_MAX - 1;
 
 /** The most templates a chain holds, the template itself included (decision 5). */
 export const CHAIN_MAX_TEMPLATES = 10;
@@ -41,6 +44,7 @@ interface LayerFields {
   parameters: { name: string; description: string }[];
   crew: CrewDraft;
   scopes: string[];
+  labels: { key: string; value: string }[];
 }
 
 /** A template's base: the version it names, the values it fills, and whether its charter replaces the base's. */
@@ -96,6 +100,7 @@ function fieldsSetBy(layer: TemplateLayer, index: number): Record<string, number
     ...Object.keys(crew.options ?? {}).map((option) => `crew.options.${option}`),
     ...layer.handoffs.map((handoff) => `handoffs.${handoff.name}`),
     ...layer.scopes.map((scope) => `scopes.${scope}`),
+    ...layer.labels.map((label) => `labels.${label.key}`),
     ...layer.parameters.map((parameter) => `parameters.${parameter.name}`),
   ];
   return Object.fromEntries(paths.map((path) => [path, index]));
@@ -130,6 +135,7 @@ function rootOf(layer: TemplateLayer & { base: null }): Result<TemplateVersion, 
     crew: layer.crew,
     parameters: layer.parameters,
     scopes: layer.scopes,
+    labels: layer.labels,
     hash: null,
     chain: [linkOf(layer.file)],
     origins: { charter: [{ layer: 0, text: layer.charter }], fields: fieldsSetBy(layer, 0), filled: [] },
@@ -156,6 +162,11 @@ function ruleBroken(below: TemplateVersion, layer: TemplateLayer & { base: Base 
     if (unknown !== undefined) {
       return `${field} uses {{${unknown}}}, which is neither a parameter the template declares nor one its base leaves open`;
     }
+  }
+  const relabelled = layer.labels.find((label) => below.labels.some((each) => each.key === label.key && each.value !== label.value));
+  const was = below.labels.find((each) => each.key === relabelled?.key);
+  if (relabelled !== undefined && was !== undefined) {
+    return `labels.${relabelled.key} is ${was.key}=${was.value} in its base: a template adds labels, and never changes one`;
   }
   const declaredBelow = layer.handoffs.find((handoff) => below.handoffs.some((each) => each.name === handoff.name));
   if (declaredBelow !== undefined) {
@@ -203,6 +214,7 @@ function buildOn(below: TemplateVersion, layer: TemplateLayer & { base: Base }):
     crew,
     parameters: [...below.parameters.filter((parameter) => !(parameter.name in values)), ...layer.parameters],
     scopes: [...new Set([...below.scopes, ...layer.scopes])],
+    labels: [...below.labels, ...layer.labels.filter((label) => !below.labels.some((each) => each.key === label.key))],
     hash: null,
     chain: [...below.chain, linkOf(layer.file)],
     origins,
@@ -211,10 +223,10 @@ function buildOn(below: TemplateVersion, layer: TemplateLayer & { base: Base }):
 
 /**
  * The fields a layer sets that replace the one below: every field it sets
- * but a scope its base already has, which is kept once, from below.
+ * but a scope or label its base already has, which is kept once, from below.
  */
 function fieldsReplacedBy(layer: TemplateLayer, index: number): Record<string, number> {
-  return Object.fromEntries(Object.entries(fieldsSetBy(layer, index)).filter(([path]) => !path.startsWith('scopes.')));
+  return Object.fromEntries(Object.entries(fieldsSetBy(layer, index)).filter(([path]) => !path.startsWith('scopes.') && !path.startsWith('labels.')));
 }
 
 /** A size in KB to one decimal, rounded up, so a size over a limit never reads as the limit. */
@@ -235,6 +247,9 @@ function overLimit(template: TemplateVersion): string | undefined {
   }
   if (template.scopes.length > TEMPLATE_SCOPES_MAX) {
     return `scopes are ${String(template.scopes.length)} once built, over ${String(TEMPLATE_SCOPES_MAX)}`;
+  }
+  if (template.labels.length > TEMPLATE_LABELS_MAX) {
+    return `labels are ${String(template.labels.length)} once built, over ${String(TEMPLATE_LABELS_MAX)}: a member carries at most ${String(SHIP_LABELS_MAX)} labels, squadron among them`;
   }
   return undefined;
 }

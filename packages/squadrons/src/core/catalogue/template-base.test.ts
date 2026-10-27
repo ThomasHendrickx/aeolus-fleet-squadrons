@@ -46,6 +46,7 @@ const aeolusShip = layer(
     parameters: { lead: 'the ship you report to' },
     handoffs: { report: 'What was done' },
     scopes: ['notes:read'],
+    labels: ['company=aeolus'],
     crew: { harness: 'claude-code', options: { effort: 'high' } },
   },
 );
@@ -103,6 +104,7 @@ describe('a template on a base', () => {
       crew: { harness: 'claude-code', options: { effort: 'high', verbosity: 'low' } },
       parameters: [],
       scopes: ['notes:read'],
+      labels: [{ key: 'company', value: 'aeolus' }],
       hash: HASH_CHECKED_APART,
       chain: [
         { repository: SKILLS, name: 'aeolus-ship', version: 3, commit: 'aeolus-ship-3' },
@@ -125,6 +127,7 @@ describe('a template on a base', () => {
           'crew.options.verbosity': 1,
           'handoffs.report': 0,
           'scopes.notes:read': 0,
+          'labels.company': 0,
         },
         filled: [
           { name: 'lead', layer: 1 },
@@ -417,5 +420,54 @@ describe('the hash of a built template', () => {
     const kept = { ...built, description: 'As kept.' };
 
     expect(catalogueOf([aeolusShip, plain], { kept: [kept] }).templates.find((template) => template.name === 'plain')).toEqual(kept);
+  });
+});
+
+describe('labels on a template', () => {
+  const labelled = (labels: unknown, isOnBase = false) =>
+    layer({ repository: OWN, name: 'labelled', version: 1 }, isOnBase ? { base: { template: `${SKILLS}#aeolus-ship@3` }, description: 'Labelled.', labels } : { description: 'Labelled.', checkIn: '1h', charter: 'Go.', labels });
+
+  it('are read as key=value, each a label every member formed from it carries', () => {
+    expect(builtOf([labelled(['team=platform', 'tier=one'])], 'labelled')?.labels).toEqual([
+      { key: 'team', value: 'platform' },
+      { key: 'tier', value: 'one' },
+    ]);
+  });
+
+  it('are none when a template sets none', () => {
+    expect(builtOf([layer({ name: 'plain', version: 1 }, { description: 'Plain.', checkIn: '1h', charter: 'Go.' })], 'plain')?.labels).toEqual([]);
+  });
+
+  it('refuse a label that is no key=value', () => {
+    expect(reasonOf([labelled(['company'])], 'labelled')).toBe('labels.0 must be key=value: a label key and one of its values, each lowercase letters, digits and hyphens');
+  });
+
+  it('refuse squadron and squadron-role: squadrons puts them on its ships itself', () => {
+    expect(reasonOf([labelled(['squadron=mine'])], 'labelled')).toBe('labels.0 uses squadron, a label squadrons puts on its ships itself');
+    expect(reasonOf([labelled(['squadron-role=member'])], 'labelled')).toBe('labels.0 uses squadron-role, a label squadrons puts on its ships itself');
+  });
+
+  it('refuse a key given twice in one template', () => {
+    expect(reasonOf([labelled(['team=platform', 'team=web'])], 'labelled')).toBe('labels.1 gives team again: a member carries one value of a label');
+  });
+
+  it("are added to its base's, keeping one its base has once", () => {
+    expect(builtOf([aeolusShip, labelled(['company=aeolus', 'team=platform'], true)], 'labelled')?.labels).toEqual([
+      { key: 'company', value: 'aeolus' },
+      { key: 'team', value: 'platform' },
+    ]);
+  });
+
+  it("never replace a label of its base: another value of a key its base set is refused", () => {
+    expect(reasonOf([aeolusShip, labelled(['company=tidewater'], true)], 'labelled')).toBe('labels.company is company=aeolus in its base: a template adds labels, and never changes one');
+  });
+
+  it('leave out a template with more labels than a member carries beside its squadron, 19 once built', () => {
+    const labels = (from: number, count: number) => Array.from({ length: count }, (_, index) => `key-${String(from + index)}=value`);
+    const base = layer({ name: 'base', version: 1 }, { description: 'Base.', checkIn: '1h', charter: 'Go.', labels: labels(1, 10) });
+    const more = (count: number) => layer({ repository: OWN, name: 'more', version: 1 }, { base: { template: `${SKILLS}#base@1` }, description: 'More.', labels: labels(11, count) });
+
+    expect(builtOf([base, more(9)], 'more')?.labels).toHaveLength(19);
+    expect(reasonOf([base, more(10)], 'more')).toBe('labels are 20 once built, over 19: a member carries at most 20 labels, squadron among them');
   });
 });

@@ -139,7 +139,8 @@ export function createSquadronsApp(options: {
   const catalogues = new Map<FleetId, Catalogue>();
   const catalogueOf = (fleetId: FleetId): Catalogue => catalogues.get(fleetId) ?? { templates: [], blueprints: [], problems: [] };
   const builtTemplates = createPrismaBuiltTemplateStore(prisma);
-  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, built: builtTemplates, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
+  const network = watchNetworkLease(createRestNetworkDoor(options.fleetUrl), store);
+  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, built: builtTemplates, labels: network, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
   // A new squadron's flagship starts receiving at once, not at the next rescan.
   const formAndWatch: FormSquadron = async (input) => {
     const formed = await formSquadron(input);
@@ -213,7 +214,6 @@ export function createSquadronsApp(options: {
       catalogues.delete(fleetId);
     },
   };
-  const network = watchNetworkLease(createRestNetworkDoor(options.fleetUrl), store);
   // What this process declared to each fleet, so a pass declares or withdraws only what changed.
   const declarations: Declarations = new Map();
   const withdraw = createWithdrawNetworkRules({ door: network, management: store, declarations });

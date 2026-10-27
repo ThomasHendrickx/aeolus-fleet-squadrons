@@ -42,6 +42,8 @@ export interface TemplateVersion {
   parameters: { name: string; description: string }[];
   /** The scopes its ships get at commission, granted by squadrons within the subset rule (decision 0017). */
   scopes: string[];
+  /** The labels every member formed from it carries, beside squadrons' own squadron=<id>; squadrons owns each key. */
+  labels: { key: string; value: string }[];
   /**
    * What it is built from, as one SHA-256: the build rules number and its
    * chain (docs/squadrons.md, "Built once"). Null in a snapshot from before

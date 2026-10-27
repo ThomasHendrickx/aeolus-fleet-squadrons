@@ -76,6 +76,7 @@ describe('a ship template', () => {
         crew: {},
         parameters: [],
         scopes: [],
+        labels: [],
         hash: 'checked apart',
         chain: [{ repository: REPO, name: 'tester', version: 4, commit: 'c0ffee4' }],
         origins: {

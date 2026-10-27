@@ -37,6 +37,8 @@ export const templateSchema: z.ZodType<TemplateVersion> = z
     parameters: z.array(z.object({ name: z.string(), description: z.string() })).default([]),
     // Snapshots stored before templates named scopes grant none.
     scopes: z.array(z.string()).default([]),
+    // Snapshots stored before templates gave labels give none.
+    labels: z.array(z.object({ key: z.string(), value: z.string() })).default([]),
     // Snapshots stored before template bases have no hash, chain or origins: each is read as a chain of one, its own version, below.
     hash: z.string().nullable().default(null),
     chain: z.array(z.object({ repository: z.string(), name: z.string(), version: z.number(), commit: z.string() })).optional(),

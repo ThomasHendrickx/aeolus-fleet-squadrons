@@ -172,7 +172,7 @@ beforeEach(() => {
   refusals = [];
   const door = fleetDoor();
   const attempts = memoryAttempts();
-  const form = createFormSquadron({ door, management, squadrons, attempts, built: memoryBuiltTemplates(), catalogue: () => catalogue, random: { suffix: (length) => 'k3x9abcd'.slice(0, length) }, clock: { now: () => AT }, limits: NO_LIMITS });
+  const form = createFormSquadron({ door, management, squadrons, attempts, built: memoryBuiltTemplates(), labels: { listLabels: () => Promise.resolve(ok([])) }, catalogue: () => catalogue, random: { suffix: (length) => 'k3x9abcd'.slice(0, length) }, clock: { now: () => AT }, limits: NO_LIMITS });
   handle = createHandleManagementDelivery({ door, squadrons, refusals: formRefusals, form, operator });
 });
 
