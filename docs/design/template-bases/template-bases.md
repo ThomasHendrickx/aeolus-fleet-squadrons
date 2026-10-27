@@ -72,6 +72,7 @@ Thomas agreed the purpose as written and answered the stage 1 and stage 2 questi
 9. **Built once, kept.** Thomas: "important --> full template gets build and hashed based on the version. They are kept for x amount of time. Else calculating it every single time from scratch becomes hard, same as the docker images that get build each deploy." A template version is built once into its full template, identified by a hash, and kept; forming and reading use the built one. A built template is kept 30 days since last used.
 10. **A moved version tag.** A tag is not to be moved, but if it is, squadrons uses its new commit silently, with no warning. Thomas: "I would keep 3 .. if someone wants to change it .. It is the same as using alpine@latest in docker ... it changes, deal with it. You need to trust the basis you use. That is not aeolus to concern about. If this becomes an issue, we will deal with it later." The hash follows the commit, so a moved tag builds to a new hash, and no squadron changes.
 11. **A change of the build rules.** The hash also covers a build rules number, which squadrons raises when a rule of [Building](#building) changes. A changed rule builds anew. Thomas: "indeed we are not yet 1.0".
+12. **Labels.** Thomas approved for 0.32.4: a template declares labels, each `key=value`, and every member formed from it carries them, beside squadrons' own `squadron=<id>`. Labels build along the chain as hand-offs do: a child adds, and never removes. For example, the company base sets `company=aeolus`. squadrons owns each key, as core lets a ship put only labels it owns on ships: it defines a key the fleet does not have when a template first uses it, and forming with a template whose label key another ship owns is refused before anything is commissioned, naming the key and its owner. `squadron` and `squadron-role` are squadrons' own, and refused in a template.
 
 ## Design
 
@@ -112,6 +113,7 @@ Building a template version walks its chain from base-layer-0, the template with
 | `description`, `checkIn`, `launchNote` | Set: replaces the one below. `description` is never taken from below |
 | `handoffs` | Added. A name already declared below is refused |
 | `scopes` | Added; one already below is kept once |
+| `labels` | Added; one already below is kept once. Another value of a key already below is refused: a child adds labels, and never removes or changes one |
 | `crew` | Each field set replaces the one below whole, `options` per key, as a blueprint role does over a template |
 
 A placeholder in the layer's own text must be a parameter of the full template at that layer, open or filled by that layer; any other is refused, as today. The full template then holds what a template without a base holds, and every check of today runs on it: the limits, the subset rule for scopes at forming, the blueprint binding exactly its hand-offs.
@@ -139,7 +141,7 @@ A version that cannot be built is left out of the catalogue, and Settings shows 
 | A loop | Names the loop: "a@2 builds on b@1, which builds on a@2" |
 | Too deep | "typescript-implementer@1 builds on 11 templates; a chain holds at most 10", with the chain |
 | A rule of [Building](#building) broken | Names the layer and the field: a parameter not left open, a name declared twice, an undeclared placeholder |
-| A limit broken once built | Names the limit and the full size: a charter over 48 KB, a first prompt over 8 KB, over 20 scopes |
+| A limit broken once built | Names the limit and the full size: a charter over 48 KB, a first prompt over 8 KB, over 20 scopes, over 19 labels (a ship carries 20, `squadron=<id>` among them) |
 
 ### The snapshot
 
@@ -200,6 +202,16 @@ flowchart TD
 - **Given** three layers whose charters are 20 KB each, **when** the catalogue is read, **then** the top one is left out: its charter is 60 KB once built, over 48 KB. The two below stay.
 - **Given** a built charter of 48 KB with a `{{area}}` left open, **when** a form fills `area` past 48 KB, **then** forming is refused before anything is commissioned, naming the member, as today.
 - **Given** a base with 15 scopes and a template adding 6 others, **when** the catalogue is read, **then** the template is left out: 21 scopes, over 20.
+- **Given** a base with 10 labels and a template adding 10 others, **when** the catalogue is read, **then** the template is left out: 20 labels, over 19. With 9 others it is built.
+
+### Labels
+
+- **Given** the company base sets `company=aeolus` and an implementer builds on it with `team=platform`, **when** the catalogue is read, **then** the implementer's labels are `company=aeolus` and `team=platform`.
+- **Given** a template on the company base sets `company=tidewater`, **when** the catalogue is read, **then** it is left out: a template adds labels, and never changes one.
+- **Given** a template sets `squadron=mine` or `squadron-role=member`, **when** the catalogue is read, **then** it is left out: squadrons puts those labels on its ships itself.
+- **Given** a template sets `team` twice, **when** the catalogue is read, **then** it is left out: a member carries one value of a label.
+- **Given** a squadron formed from a template labelled `company=aeolus` in a fleet with no label `company`, **when** squadrons labels its squadrons, **then** squadrons defines `company` and every member carries `company=aeolus` and `squadron=<id>`; the flagship carries none of the template's.
+- **Given** the label `company` is owned by the ship company-registry, **when** a blueprint whose template sets `company=aeolus` is formed, **then** forming is refused before anything is commissioned, naming `company` and company-registry.
 
 ### Who may
 
