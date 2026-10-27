@@ -1,4 +1,4 @@
-import { FIRST_PROMPT_MAX_BYTES, idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { FIRST_PROMPT_MAX_BYTES, LABEL_VALUES_MAX, idSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { assembleCatalogue } from '../catalogue/assemble-catalogue.js';
@@ -12,7 +12,7 @@ import type { Squadron } from './squadron.js';
 import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { SquadronRepository } from './ports.js';
-import type { ListedLabel } from '../network/ports.js';
+import type { LabelledShip, ListedLabel } from '../network/ports.js';
 import { templateOfOne } from '../../../test/support/template-version.js';
 import { memoryBuiltTemplates } from '../../../test/support/memory-catalogue.js';
 
@@ -212,6 +212,8 @@ let form: FormSquadron;
 let built: ReturnType<typeof memoryBuiltTemplates>;
 /** The fleet's labels, as fleet.labels lists them. */
 let listedLabels: ListedLabel[];
+/** The fleet's ships with the label values they carry, as the network door lists them. */
+let labelledShips: LabelledShip[];
 
 function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogue; limits?: SquadronLimits } = {}): FormSquadron {
   return createFormSquadron({
@@ -220,7 +222,7 @@ function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogu
     squadrons,
     attempts,
     built,
-    labels: { listLabels: () => Promise.resolve(ok(listedLabels)) },
+    labels: { listLabels: () => Promise.resolve(ok(listedLabels)), listLabelledShips: () => Promise.resolve(ok(labelledShips)) },
     // The catalogue is held per fleet: another fleet's holds nothing here.
     catalogue: (fleetId) => (fleetId === OTHER_FLEET ? { templates: [], blueprints: [], problems: [] } : (overrides.catalogue ?? catalogue)),
     // The names come from the list; an attempt's longer suffix only tells attempts apart.
@@ -236,6 +238,7 @@ beforeEach(() => {
   squadrons = memorySquadrons(attempts);
   built = memoryBuiltTemplates();
   listedLabels = [];
+  labelledShips = [];
   suffixes = ['a1b2c3', 'k3x9', 'm4p7', 'q8r2'];
   form = formWith();
 });
@@ -804,5 +807,19 @@ describe('forming from a template on a base', () => {
       { key: 'company', value: 'aeolus' },
       { key: 'team', value: 'platform' },
     ]);
+  });
+
+  it('refuses a template label value its key has no room for, naming the key and its limit, and commissions nothing', async () => {
+    const valueIds = Array.from({ length: LABEL_VALUES_MAX }, (_, index) => idSchema('labelValue').parse(`lbv_01m3tbfspe96yf1rnr4ank${String(index).padStart(4, '0')}`));
+    listedLabels = [{ labelId: 'lbl_01m3tbfspe96yf1rnr4ank9c01', key: 'company', values: valueIds.map((valueId, index) => ({ valueId, value: `company-${String(index)}` })), ownerShipId: MANAGEMENT }];
+    labelledShips = valueIds.map((valueId, index) => ({ shipId: idSchema('ship').parse(`shp_01m3tbfspe96yf1rnr4ank${String(index).padStart(4, '0')}`), labels: [{ labelId: 'lbl_01m3tbfspe96yf1rnr4ank9c01', valueId }] }));
+
+    const formed = await formWith({ catalogue: basedCatalogue('Report over the fleet.', ['company=aeolus']) })(fromBuilders);
+
+    expect(formed).toEqual({
+      isOk: false,
+      error: { kind: 'FORMING_FAILED', message: `The template builder@1 labels its members company=aeolus, but the label company holds at most ${String(LABEL_VALUES_MAX)} values and ships carry them all, so nothing was formed` },
+    });
+    expect(fleet.state.ships).toEqual([]);
   });
 });
