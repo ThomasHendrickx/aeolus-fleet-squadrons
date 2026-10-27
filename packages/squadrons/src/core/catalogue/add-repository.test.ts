@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { fakeCatalogueSource, memoryCatalogueHolder, memoryRepositoryStore, readableHash } from '../../../test/support/memory-catalogue.js';
+import { fakeCatalogueSource, memoryCatalogueHolder, memoryRepositoryStore, memoryBuiltTemplates, readableHash } from '../../../test/support/memory-catalogue.js';
 import { createAddRepository } from './add-repository.js';
 import { createRefreshCatalogue } from './refresh-catalogue.js';
 
@@ -16,7 +16,7 @@ beforeEach(() => {
   store = memoryRepositoryStore();
   source = fakeCatalogueSource();
   const clock = { now: () => NOW };
-  addRepository = createAddRepository({ store, refresh: createRefreshCatalogue({ store, source, holder: memoryCatalogueHolder(), clock, hash: readableHash }), clock });
+  addRepository = createAddRepository({ store, refresh: createRefreshCatalogue({ store, source, holder: memoryCatalogueHolder(), built: memoryBuiltTemplates(), clock, hash: readableHash }), clock });
 });
 
 describe('adding a template repository', () => {

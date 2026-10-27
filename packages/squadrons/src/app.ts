@@ -13,6 +13,7 @@ import { createGithubRepositoryReader } from './adapters/github/github-repositor
 import { createPrismaFleetForgetter } from './adapters/prisma/fleet-forgetter.js';
 import { createPrismaFleetSwitches } from './adapters/prisma/fleet-switches.js';
 import { createPrismaInstallationRequests } from './adapters/prisma/installation-requests.js';
+import { createPrismaBuiltTemplateStore } from './adapters/prisma/built-template-store.js';
 import { createPrismaRepositoryStore } from './adapters/prisma/repository-store.js';
 import { runningVersion } from './adapters/http/version.js';
 import { checkDatabase, createPrismaClient } from './adapters/prisma/client.js';
@@ -146,6 +147,7 @@ export function createSquadronsApp(options: {
     return formed;
   };
   const repositories = createPrismaRepositoryStore(prisma);
+  const builtTemplates = createPrismaBuiltTemplateStore(prisma);
   const source = createGithubRepositoryReader(options.githubApiUrl === undefined ? {} : { apiUrl: options.githubApiUrl });
   const refresh = createRefreshCatalogue({
     store: repositories,
@@ -156,6 +158,7 @@ export function createSquadronsApp(options: {
         catalogues.set(fleetId, built);
       },
     },
+    built: builtTemplates,
     clock,
     hash: sha256,
   });
