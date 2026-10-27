@@ -64,6 +64,14 @@ describe('the GitHub repository reader', () => {
     });
   });
 
+  it("hands back each file's text as read, beside what it parses to", async () => {
+    github.repositories.set('acme/templates', { tags: [aTag('tester@1', { files: { '.aeolus/squadrons/templates/tester.yaml': TESTER } })] });
+
+    const { files } = await reader().read([aRepository()], fetchAll);
+
+    expect(files.map(({ text }) => text)).toEqual([TESTER]);
+  });
+
   it('ignores tags that are no <name>@<n>, and hands back each version tag it read no file at, its name lowercase or not', async () => {
     github.repositories.set('acme/templates', {
       tags: [
