@@ -322,6 +322,64 @@ describe('a squadron formed before versions kept their file', () => {
   });
 });
 
+const TYPESCRIPT_IMPLEMENTER = {
+  repository: REPO,
+  name: 'typescript-implementer',
+  version: 1,
+  file: 'squadrons/templates/typescript-implementer.yaml',
+  commit: 't1',
+  committedAt: AT,
+  description: 'Implements in TypeScript.',
+  checkInMinutes: 30,
+  model: null,
+  launchNote: null,
+  charter: 'Report to the flagship.\n\nRun npm run typecheck.',
+  handoffs: [],
+  crew: {},
+  parameters: [],
+  scopes: [],
+};
+
+describe('a squadron formed from a template on a base', () => {
+  it('keeps the built template with its chain, base-layer-0 first, and which layer gave each part', async () => {
+    const built = {
+      ...TYPESCRIPT_IMPLEMENTER,
+      chain: [
+        { repository: 'github.com/ThomasHendrickx/skills', name: 'implementer', version: 2, commit: 'i2' },
+        { repository: REPO, name: 'typescript-implementer', version: 1, commit: 't1' },
+      ],
+      origins: {
+        charter: [
+          { layer: 0, text: 'Report to the flagship.' },
+          { layer: 1, text: 'Run npm run typecheck.' },
+        ],
+        fields: { description: 1, checkIn: 0 },
+        filled: [{ name: 'lead', layer: 1 }],
+      },
+    };
+    const squadrons = createPrismaSquadronRepository(prisma, clock);
+    await createPrismaFormationAttempts(prisma, clock).begin({ id: 'builders-d4e5f6@1', fleetId: FLEET, squadronId: 'builders-d4e5f6', startedAt: AT });
+    await squadrons.create({ ...formed, id: 'builders-d4e5f6', flagship: { ...formed.flagship, name: 'builders-d4e5f6' }, members: [], templates: [built] }, 'builders-d4e5f6@1');
+
+    const stored = (await squadrons.list(FLEET)).find((squadron) => squadron.id === 'builders-d4e5f6');
+
+    expect(stored?.templates).toEqual([built]);
+  });
+});
+
+describe('a squadron formed before template bases', () => {
+  it('reads each template as a chain of one, its own version, giving its whole charter', async () => {
+    await prisma.$executeRaw`UPDATE squadrons SET templates = ${JSON.stringify([TYPESCRIPT_IMPLEMENTER])}::jsonb`;
+
+    const [stored] = await createPrismaSquadronRepository(prisma, clock).list(FLEET);
+
+    expect(stored?.templates[0]).toMatchObject({
+      chain: [{ repository: REPO, name: 'typescript-implementer', version: 1, commit: 't1' }],
+      origins: { charter: [{ layer: 0, text: 'Report to the flagship.\n\nRun npm run typecheck.' }], fields: {}, filled: [] },
+    });
+  });
+});
+
 describe('formation recovery refusals', () => {
   it('keeps the refusal count when the adapter restarts, scoped to its fleet', async () => {
     const attempts = createPrismaFormationAttempts(prisma, clock);
