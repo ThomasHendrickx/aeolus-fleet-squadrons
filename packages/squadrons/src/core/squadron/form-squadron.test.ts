@@ -11,6 +11,7 @@ import type { Squadron } from './squadron.js';
 import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
 import type { SquadronRepository } from './ports.js';
+import { templateOfOne } from '../../../test/support/template-version.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const OTHER_FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
@@ -19,7 +20,7 @@ const AT = new Date('2026-10-03T09:00:00.000Z');
 const REPO = 'example.com/templates';
 
 function templateVersion(name: string, handoffs: string[] = []): TemplateVersion {
-  return {
+  return templateOfOne({
     repository: REPO,
     name,
     version: 1,
@@ -34,7 +35,7 @@ function templateVersion(name: string, handoffs: string[] = []): TemplateVersion
     crew: {},
     parameters: [],
     scopes: [],
-  };
+  });
 }
 
 const blueprintVersion: BlueprintVersion = {

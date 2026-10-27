@@ -17,8 +17,8 @@ function catalogueOf(files: SourceFile[], options: { repositories?: string[]; fe
   return assembleCatalogue({ repositories: options.repositories ?? [OWN, SKILLS], files, tags: [], ...(options.fetchFailures === undefined ? {} : { fetchFailures: options.fetchFailures }) });
 }
 
-function reasonOf(files: SourceFile[], name: string, options: Parameters<typeof catalogueOf>[1] = {}): string | undefined {
-  return catalogueOf(files, options).problems.find((problem) => problem.name === name)?.message;
+function reasonOf(files: SourceFile[], name: string): string | undefined {
+  return catalogueOf(files).problems.find((problem) => problem.name === name)?.message;
 }
 
 const aeolusShip = layer(
@@ -294,7 +294,7 @@ describe('who may', () => {
   });
 
   it('leaves out a template whose base is in a repository the fleet has not added, saying which, and where to add it', () => {
-    expect(reasonOf([typescriptImplementer], 'typescript-implementer', { repositories: [OWN] })).toBe(
+    expect(catalogueOf([typescriptImplementer], { repositories: [OWN] }).problems[0]?.message).toBe(
       'typescript-implementer@1 cannot be included: its base github.com/ThomasHendrickx/skills#implementer@2 is in github.com/ThomasHendrickx/skills, which this fleet has not added. Add it under Settings, Repositories.',
     );
   });
@@ -312,7 +312,9 @@ describe('what when it fails', () => {
   });
 
   it('names the fetch failure of a base repository the fleet added but could not read', () => {
-    expect(reasonOf([typescriptImplementer], 'typescript-implementer', { fetchFailures: new Map([[SKILLS, 'GitHub answered 404 Not Found: no such repository, or a private one its token cannot read']]) })).toBe(
+    const fetchFailures = new Map([[SKILLS, 'GitHub answered 404 Not Found: no such repository, or a private one its token cannot read']]);
+
+    expect(catalogueOf([typescriptImplementer], { fetchFailures }).problems[0]?.message).toBe(
       `base.template: ${SKILLS}#implementer@2 is in ${SKILLS}, which could not be read: GitHub answered 404 Not Found: no such repository, or a private one its token cannot read`,
     );
   });

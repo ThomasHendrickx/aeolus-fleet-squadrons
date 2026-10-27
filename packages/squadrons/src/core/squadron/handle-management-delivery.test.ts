@@ -12,6 +12,7 @@ import { FORM, FORM_REFUSED, FORMED } from './form-messages.js';
 import { createHandleManagementDelivery, type HandleManagementDelivery } from './handle-management-delivery.js';
 import type { FormRefusals, OperatorNotices, SquadronRepository } from './ports.js';
 import type { Squadron } from './squadron.js';
+import { templateOfOne } from '../../../test/support/template-version.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const MANAGEMENT: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
@@ -20,7 +21,7 @@ const AT = new Date('2026-10-18T09:00:00.000Z');
 const REPO = 'example.com/templates';
 const CREW: ManagementCrew = { fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT };
 
-const builder: TemplateVersion = {
+const builder: TemplateVersion = templateOfOne({
   repository: REPO,
   name: 'builder',
   version: 1,
@@ -36,7 +37,7 @@ const builder: TemplateVersion = {
   crew: { workspace: { kind: 'worktree', repository: 'hemma' } },
   parameters: [{ name: 'area', description: 'What to build' }],
   scopes: [],
-};
+});
 const delivery: BlueprintVersion = {
   repository: REPO,
   name: 'delivery',

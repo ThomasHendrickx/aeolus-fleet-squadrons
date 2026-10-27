@@ -15,6 +15,7 @@ import { createStandDown } from './stand-down.js';
 import { createHandleFlagshipDelivery, type FlagshipDelivery } from './handle-flagship-delivery.js';
 import type { FlagshipMessageLog, KeptMessage, OperatorNotices, Relay, RelayLog, SquadronRepository } from './ports.js';
 import type { Squadron } from './squadron.js';
+import { templateOfOne } from '../../../test/support/template-version.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
 const FLAGSHIP: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0000';
@@ -51,8 +52,8 @@ function squadron(): Squadron {
       memberNames: 'plain',
     },
     templates: [
-      { repository: REPO, name: 'planner', version: 1, file: 'squadrons/fixture.yaml', commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [], crew: {}, parameters: [], scopes: [] },
-      {
+      templateOfOne({ repository: REPO, name: 'planner', version: 1, file: 'squadrons/fixture.yaml', commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [], crew: {}, parameters: [], scopes: [] }),
+      templateOfOne({
         repository: REPO,
         name: 'tester',
         version: 4,
@@ -67,7 +68,7 @@ function squadron(): Squadron {
           { name: 'on-fail', carries: 'failures' },
           { name: 'on-pass', carries: 'the run' },
         ], crew: {}, parameters: [], scopes: [],
-      },
+      }),
     ],
     flagship: { shipId: FLAGSHIP, name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
     members: [
