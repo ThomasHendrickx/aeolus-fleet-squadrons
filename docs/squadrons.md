@@ -86,7 +86,19 @@ A version that cannot be built is left out of the catalogue with why, as a versi
 | A rule of building broken | The field: a parameter not left open, a name declared twice, an undeclared placeholder |
 | A limit broken once built | The limit and the full size: a charter over 48 KB, a first prompt over 8 KB, over 20 scopes |
 
-A squadron forms from the built templates, and its snapshot keeps each with its chain; a member at check-in gets one charter, as from any template. A new base version reaches a template only through a new version of that template naming it.
+A squadron forms from the built templates, and its snapshot keeps each with its hash and its chain; a member at check-in gets one charter, as from any template. A new base version reaches a template only through a new version of that template naming it. A snapshot from before template bases is read as a chain of one, its own version, with no hash.
+
+### Built once
+
+A template version is built once into its full template, identified by a hash, and kept, as Docker keeps a built layer by the hash of what made it:
+
+- **The hash** is the SHA-256 of the build rules number and the chain, base-layer-0 first: for each layer its repository, name, version, commit and the SHA-256 of its file's text. One chain under one build rules number gives one hash, and one hash one built template. squadrons raises the build rules number whenever a rule of [Building](#building) changes, so each version builds anew under the new rules.
+- **Kept** in Postgres per fleet, by fleet and hash, with its chain, the full template and which layer gave each part, when it was built and when it was last used. A fleet never finds another fleet's built template, so a base read with one fleet's token never reaches another.
+- **Looked up first.** Reading the catalogue (a repository's add, Refresh and start) computes each version's hash and takes the kept one when there is one; it builds and keeps only what is missing. Two reads building one hash at once keep one.
+- **Used.** A catalogue read and forming each set the last use of every built template they take; forming keeps one again that was deleted since, to the same hash.
+- **Deleted** once unused for 30 days, at the fleet's rescan, and with the rest of a deleted fleet. A version still in the catalogue is built again at its next use, from what the catalogue read, to the same hash and the same template.
+
+A version tag is not to be moved. If one is, squadrons builds the version from its new commit, to a new hash, with no warning, as `alpine:latest` changes; a squadron formed before keeps its snapshot.
 
 ## Squadron blueprint
 
