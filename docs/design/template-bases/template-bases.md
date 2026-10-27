@@ -46,7 +46,7 @@ Thomas, 26 Oct 2026: "it would be nice if we can make ship templates like Docker
 - **The catalogue knows every version.** squadrons reads every tag `<name>@<n>` of every configured repository and keeps what it read per commit ([Template repositories](../../squadrons.md#template-repositories)). A base is then already in the catalogue when it is in a configured repository: resolving needs no more GitHub calls. A version that cannot be read is left out with why, and that is where a missing or wrong base would show.
 - **Parameters.** A template declares each parameter and uses it as `{{name}}` in its charter and first prompt; an undeclared placeholder is refused. A blueprint role fills them, then the form per member, nearest wins; one left unfilled stays as written. Each value is at most 1 KB, and a charter at most 48 KB, a first prompt at most 8 KB once filled, so the role message stays within 64 KB (#371). A chain grows the charter: the 48 KB limit holds for the resolved one.
 - **Crew settings.** Template, then blueprint role, then form: each field the nearer one sets replaces the farther's whole, except `options`, which merge per key; the model only in `crew.model`. A base adds one more layer below the template.
-- **Scopes and hand-offs.** A template's scopes are granted within the subset rule, and forming refuses any other before commissioning anything (decision 0017). A blueprint binds exactly the hand-offs its templates declare.
+- **Scopes and hand-offs.** A template may declare any scope. Forming checks each against the ship that asked, the forming ship or argo for a console form, and refuses one it does not hold before commissioning anything, naming it; a scope of squadrons' own namespace is granted whatever that ship holds (decision 0046). A blueprint binds exactly the hand-offs its templates declare.
 - **One tag reads both folders.** The tag `<name>@<n>` reads `templates/<name>.yaml` and `blueprints/<name>.yaml` at its commit; a template and a blueprint of one name collide. Base templates follow the same naming.
 - **Shared templates.** ThomasHendrickx/skills holds shared templates in `squadrons/templates/`, configured with `path: squadrons`, tagged `designer@1` beside the skills' own `v3.x` tags, which squadrons ignores (ThomasHendrickx/skills#23). An Aeolus base ship template would live there too.
 - **The designer template.** [designer.yaml](https://github.com/ThomasHendrickx/skills/blob/main/squadrons/templates/designer.yaml) is the clearest case of shared text: about half its charter (report to the lead over the fleet, never ask in the terminal, invent no vocabulary, say each thing once) applies to any ship, not only to a designer.
@@ -116,7 +116,7 @@ Building a template version walks its chain from base-layer-0, the template with
 | `labels` | Added; one already below is kept once. Another value of a key already below is refused: a child adds labels, and never removes or changes one |
 | `crew` | Each field set replaces the one below whole, `options` per key, as a blueprint role does over a template |
 
-A placeholder in the layer's own text must be a parameter of the full template at that layer, open or filled by that layer; any other is refused, as today. The full template then holds what a template without a base holds, and every check of today runs on it: the limits, the subset rule for scopes at forming, the blueprint binding exactly its hand-offs.
+A placeholder in the layer's own text must be a parameter of the full template at that layer, open or filled by that layer; any other is refused, as today. The full template then holds what a template without a base holds, and every check of today runs on it: the limits, the forming ship's scopes at forming, the blueprint binding exactly its hand-offs.
 
 ### Build and hash
 
@@ -186,7 +186,7 @@ flowchart TD
   L -->|yes| M[Use it, set last use]
   L -->|deleted| N[Build again from the catalogue: same hash]
   N --> M
-  M --> O[Checks of today: scopes subset, hand-offs, form limits]
+  M --> O[Checks of today: scopes held by the forming ship, hand-offs, form limits]
   O -->|refused| P[Refused before anything is commissioned]
   O --> Q[Snapshot: built template, hash, chain]
   Q --> R[Members check in: one charter, as now]
@@ -219,6 +219,11 @@ flowchart TD
 - **Given** a template in the fleet's own repository whose base is in ThomasHendrickx/skills, which the fleet added, **when** the catalogue is read, **then** it is built and in the catalogue.
 - **Given** a base in a private repository added by fleet A with a token, **when** fleet B, which has not added it, reads a template on that base, **then** B's template is left out, saying which repository is missing, and B finds nothing A built.
 - **Given** a ship holding `squadrons:form`, **when** it forms a blueprint whose role's template has a base, **then** it is formed as any other: bases add no scope and no new check of who may form.
+- **Given** a template declaring `meetings:open` and a forming ship that holds it, **when** it forms the blueprint, **then** the members hold `meetings:open`, though squadrons does not.
+- **Given** the same template and a forming ship without `meetings:open`, **when** it forms the blueprint, **then** forming is refused before anything is commissioned, naming `meetings:open` and the forming ship.
+- **Given** a template declaring `squadrons:scale` and a forming ship without it, **when** it forms the blueprint, **then** the members hold `squadrons:scale`.
+- **Given** argo forms in the console a template declaring `meetings:open`, **when** it is formed, **then** the members hold `meetings:open`.
+- **Given** the forming ship is retired, **when** it is asked to form, **then** forming is refused before anything is commissioned, naming its owner.
 
 ### What when it fails
 
