@@ -22,6 +22,8 @@ const sessions: ConsoleSessions = {
               ? ok({ fleetId: FLEET, kind: 'operator', scopes: ['fleet:read', 'trierarch:join'] })
             : cookie === 'aeolus_session=account'
               ? ok({ fleetId: FLEET, kind: 'account', scopes: OPERATOR_SCOPES })
+              : cookie === 'aeolus_session=account-reader'
+                ? ok({ fleetId: FLEET, kind: 'account', scopes: ['fleet:read'] })
               : err({ code: 'UNAUTHORIZED', message: 'No signed-in console session' }),
     ),
 };
@@ -51,13 +53,16 @@ describe('the operator', () => {
     });
   });
 
-  it('is refused for an account session, which squadrons does not serve, saying so', async () => {
+  it('is an account session too, with the scopes the fleet answers for it, as for an operator session with those scopes', async () => {
     const authenticate = createAuthenticateOperator({ sessions });
 
-    await expect(authenticate('aeolus_session=account')).resolves.toEqual({
-      isOk: false,
-      error: { kind: 'ACCOUNT_SESSION', message: 'squadrons serves the operator and viewer sessions only, not an account session' },
-    });
+    await expect(authenticate('aeolus_session=account')).resolves.toEqual({ isOk: true, value: { fleetId: FLEET, scopes: OPERATOR_SCOPES } });
+  });
+
+  it('keeps an account session to the scopes the fleet answers, so a call it lacks a scope for is refused as for a viewer session', async () => {
+    const authenticate = createAuthenticateOperator({ sessions });
+
+    await expect(authenticate('aeolus_session=account-reader')).resolves.toEqual({ isOk: true, value: { fleetId: FLEET, scopes: ['fleet:read'] } });
   });
 
   it.each([

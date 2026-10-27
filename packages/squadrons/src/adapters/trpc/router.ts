@@ -2,8 +2,8 @@
  * squadrons' API: one tRPC router, which the web app's server calls with the
  * console's session cookie (decision 0017). Every procedure but the
  * installation's is the operator's: the cookie must be a signed-in console
- * session of a fleet at the fleet's URL, the operator's or a viewer's, never
- * an account's, and the procedure works on that fleet. A fleet squadrons does not serve (switched off) gets only
+ * session of a fleet at the fleet's URL, whatever its kind, and what it may
+ * call is its scopes' to say; the procedure works on that fleet. A fleet squadrons does not serve (switched off) gets only
  * `connection.status`; only `connection` works before squadrons is connected
  * to the fleet. The installation procedures take the installation token
  * instead (decision 0021).
