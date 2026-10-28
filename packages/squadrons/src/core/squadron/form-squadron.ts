@@ -133,7 +133,7 @@ export function createFormSquadron(deps: {
     // Every scope a template names is one the forming ship holds, checked before anything is commissioned (decision 0046).
     const asking = await askingShipOf(deps.door, { crew, formingShip: input.formingShip });
     if (!asking.isOk) {
-      return refuse('FORMING_FAILED', `${asking.error}, so nothing was formed`);
+      return refuse('FORMING_FAILED', `${asking.error.message}, so nothing was formed`);
     }
     for (const template of used) {
       const held = asking.value.scopes;
@@ -309,6 +309,12 @@ async function ownerNameOf(door: FleetDoor, owner: { crewToken: string; ownerShi
   return (ships.isOk ? ships.value.find((ship) => ship.shipId === owner.ownerShipId)?.name : undefined) ?? owner.ownerShipId;
 }
 
+/** Why no asking ship could be found to form for. */
+interface AskingShipRefusal {
+  kind: 'FLEET_REFUSED' | 'ARGO_NOT_FOUND' | 'FORMING_SHIP_RETIRED';
+  message: string;
+}
+
 /**
  * The ship squadrons commissions the members on behalf of, and the scopes it
  * holds: the forming ship, or argo for a console form (argo holds every scope,
@@ -318,23 +324,23 @@ async function ownerNameOf(door: FleetDoor, owner: { crewToken: string; ownerShi
 async function askingShipOf(
   door: FleetDoor,
   forming: { crew: ManagementCrew; formingShip: Squadron['formingShip'] | undefined },
-): Promise<Result<{ shipId: ShipId; name: string; scopes: readonly string[] | undefined }, string>> {
+): Promise<Result<{ shipId: ShipId; name: string; scopes: readonly string[] | undefined }, AskingShipRefusal>> {
   const { crew, formingShip } = forming;
   if (!formingShip) {
     const ships = await door.listShips(crew.crewToken);
     if (!ships.isOk) {
-      return err(`The fleet refused a step: ${ships.error.message}`);
+      return err({ kind: 'FLEET_REFUSED', message: `The fleet refused a step: ${ships.error.message}` });
     }
     const argo = ships.value.find((ship) => ship.name === ARGO_NAME);
-    return argo ? ok({ shipId: argo.shipId, name: ARGO_NAME, scopes: undefined }) : err(`The fleet names no ${ARGO_NAME} to form for`);
+    return argo ? ok({ shipId: argo.shipId, name: ARGO_NAME, scopes: undefined }) : err({ kind: 'ARGO_NOT_FOUND', message: `The fleet names no ${ARGO_NAME} to form for` });
   }
   const ship = await door.getShip(crew.crewToken, { shipId: formingShip.shipId });
   if (!ship.isOk) {
-    return err(`The fleet refused a step: ${ship.error.message}`);
+    return err({ kind: 'FLEET_REFUSED', message: `The fleet refused a step: ${ship.error.message}` });
   }
   if (ship.value.status === 'retired') {
     const owner = ship.value.ownerShipId === null ? ARGO_NAME : await ownerNameOf(door, { crewToken: crew.crewToken, ownerShipId: ship.value.ownerShipId });
-    return err(`The forming ship ${formingShip.name} is retired and grants nothing: ask its owner ${owner} to form the squadron`);
+    return err({ kind: 'FORMING_SHIP_RETIRED', message: `The forming ship ${formingShip.name} is retired and grants nothing: ask its owner ${owner} to form the squadron` });
   }
   return ok({ shipId: formingShip.shipId, name: formingShip.name, scopes: ship.value.scopes });
 }
