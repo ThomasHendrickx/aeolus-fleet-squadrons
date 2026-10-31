@@ -223,3 +223,15 @@ model BuiltTemplate {
   @@index([fleetId, lastUsedAt])
   @@map("built_templates")
 }
+
+/// The stretches in which a fleet's company key could not be had (core refused
+/// KEY_UNAVAILABLE): until is null while one goes on. A member's check-in clock
+/// does not run in them (decision 0068).
+model KeyOutage {
+  fleetId String    @map("fleet_id")
+  since   DateTime  @db.Timestamptz(3)
+  until   DateTime? @db.Timestamptz(3)
+
+  @@id([fleetId, since])
+  @@map("key_outages")
+}

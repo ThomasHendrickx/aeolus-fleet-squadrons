@@ -105,9 +105,9 @@ export function watchFlagships(deps: {
 
   const keyWaitMs = deps.keyWaitMs ?? KEY_WAIT_MS;
   // A refusal for the key starts the fleet's outage; the next receive that works ends it.
-  const waitForKey = async (fleetId: FleetId, squadronId: string, reason: string): Promise<void> => {
-    await deps.outages.begin(fleetId, deps.clock.now());
-    deps.log.warn({ squadron: squadronId, reason }, "the fleet's key is out of reach: the flagship waits, its deliveries stay pending");
+  const waitForKey = async (waiting: { fleetId: FleetId; squadronId: string; reason: string }): Promise<void> => {
+    await deps.outages.begin(waiting.fleetId, deps.clock.now());
+    deps.log.warn({ squadron: waiting.squadronId, reason: waiting.reason }, "the fleet's key is out of reach: the flagship waits, its deliveries stay pending");
     await pause(keyWaitMs);
   };
 
@@ -138,7 +138,7 @@ export function watchFlagships(deps: {
             break;
           }
           if (received.error.code === KEY_UNAVAILABLE) {
-            await waitForKey(fleetId, squadronId, received.error.message);
+            await waitForKey({ fleetId, squadronId, reason: received.error.message });
             continue;
           }
           deps.log.error({ squadron: squadronId, refusal: received.error }, 'the flagship could not receive');
@@ -151,7 +151,7 @@ export function watchFlagships(deps: {
           const handled = await deps.handle(current, delivery);
           if (!handled.isOk && handled.error.code === KEY_UNAVAILABLE) {
             // Not acked: the delivery comes again once the key is back.
-            await waitForKey(fleetId, squadronId, handled.error.message);
+            await waitForKey({ fleetId, squadronId, reason: handled.error.message });
             break;
           }
           if (!handled.isOk) {

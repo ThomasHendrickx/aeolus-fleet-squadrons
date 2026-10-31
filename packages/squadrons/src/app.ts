@@ -11,6 +11,7 @@ import { sha256RequestHasher } from './adapters/crypto/request-hasher.js';
 import { sha256 } from './adapters/crypto/sha256.js';
 import { createGithubRepositoryReader } from './adapters/github/github-repository-reader.js';
 import { createPrismaFleetForgetter } from './adapters/prisma/fleet-forgetter.js';
+import { createPrismaKeyOutages } from './adapters/prisma/key-outages.js';
 import { createPrismaFleetSwitches } from './adapters/prisma/fleet-switches.js';
 import { createPrismaInstallationRequests } from './adapters/prisma/installation-requests.js';
 import { createPrismaBuiltTemplateStore } from './adapters/prisma/built-template-store.js';
@@ -176,7 +177,8 @@ export function createSquadronsApp(options: {
   const addRepository = createAddRepository({ store: repositories, refresh, clock });
   const removeRepository = createRemoveRepository({ store: repositories, source, refresh });
 
-  const listSquadrons = createListSquadrons({ door, management: store, squadrons, clock });
+  const keyOutages = createPrismaKeyOutages(prisma);
+  const listSquadrons = createListSquadrons({ door, management: store, squadrons, outages: keyOutages, clock });
   const advanceStandDowns = createAdvanceStandDowns({ door, management: store, squadrons, clock });
   const standDownOnly = createStandDown({ squadrons });
   const forceStandDown = createForceStandDown({ door, management: store, squadrons, clock });
@@ -376,6 +378,8 @@ export function createSquadronsApp(options: {
         reach,
         turns,
         log: server.log,
+        outages: keyOutages,
+        clock,
         rescanMs,
       });
       void flagships.rescan();

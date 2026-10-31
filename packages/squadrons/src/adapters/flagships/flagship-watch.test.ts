@@ -1,7 +1,6 @@
-import { Writable } from 'node:stream';
-
 import type { DeliveryId, MessageId, ShipId } from '@aeolus-fleet/common';
 import Fastify from 'fastify';
+import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
 
 import { memoryKeyOutages } from '../../../test/support/memory-key-outages.js';
@@ -729,12 +728,11 @@ describe('a flagship whose fleet’s key is out of reach', () => {
   /** A logger that keeps the level of each line it writes. */
   function loggedLevels() {
     const levels: number[] = [];
-    const sink = new Writable({
-      write: (chunk: Buffer, _encoding, done) => {
-        levels.push((JSON.parse(chunk.toString()) as { level: number }).level);
-        done();
+    const sink = {
+      write: (line: string) => {
+        levels.push(z.object({ level: z.number() }).parse(JSON.parse(line)).level);
       },
-    });
+    };
     return { levels, log: Fastify({ logger: { level: 'trace', stream: sink } }).log };
   }
   const ERROR_LEVEL = 50;

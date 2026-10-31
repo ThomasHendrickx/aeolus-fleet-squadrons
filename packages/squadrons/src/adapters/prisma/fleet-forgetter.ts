@@ -4,7 +4,7 @@ import type { PrismaClient } from './client.js';
 /**
  * Forgets every record squadrons holds of a fleet, in one transaction: its
  * repositories and their tokens, its squadrons with their members and kept
- * messages, its formation attempts, the form requests it refused, its flagships' relays, its built templates, its connection, its switch and the
+ * messages, its formation attempts, the form requests it refused, its flagships' relays, its built templates, its stretches without the fleet's key, its connection, its switch and the
  * requests that name it. Members and formation ships go before what they
  * belong to.
  */
@@ -25,6 +25,7 @@ export function createPrismaFleetForgetter(db: PrismaClient): FleetForgetter {
         db.formRefusal.deleteMany(where),
         db.relay.deleteMany(where),
         db.builtTemplate.deleteMany(where),
+        db.keyOutage.deleteMany(where),
       ]);
     },
   };
