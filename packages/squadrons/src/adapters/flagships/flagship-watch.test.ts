@@ -1,7 +1,10 @@
+import { Writable } from 'node:stream';
+
 import type { DeliveryId, MessageId, ShipId } from '@aeolus-fleet/common';
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 
+import { memoryKeyOutages } from '../../../test/support/memory-key-outages.js';
 import { FLEET_ID, OTHER_FLEET_ID, SHIP_ID, fakeManagementFleet, memoryManagementStore } from '../../../test/support/management-fakes.js';
 import type { FleetDoor } from '../../core/management/ports.js';
 import { err, ok, type Result } from '../../core/shared/result.js';
@@ -83,6 +86,8 @@ describe('stopping the flagship watch', () => {
       reach: untouchedReach,
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
     await watch.rescan();
@@ -136,6 +141,8 @@ describe('the flagships of every connected fleet', () => {
       reach: untouchedReach,
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -176,6 +183,8 @@ describe('the flagships of a fleet squadrons does not serve', () => {
       reach: untouchedReach,
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -217,6 +226,8 @@ describe('a released flagship', () => {
       reach: untouchedReach,
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -255,7 +266,9 @@ describe('a released flagship', () => {
         reach: untouchedReach,
         turns: createFleetTurns(),
         log: silentLog,
-        rescanMs: 60_000,
+        outages: memoryKeyOutages(),
+      clock: { now: () => AT },
+      rescanMs: 60_000,
       });
       await watch.rescan();
       await expect.poll(() => keys).toHaveLength(start + 1);
@@ -305,6 +318,8 @@ describe('the flagship of a squadron standing down', () => {
       reach: untouchedReach,
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -343,6 +358,8 @@ describe('the flagship of a squadron standing down', () => {
       reach: untouchedReach,
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -370,6 +387,8 @@ describe('the flagship of a squadron standing down', () => {
       reach: untouchedReach,
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -410,6 +429,8 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
       },
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -443,6 +464,8 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
       },
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -480,6 +503,8 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
       },
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -526,6 +551,8 @@ describe("each fleet's formations a forming gave up (#738)", () => {
       reach: untouchedReach,
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -563,6 +590,8 @@ describe("a fleet's rescans (#626)", () => {
       reach: { keep: pass, withdraw: () => Promise.resolve() },
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -597,6 +626,8 @@ describe("a fleet's rescans (#626)", () => {
       reach: untouchedReach,
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -637,6 +668,8 @@ describe("a fleet's rescans (#626)", () => {
       },
       turns,
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -677,6 +710,8 @@ describe("each fleet's built templates", () => {
       reach: untouchedReach,
       turns: createFleetTurns(),
       log: silentLog,
+      outages: memoryKeyOutages(),
+      clock: { now: () => AT },
       rescanMs: 60_000,
     });
 
@@ -685,5 +720,151 @@ describe("each fleet's built templates", () => {
     await watch.stop();
 
     expect(deleted).toEqual([FLEET_ID, FLEET_ID]);
+  });
+});
+
+describe('a flagship whose fleet’s key is out of reach', () => {
+  const KEY_UNAVAILABLE = { code: 'KEY_UNAVAILABLE', message: 'The fleet’s key is not reachable: access denied' };
+
+  /** A logger that keeps the level of each line it writes. */
+  function loggedLevels() {
+    const levels: number[] = [];
+    const sink = new Writable({
+      write: (chunk: Buffer, _encoding, done) => {
+        levels.push((JSON.parse(chunk.toString()) as { level: number }).level);
+        done();
+      },
+    });
+    return { levels, log: Fastify({ logger: { level: 'trace', stream: sink } }).log };
+  }
+  const ERROR_LEVEL = 50;
+
+  async function watchedWith(options: { receive: FleetDoor['receive']; outages: ReturnType<typeof memoryKeyOutages>; log: typeof silentLog; handle?: (squadron: Squadron) => Promise<Result<FlagshipOutcome, { code: string; message: string }>> }) {
+    const store = memoryManagementStore();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
+    return watchFlagships({
+      door: { ...fakeManagementFleet().door, receive: options.receive },
+      management: store,
+      squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
+      handle: options.handle ?? ((): Promise<Result<FlagshipOutcome, never>> => Promise.resolve(ok('kept'))),
+      advanceStandDowns: () => Promise.resolve(),
+      recoverFormations: noRecovery,
+      deleteUnusedBuiltTemplates: noDeletion,
+      isServed: () => Promise.resolve(true),
+      operator: { tell: () => Promise.resolve() },
+      reach: untouchedReach,
+      turns: createFleetTurns(),
+      log: options.log,
+      outages: options.outages,
+      clock: { now: () => AT },
+      keyWaitMs: 40,
+      rescanMs: 60_000,
+    });
+  }
+
+  it('waits for the key before it receives again: no spin, and no error logged for the outage', async () => {
+    const { levels, log } = loggedLevels();
+    let receives = 0;
+    const watch = await watchedWith({
+      receive: () => {
+        receives += 1;
+        return Promise.resolve(err(KEY_UNAVAILABLE));
+      },
+      outages: memoryKeyOutages(),
+      log,
+    });
+
+    await watch.rescan();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await watch.stop();
+
+    expect(receives).toBeGreaterThanOrEqual(2);
+    expect(receives).toBeLessThanOrEqual(4);
+    expect(levels).not.toContain(ERROR_LEVEL);
+  });
+
+  it('records the outage from the first refusal, once, and ends it at the next receive that works', async () => {
+    const outages = memoryKeyOutages();
+    let receives = 0;
+    const watch = await watchedWith({
+      receive: (_crewToken, until) => {
+        receives += 1;
+        if (receives <= 2) {
+          return Promise.resolve(err(KEY_UNAVAILABLE));
+        }
+        return new Promise((_resolve, reject) => {
+          until?.signal.addEventListener('abort', () => {
+            reject(new Error('aborted'));
+          });
+        });
+      },
+      outages,
+      log: silentLog,
+    });
+
+    await watch.rescan();
+    await expect.poll(() => receives).toBe(3);
+    await watch.stop();
+
+    expect(outages.held.get(FLEET_ID)).toEqual([{ since: AT, until: AT }]);
+  });
+
+  it('keeps the outage going while the key stays out of reach', async () => {
+    const outages = memoryKeyOutages();
+    const watch = await watchedWith({ receive: () => Promise.resolve(err(KEY_UNAVAILABLE)), outages, log: silentLog });
+
+    await watch.rescan();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await watch.stop();
+
+    expect(outages.held.get(FLEET_ID)).toEqual([{ since: AT, until: null }]);
+  });
+
+  it('records an outage, and leaves the delivery unacked, when its answer is refused for the key', async () => {
+    const outages = memoryKeyOutages();
+    const { levels, log } = loggedLevels();
+    let isDelivered = false;
+    const watch = await watchedWith({
+      receive: (_crewToken, until) => {
+        if (!isDelivered) {
+          isDelivered = true;
+          return Promise.resolve(ok([{ deliveryId: 'dlv_01m3tbfspe96yf1rnr4ank0001', messageId: 'msg_01m3tbfspe96yf1rnr4ank0001', senderShipId: SHIP_ID, senderName: 'a-member', contentType: 'text/plain', payload: 'hello', inReplyTo: null }]));
+        }
+        return new Promise((_resolve, reject) => {
+          until?.signal.addEventListener('abort', () => {
+            reject(new Error('aborted'));
+          });
+        });
+      },
+      outages,
+      log,
+      handle: () => Promise.resolve(err(KEY_UNAVAILABLE)),
+    });
+
+    await watch.rescan();
+    await expect.poll(() => outages.held.get(FLEET_ID)?.length).toBe(1);
+    await watch.stop();
+
+    expect(levels).not.toContain(ERROR_LEVEL);
+  });
+
+  it('still stops the flagship at a release while the key is out of reach', async () => {
+    const outages = memoryKeyOutages();
+    let receives = 0;
+    const watch = await watchedWith({
+      receive: () => {
+        receives += 1;
+        return Promise.resolve(receives === 1 ? err(KEY_UNAVAILABLE) : err({ code: 'LEASE_ENDED', message: 'released' }));
+      },
+      outages,
+      log: silentLog,
+    });
+
+    await watch.rescan();
+    await expect.poll(() => receives).toBe(2);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await watch.stop();
+
+    expect(receives).toBe(2);
   });
 });
