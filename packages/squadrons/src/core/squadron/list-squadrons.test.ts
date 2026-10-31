@@ -6,6 +6,7 @@ import { err, ok } from '../shared/result.js';
 import { createListSquadrons } from './list-squadrons.js';
 import type { SquadronRepository } from './ports.js';
 import type { Squadron } from './squadron.js';
+import { memoryKeyOutages } from '../../../test/support/memory-key-outages.js';
 import { templateOfOne } from '../../../test/support/template-version.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
@@ -93,11 +94,13 @@ const squadrons: SquadronRepository = {
   update: () => Promise.resolve(),
 };
 
-const listSquadrons = createListSquadrons({ door, management, squadrons, clock: { now: () => NOW } });
+const outages = memoryKeyOutages();
+const listSquadrons = createListSquadrons({ door, management, squadrons, outages, clock: { now: () => NOW } });
 
 beforeEach(() => {
   crew = { fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: FORMED };
   readAs.length = 0;
+  outages.held.clear();
   ships = new Map<ShipId, FleetShip>([
     [PLANNER, { status: 'awaitingCrew', scopes: [], lastSeenAt: null, crewedSince: null, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false, ownerShipId: null }],
     [TESTER, { status: 'crewed', scopes: [], lastSeenAt: new Date('2026-10-03T09:30:00.000Z'), crewedSince: FORMED, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false, ownerShipId: null }],
@@ -113,6 +116,22 @@ describe('listing the squadrons', () => {
       { name: 'tester-m4p7', health: 'late', checkInMinutes: 30, ship: { status: 'crewed', lastSeenAt: new Date('2026-10-03T09:30:00.000Z'), crewedSince: FORMED } },
     ]);
     expect(new Set(readAs)).toEqual(new Set(['aeolus_ct_v1_management']));
+  });
+
+  it('counts no time in which the fleet\'s key was out of reach: the same member is on time, not late', async () => {
+    await outages.begin(FLEET, new Date('2026-10-03T09:10:00.000Z'));
+
+    const listed = await listSquadrons(FLEET);
+
+    expect(listed.isOk && listed.value[0]?.members.find(({ name }) => name === 'tester-m4p7')?.health).toBe('on-time');
+  });
+
+  it("counts an outage of another fleet's key for none of this fleet's members", async () => {
+    await outages.begin(OTHER_FLEET, new Date('2026-10-03T09:10:00.000Z'));
+
+    const listed = await listSquadrons(FLEET);
+
+    expect(listed.isOk && listed.value[0]?.members.find(({ name }) => name === 'tester-m4p7')?.health).toBe('late');
   });
 
   it('refuses when the fleet does not answer for a member', async () => {
