@@ -83,3 +83,45 @@ describe('a member’s health', () => {
     expect(memberHealth(aTester(ON_STATION), { ship: aCrewedShip(reportedAt), checkInMinutes: INTERVAL_MINUTES, now })).toBe('silent');
   });
 });
+
+describe('a member’s health while the key to the fleet’s payloads was out of reach', () => {
+  const outage = (fromMinutes: number, toMinutes: number | null) => ({ since: minutesAfter(ON_STATION, fromMinutes), until: toMinutes === null ? null : minutesAfter(ON_STATION, toMinutes) });
+
+  it('does not count a finished outage: a member 100 minutes after coming on station, 90 of them without the key, is on time', () => {
+    const health = memberHealth(aTester(ON_STATION), { ship: aCrewedShip(), checkInMinutes: INTERVAL_MINUTES, now: minutesAfter(ON_STATION, 100), outages: [outage(5, 95)] });
+
+    expect(health).toBe('on-time');
+  });
+
+  it('does not count an outage that goes on: 100 minutes after coming on station, the last 90 without the key, is on time', () => {
+    const health = memberHealth(aTester(ON_STATION), { ship: aCrewedShip(), checkInMinutes: INTERVAL_MINUTES, now: minutesAfter(ON_STATION, 100), outages: [outage(10, null)] });
+
+    expect(health).toBe('on-time');
+  });
+
+  it('counts only the part of an outage after the last report', () => {
+    const reportedAt = minutesAfter(ON_STATION, 50);
+    // 80 minutes since the report, 40 of them in the outage that began before it: 40 counted, so late.
+    const health = memberHealth(aTester(ON_STATION), { ship: aCrewedShip(reportedAt), checkInMinutes: INTERVAL_MINUTES, now: minutesAfter(reportedAt, 80), outages: [outage(30, 50 + 40)] });
+
+    expect(health).toBe('late');
+  });
+
+  it('still marks a member late once the time outside outages passes one interval', () => {
+    const health = memberHealth(aTester(ON_STATION), { ship: aCrewedShip(), checkInMinutes: INTERVAL_MINUTES, now: minutesAfter(ON_STATION, 100), outages: [outage(5, 65)] });
+
+    expect(health).toBe('late');
+  });
+
+  it('marks a member silent when the time outside outages passes three intervals', () => {
+    const health = memberHealth(aTester(ON_STATION), { ship: aCrewedShip(), checkInMinutes: INTERVAL_MINUTES, now: minutesAfter(ON_STATION, 200), outages: [outage(5, 65)] });
+
+    expect(health).toBe('silent');
+  });
+
+  it('counts two outages that touch once', () => {
+    const health = memberHealth(aTester(ON_STATION), { ship: aCrewedShip(), checkInMinutes: INTERVAL_MINUTES, now: minutesAfter(ON_STATION, 100), outages: [outage(5, 50), outage(50, 95)] });
+
+    expect(health).toBe('on-time');
+  });
+});

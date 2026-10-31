@@ -12,6 +12,10 @@
  * a rescan once it is on again starts them anew; each rescan withdraws its
  * declared rules, which switching it off could not while the fleet did not
  * answer.
+ * A flagship whose fleet's key is out of reach (core refuses KEY_UNAVAILABLE,
+ * decision 0068) waits and receives again, never spins, logs no error, and
+ * records the outage, which stops every member's check-in clock; the check-in it
+ * could not read waits pending in core.
  * A flagship whose lease ended (the operator released it) is no longer
  * watched, says so in the log, and argo is told once; one squadrons retired
  * as its squadron disbanded just stops.
@@ -23,12 +27,19 @@ import type { FleetDoor, ManagementCrewStore } from '../../core/management/ports
 import type { IsServed } from '../../core/installation/served.js';
 import type { AdvanceStandDowns } from '../../core/squadron/advance-stand-downs.js';
 import type { HandleFlagshipDelivery } from '../../core/squadron/handle-flagship-delivery.js';
-import type { OperatorNotices, SquadronRepository } from '../../core/squadron/ports.js';
+import type { Clock } from '../../core/shared/clock.js';
+import type { KeyOutages, OperatorNotices, SquadronRepository } from '../../core/squadron/ports.js';
 import type { Squadron } from '../../core/squadron/squadron.js';
 import type { FleetTurns } from './fleet-turns.js';
 
 /** How long a flagship waits before it receives again after a failure. */
 const RETRY_MS = 1_000;
+
+/** How long a flagship waits for the fleet's key before it receives again: the key is the company's to give back, so there is no hurry (decision 0068). */
+const KEY_WAIT_MS = 30_000;
+
+/** The fleet's refusal when it cannot unseal or seal a payload: nothing was claimed or stored, so the delivery waits pending. */
+const KEY_UNAVAILABLE = 'KEY_UNAVAILABLE';
 
 /** Whether a squadron's flagship receives: until its squadron is disbanded. */
 function isReceiving(squadron: Squadron | undefined): squadron is Squadron {
@@ -63,6 +74,11 @@ export function watchFlagships(deps: {
   reach: FleetReach;
   turns: FleetTurns;
   log: FastifyBaseLogger;
+  /** The stretches without the fleet's key, which stop every member's check-in clock. */
+  outages: KeyOutages;
+  clock: Clock;
+  /** How long a flagship waits for the key before it receives again; 30 seconds when left out. */
+  keyWaitMs?: number;
   rescanMs: number;
 }): FlagshipWatch {
   const stopping = new AbortController();
@@ -86,6 +102,14 @@ export function watchFlagships(deps: {
         resolve();
       });
     });
+
+  const keyWaitMs = deps.keyWaitMs ?? KEY_WAIT_MS;
+  // A refusal for the key starts the fleet's outage; the next receive that works ends it.
+  const waitForKey = async (waiting: { fleetId: FleetId; squadronId: string; reason: string }): Promise<void> => {
+    await deps.outages.begin(waiting.fleetId, deps.clock.now());
+    deps.log.warn({ squadron: waiting.squadronId, reason: waiting.reason }, "the fleet's key is out of reach: the flagship waits, its deliveries stay pending");
+    await pause(keyWaitMs);
+  };
 
   const isStopping = (): boolean => stopping.signal.aborted;
 
@@ -113,13 +137,23 @@ export function watchFlagships(deps: {
             });
             break;
           }
+          if (received.error.code === KEY_UNAVAILABLE) {
+            await waitForKey({ fleetId, squadronId, reason: received.error.message });
+            continue;
+          }
           deps.log.error({ squadron: squadronId, refusal: received.error }, 'the flagship could not receive');
           await pause(RETRY_MS);
           continue;
         }
+        await deps.outages.end(fleetId, deps.clock.now());
         for (const delivery of received.value) {
           const current = (await deps.squadrons.list(fleetId)).find((each) => each.id === squadronId) ?? squadron;
           const handled = await deps.handle(current, delivery);
+          if (!handled.isOk && handled.error.code === KEY_UNAVAILABLE) {
+            // Not acked: the delivery comes again once the key is back.
+            await waitForKey({ fleetId, squadronId, reason: handled.error.message });
+            break;
+          }
           if (!handled.isOk) {
             deps.log.error({ squadron: squadronId, refusal: handled.error }, 'the flagship could not handle a delivery');
           }

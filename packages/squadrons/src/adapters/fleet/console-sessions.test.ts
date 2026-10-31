@@ -12,7 +12,7 @@ async function fleetAnswering(scopes: string[]): Promise<string> {
   server = createServer((_request, response) => {
     response.setHeader('content-type', 'application/json');
     response.end(
-      JSON.stringify({ result: { data: { fleetId: FLEET, fleetName: 'acme', expiresAt: '2030-01-01T00:00:00.000Z', kind: 'operator', scopes } } }),
+      JSON.stringify({ result: { data: { fleetId: FLEET, fleetName: 'acme', expiresAt: '2030-01-01T00:00:00.000Z', kind: 'operator', scopes, featureFlags: [] } } }),
     );
   });
   const listening = server;

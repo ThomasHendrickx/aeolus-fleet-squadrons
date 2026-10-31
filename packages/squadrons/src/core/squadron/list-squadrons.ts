@@ -5,7 +5,7 @@ import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { memberHealth, type MemberHealth } from './member-health.js';
-import type { SquadronRepository } from './ports.js';
+import type { KeyOutages, SquadronRepository } from './ports.js';
 import { templateOf, type Member, type Squadron } from './squadron.js';
 
 /** A member as the squadron list shows it: with its ship as the fleet shows it now, its check-in interval and its health. */
@@ -28,15 +28,16 @@ export type ListSquadrons = (fleetId: FleetId) => Promise<Result<ListedSquadron[
  * with its health. squadrons reads each member's ship from the fleet as its
  * management ship (fleet:read): its crew status, when it was last seen, since
  * when its crew holds it and its last report. A member the fleet does not
- * answer for refuses the list, rather than showing a health it cannot know.
+ * answer for refuses the list, rather than showing a health it cannot know. Time in which the fleet's key was out of reach counts for no member's clock.
  */
-export function createListSquadrons(deps: { door: FleetDoor; management: ManagementCrewStore; squadrons: SquadronRepository; clock: Clock }): ListSquadrons {
+export function createListSquadrons(deps: { door: FleetDoor; management: ManagementCrewStore; squadrons: SquadronRepository; outages: KeyOutages; clock: Clock }): ListSquadrons {
   return async (fleetId) => {
     const crew = await deps.management.find(fleetId);
     if (!crew) {
       return refuse('MANAGEMENT_SHIP_NOT_CREWED', 'squadrons is not connected: connect it in the console');
     }
     const now = deps.clock.now();
+    const outages = await deps.outages.list(fleetId);
     const listed: ListedSquadron[] = [];
     for (const squadron of await deps.squadrons.list(fleetId)) {
       const reads = await Promise.all(squadron.members.map((member) => deps.door.getShip(crew.crewToken, { shipId: member.shipId })));
@@ -52,7 +53,7 @@ export function createListSquadrons(deps: { door: FleetDoor; management: Managem
           ...member,
           ship: { status: ship.status, lastSeenAt: ship.lastSeenAt, crewedSince: ship.crewedSince },
           checkInMinutes,
-          health: memberHealth(member, { ship, checkInMinutes, now }),
+          health: memberHealth(member, { ship, checkInMinutes, now, outages }),
         });
       }
       listed.push({ ...squadron, members });

@@ -55,8 +55,8 @@ describe('setVersion', () => {
   it("keeps the range of another train's package: common and core have versions of their own", () => {
     setVersion(copy, '0.28.0');
 
-    expect(manifest('squadrons').dependencies?.['@aeolus-fleet/common']).toBe('^0.32.4');
-    expect(manifest('squadrons').devDependencies?.['@aeolus-fleet/core']).toBe('^0.32.4');
+    expect(manifest('squadrons').dependencies?.['@aeolus-fleet/common']).toBe('^0.34.0');
+    expect(manifest('squadrons').devDependencies?.['@aeolus-fleet/core']).toBe('^0.34.0');
   });
 
   it("pins a dependency on this repository's own package to that version", () => {
