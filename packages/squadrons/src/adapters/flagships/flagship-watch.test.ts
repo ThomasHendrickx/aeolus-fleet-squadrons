@@ -792,6 +792,9 @@ describe('a flagship whose fleet’s key is out of reach', () => {
         if (receives <= 2) {
           return Promise.resolve(err(KEY_UNAVAILABLE));
         }
+        if (receives === 3) {
+          return Promise.resolve(ok([]));
+        }
         return new Promise((_resolve, reject) => {
           until?.signal.addEventListener('abort', () => {
             reject(new Error('aborted'));
@@ -803,7 +806,7 @@ describe('a flagship whose fleet’s key is out of reach', () => {
     });
 
     await watch.rescan();
-    await expect.poll(() => receives).toBe(3);
+    await expect.poll(() => receives).toBe(4);
     await watch.stop();
 
     expect(outages.held.get(FLEET_ID)).toEqual([{ since: AT, until: AT }]);
