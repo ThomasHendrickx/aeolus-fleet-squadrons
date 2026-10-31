@@ -1,5 +1,6 @@
 import type { DeliveryId, FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
 
+import type { KeyOutage } from './member-health.js';
 import type { Squadron } from './squadron.js';
 
 /** Outbound port: squadrons, in squadrons' own database, always within one fleet. */
@@ -110,4 +111,18 @@ export interface RelayLog {
   /** Recording one again, after a lost answer, changes nothing. */
   record(relay: Relay): Promise<void>;
   find(fleetId: FleetId, relayMessageId: MessageId): Promise<Relay | undefined>;
+}
+
+/**
+ * Outbound port: the stretches in which a fleet's company key could not be had
+ * (core refused KEY_UNAVAILABLE), in squadrons' own database, so a member's
+ * check-in clock stops for them and a restart forgets none.
+ */
+export interface KeyOutages {
+  /** The fleet's outages, oldest first. */
+  list(fleetId: FleetId): Promise<KeyOutage[]>;
+  /** Starts an outage at `at`; one that goes on already stays as it is. */
+  begin(fleetId: FleetId, at: Date): Promise<void>;
+  /** Ends the outage that goes on, at `at`; none going on changes nothing. */
+  end(fleetId: FleetId, at: Date): Promise<void>;
 }
