@@ -304,8 +304,7 @@ describe("a member's check-in", () => {
     expect(JSON.parse(sent[0]?.payload ?? '{}')).toMatchObject({ template: 'tester@4', charter: 'Report to the flagship.\n\nYou test.' });
   });
 
-  it('stays within the 64 KB payload limit with the longest charter a template may have', async () => {
-    const PAYLOAD_MAX_BYTES = 64 * 1024;
+  it('stays within the payload limit with the longest charter a template may have', async () => {
     held = { ...held, templates: held.templates.map((template) => ({ ...template, charter: 'x'.repeat(CHARTER_MAX_BYTES) })) };
 
     await handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }));
