@@ -1,4 +1,4 @@
-import { PING_CONTENT_TYPE, type DeliveryId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { PAYLOAD_MAX_BYTES, PING_CONTENT_TYPE, type DeliveryId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { FleetDoor, ManagementCrewStore, OutgoingMessage } from '../management/ports.js';
@@ -611,9 +611,9 @@ describe('the flagship proxying between its squadron and its forming ship (decis
     expect(sent[0]?.selector).toEqual({ kind: 'ship', name: 'argo' });
   });
 
-  it("refuses a member's relay that does not fit 64 KB with its envelope, asking for a reference, and sends nothing on", async () => {
+  it("refuses a member's relay that does not fit the payload limit with its envelope, asking for a reference, and sends nothing on", async () => {
     held = formedByTechLead();
-    const relay = delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'x'.repeat(64 * 1024 - 100) } });
+    const relay = delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'x'.repeat(PAYLOAD_MAX_BYTES - 100) } });
 
     await handle(held, relay);
 
