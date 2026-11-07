@@ -183,6 +183,7 @@ const memberFormSchema: z.ZodType<MemberForm> = z.object({
       firstPrompt: crewSettingsSchema.shape.firstPrompt.unwrap(),
       options: z.record(z.string(), z.json()),
       machineLabels: z.array(z.object({ key: z.string().min(1), value: z.string().min(1) })),
+      mcpServers: crewSettingsSchema.shape.mcpServers.unwrap(),
     })
     .partial()
     .optional(),
@@ -607,6 +608,7 @@ export const squadronsRouter = t.router({
               firstPrompt: z.string().optional(),
               options: z.record(z.string(), z.json()),
               machineLabels: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
+              mcpServers: z.array(z.string()).optional(),
             }),
             parameters: z.array(z.object({ name: z.string(), description: z.string(), value: z.string().nullable() })),
           }),

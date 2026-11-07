@@ -76,6 +76,7 @@ const crewSchema = z.object(
         }
       })
       .optional(),
+    mcpServers: crewSettingsSchema.shape.mcpServers,
     machineLabels: z.array(machineLabel, expecting(`a list of ${MACHINE_LABEL}`)).max(SHIP_LABELS_MAX, `must be at most ${String(SHIP_LABELS_MAX)} labels, as many as a ship carries`).optional(),
   },
   expecting('a mapping of crew settings'),
@@ -98,6 +99,9 @@ function crewOf(crew: z.infer<typeof crewSchema> | undefined): CrewDraft {
   }
   if (crew?.machineLabels !== undefined) {
     draft.machineLabels = crew.machineLabels;
+  }
+  if (crew?.mcpServers !== undefined) {
+    draft.mcpServers = crew.mcpServers;
   }
   return draft;
 }

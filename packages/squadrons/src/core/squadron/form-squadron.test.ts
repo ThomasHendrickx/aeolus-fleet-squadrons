@@ -577,7 +577,7 @@ describe('crew requests at forming (#343)', () => {
 
     const formed = unwrapped(await formWith({ catalogue })(fromHemmaFeature));
 
-    expect(fleet.state.requests.get(formed.members[0]?.shipId ?? '')?.mcpServers).toEqual(['postgres']);
+    expect([...fleet.state.requests]).toEqual([[formed.members[0]?.shipId, expect.objectContaining({ mcpServers: ['postgres'] })]]);
   });
 
   it("writes the template's MCP servers into the request when its role names none", async () => {
@@ -587,7 +587,7 @@ describe('crew requests at forming (#343)', () => {
 
     const formed = unwrapped(await formWith({ catalogue })(fromHemmaFeature));
 
-    expect(fleet.state.requests.get(formed.members[0]?.shipId ?? '')?.mcpServers).toEqual(['playwright']);
+    expect([...fleet.state.requests]).toEqual([[formed.members[0]?.shipId, expect.objectContaining({ mcpServers: ['playwright'] })]]);
   });
 
   it('takes each member\'s settings from the form, nearest wins, and fills the parameters of its first prompt', async () => {

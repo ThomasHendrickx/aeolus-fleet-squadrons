@@ -16,6 +16,8 @@ export interface CrewDraft {
   firstPrompt?: string;
   options?: Record<string, OptionValue>;
   machineLabels?: { key: string; value: string }[];
+  /** Names on the trierarch plugin's server list, never a definition or a path. */
+  mcpServers?: string[];
 }
 
 /** One version of a ship template, as its tag holds it (docs/squadrons.md, "Ship template"). */
