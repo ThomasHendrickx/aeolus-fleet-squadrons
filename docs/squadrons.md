@@ -131,6 +131,7 @@ A template and a blueprint role may each say how members are crewed (#343), in a
 | `firstPrompt` | Given on the first start only: at most 8 KB, never starting with `-`. It may use the template's `{{name}}` parameters |
 | `options` | Named settings, such as `effort`. Never `model`: `crew.model` is the one place for it |
 | `machineLabels` | `key=value` names, such as `os=linux`, at most 20: names, not ids, so a file works in any fleet. The machine must carry every one |
+| `mcpServers` | Names of the MCP servers the session starts with, each on the trierarch plugin's server list: lowercase letters, digits, dots, hyphens and underscores, never a path or a definition. Written into the member's crew request as given |
 
 A member's crew settings are its template's with its role's over them, nearest wins: each field the role sets replaces the template's whole, except `options`, which merge per key. The model, the role's `crew.model` or else the template's, goes into the settings as `options.model`. A `model` outside `crew`, at the top of a template or of a role, is refused, as is `crew.options.model`: each points to `crew.model`. A squadron is never named in a file: squadrons gives each member its own.
 
