@@ -19,6 +19,8 @@ export function aListedShip(ship: Partial<ListedShip> & Pick<ListedShip, 'id' | 
     awaitingCrewSince: null,
     retiredAt: null,
     ownerShipId: null,
+    activity: null,
+    openAlertCount: 0,
     ...ship,
   };
 }

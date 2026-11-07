@@ -15,6 +15,7 @@ export const crew: z.ZodType<CrewDraft> = z
     firstPrompt: z.string(),
     options: z.record(z.string(), z.json()),
     machineLabels: z.array(z.object({ key: z.string(), value: z.string() })),
+    mcpServers: z.array(z.string()),
   })
   .partial()
   .default({});

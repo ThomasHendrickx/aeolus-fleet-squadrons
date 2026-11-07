@@ -67,6 +67,13 @@ describe("a member's crew settings, from its template and its blueprint role (#3
     });
   });
 
+  it("carry the template's MCP servers, and a role's list replaces them whole", () => {
+    const template = aTemplate({ crew: { mcpServers: ['playwright', 'docs'] } });
+
+    expect(memberCrewOf({ template, role: aRole() }).crew.mcpServers).toEqual(['playwright', 'docs']);
+    expect(memberCrewOf({ template, role: aRole({ crew: { mcpServers: ['postgres'] } }) }).crew.mcpServers).toEqual(['postgres']);
+  });
+
   it('merge options per key: the role’s keys win, the template’s other keys stay', () => {
     const template = aTemplate({ crew: { options: { effort: 'high', permissionMode: 'acceptEdits' } } });
     const role = aRole({ crew: { options: { effort: 'low' } } });

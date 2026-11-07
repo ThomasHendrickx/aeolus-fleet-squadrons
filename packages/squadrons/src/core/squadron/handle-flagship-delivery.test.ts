@@ -1,4 +1,4 @@
-import { PING_CONTENT_TYPE, type DeliveryId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { PAYLOAD_MAX_BYTES, PING_CONTENT_TYPE, type DeliveryId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { FleetDoor, ManagementCrewStore, OutgoingMessage } from '../management/ports.js';
@@ -304,8 +304,7 @@ describe("a member's check-in", () => {
     expect(JSON.parse(sent[0]?.payload ?? '{}')).toMatchObject({ template: 'tester@4', charter: 'Report to the flagship.\n\nYou test.' });
   });
 
-  it('stays within the 64 KB payload limit with the longest charter a template may have', async () => {
-    const PAYLOAD_MAX_BYTES = 64 * 1024;
+  it('stays within the payload limit with the longest charter a template may have', async () => {
     held = { ...held, templates: held.templates.map((template) => ({ ...template, charter: 'x'.repeat(CHARTER_MAX_BYTES) })) };
 
     await handle(held, delivery(TESTER, { contentType: CHECK_IN, payload: { squadron: 'team-a1b2c3' } }));
@@ -611,9 +610,9 @@ describe('the flagship proxying between its squadron and its forming ship (decis
     expect(sent[0]?.selector).toEqual({ kind: 'ship', name: 'argo' });
   });
 
-  it("refuses a member's relay that does not fit 64 KB with its envelope, asking for a reference, and sends nothing on", async () => {
+  it("refuses a member's relay that does not fit the payload limit with its envelope, asking for a reference, and sends nothing on", async () => {
     held = formedByTechLead();
-    const relay = delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'x'.repeat(64 * 1024 - 100) } });
+    const relay = delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'x'.repeat(PAYLOAD_MAX_BYTES - 100) } });
 
     await handle(held, relay);
 

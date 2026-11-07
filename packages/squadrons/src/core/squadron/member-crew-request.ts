@@ -27,7 +27,7 @@ const utf8 = new TextEncoder();
 /**
  * The text of a member that is over its limit once its parameters are
  * filled (#371), as the refusal names it: its charter over the template
- * limit, which keeps the role message within 64 KB, or its first prompt over
+ * limit, which keeps the role message within the payload limit, or its first prompt over
  * the crew request's. Undefined when both fit.
  */
 export function overLimitOf(member: { template: TemplateVersion; crew: MemberCrew; parameters: Readonly<Record<string, string>> }): OverLimit | undefined {
@@ -88,7 +88,7 @@ export async function resolveMachineLabels(door: FleetDoor, of: { crewToken: str
 
 /** The settings of a member's crew request; undefined when its crew settings name no workspace. */
 export function crewSettingsOf(crew: MemberCrew, context: { squadronId: string; labels: MachineLabelIds }): CrewSettings | undefined {
-  const { harness, workspace, firstPrompt, options, machineLabels } = crew;
+  const { harness, workspace, firstPrompt, options, machineLabels, mcpServers } = crew;
   if (workspace === undefined) {
     return undefined;
   }
@@ -98,6 +98,7 @@ export function crewSettingsOf(crew: MemberCrew, context: { squadronId: string; 
     ...(firstPrompt === undefined ? {} : { firstPrompt }),
     options,
     squadron: context.squadronId,
+    ...(mcpServers === undefined ? {} : { mcpServers }),
     ...(machineLabels === undefined ? {} : { machineLabels: machineLabels.flatMap((label) => context.labels.get(nameOf(label)) ?? []) }),
   };
 }

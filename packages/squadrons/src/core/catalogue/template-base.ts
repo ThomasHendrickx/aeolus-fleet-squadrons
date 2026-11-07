@@ -96,7 +96,7 @@ function fieldsSetBy(layer: TemplateLayer, index: number): Record<string, number
     ...(layer.checkInMinutes === undefined ? [] : ['checkIn']),
     ...(layer.launchNote === undefined ? [] : ['launchNote']),
     ...(model === undefined ? [] : ['crew.model']),
-    ...(['harness', 'workspace', 'firstPrompt', 'machineLabels'] as const).filter((field) => crew[field] !== undefined).map((field) => `crew.${field}`),
+    ...(['harness', 'workspace', 'firstPrompt', 'machineLabels', 'mcpServers'] as const).filter((field) => crew[field] !== undefined).map((field) => `crew.${field}`),
     ...Object.keys(crew.options ?? {}).map((option) => `crew.options.${option}`),
     ...layer.handoffs.map((handoff) => `handoffs.${handoff.name}`),
     ...layer.scopes.map((scope) => `scopes.${scope}`),

@@ -137,6 +137,16 @@ describe('a ship template', () => {
     });
   });
 
+  it('reads crew.mcpServers as a list of server names, in a template and in a role', () => {
+    const withServers = template({ name: 'tester', version: 4 }, { ...tester, crew: { mcpServers: ['playwright', 'docs'] } });
+    const content = { ...hemmaFeature, roles: { ...hemmaFeature.roles, tester: { template: `${REPO}#tester@4`, crew: { mcpServers: ['postgres'] } } } };
+
+    const read = catalogueOf([...templates.filter((each) => each.name !== 'tester'), withServers, blueprint({ name: 'hemma-feature', version: 4 }, content)]);
+
+    expect(read.templates.find((each) => each.name === 'tester')?.crew).toEqual({ mcpServers: ['playwright', 'docs'] });
+    expect(read.blueprints[0]?.roles.find((role) => role.name === 'tester')?.crew).toEqual({ mcpServers: ['postgres'] });
+  });
+
   it('takes a crew block with only some of its fields: every one is optional', () => {
     const [read] = catalogueOf([template({ name: 'tester', version: 4 }, { ...tester, crew: { options: { effort: 'low' } } })]).templates;
 
@@ -164,6 +174,9 @@ describe('a ship template', () => {
     { label: 'a machine label that is no key=value', content: { ...tester, crew: { machineLabels: ['linux'] } }, field: 'crew.machineLabels' },
     { label: 'a machine label in capitals', content: { ...tester, crew: { machineLabels: ['OS=linux'] } }, field: 'crew.machineLabels' },
     { label: 'more than 20 machine labels', content: { ...tester, crew: { machineLabels: Array.from({ length: 21 }, (_, index) => `key${String(index)}=value`) } }, field: 'crew.machineLabels' },
+    { label: 'an MCP server named as a path', content: { ...tester, crew: { mcpServers: ['/usr/bin/server'] } }, field: 'crew.mcpServers' },
+    { label: 'an MCP server name in capitals', content: { ...tester, crew: { mcpServers: ['Playwright'] } }, field: 'crew.mcpServers' },
+    { label: 'MCP servers that are no list', content: { ...tester, crew: { mcpServers: 'playwright' } }, field: 'crew.mcpServers' },
     { label: 'a first prompt that starts with -, which reads as a flag', content: { ...tester, crew: { firstPrompt: '--yes' } }, field: 'crew.firstPrompt' },
     { label: 'a workspace that names a path', content: { ...tester, crew: { workspace: { kind: 'folder', name: '/home/thomas/notes' } } }, field: 'crew.workspace' },
     { label: 'a parameter name that is no handle', content: { ...tester, parameters: { 'Reports To': 'x' } }, field: 'parameters' },
