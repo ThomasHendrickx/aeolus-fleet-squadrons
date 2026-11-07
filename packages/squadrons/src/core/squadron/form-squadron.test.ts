@@ -569,6 +569,27 @@ describe('crew requests at forming (#343)', () => {
     ]);
   });
 
+  it("writes the member's MCP servers into its crew request: the role's list replaces its template's", async () => {
+    const base = withCrew();
+    const planner = { ...templateVersion('planner'), crew: { mcpServers: ['playwright', 'docs'] } };
+    const roles = base.blueprints[0]?.roles.map((role) => (role.name === 'planner' ? { ...role, crew: { ...role.crew, mcpServers: ['postgres'] } } : role));
+    const catalogue = { ...base, templates: [planner, ...base.templates.slice(1)], blueprints: [{ ...blueprintVersion, roles: roles ?? [] }] };
+
+    const formed = unwrapped(await formWith({ catalogue })(fromHemmaFeature));
+
+    expect(fleet.state.requests.get(formed.members[0]?.shipId ?? '')?.mcpServers).toEqual(['postgres']);
+  });
+
+  it("writes the template's MCP servers into the request when its role names none", async () => {
+    const base = withCrew();
+    const planner = { ...templateVersion('planner'), crew: { mcpServers: ['playwright'] } };
+    const catalogue = { ...base, templates: [planner, ...base.templates.slice(1)] };
+
+    const formed = unwrapped(await formWith({ catalogue })(fromHemmaFeature));
+
+    expect(fleet.state.requests.get(formed.members[0]?.shipId ?? '')?.mcpServers).toEqual(['playwright']);
+  });
+
   it('takes each member\'s settings from the form, nearest wins, and fills the parameters of its first prompt', async () => {
     const formed = unwrapped(
       await formWith({ catalogue: withCrew() })({
