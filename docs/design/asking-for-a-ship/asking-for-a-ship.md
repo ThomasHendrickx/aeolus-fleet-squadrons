@@ -68,6 +68,8 @@ Answers marked approved are agreed behavior; unanswered options and picks remain
 2. Get a confirmation that the request is kept, see whether the ship is getting ready or has started, and be told when it starts; they can leave and return.
 3. Get only a message once the ship has started.
 
+**Approved answer: option 2.** The person gets confirmation that the request is kept, then sees "getting ready" or "started", and gets a notice when it starts. They can leave and come back. If starting fails, the request stays and they are told what they can do.
+
 **Pick: 2.** The person knows their request was received and can leave without wondering whether to ask again. If starting fails, show that it has not started, keep the request visible and explain what they can do next without asking them to arrange how the ship runs.
 
 ### 3. What does the person get when work starts?
@@ -120,7 +122,7 @@ Answers marked approved are agreed behavior; unanswered options and picks remain
 
 ## Approval boundary
 
-The purpose, Thomas's UX-first direction and the answer to question 1 are approved. Questions 2 through 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
+The purpose, Thomas's UX-first direction and the answers to questions 1 and 2 are approved. Questions 3 through 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
 
 ## Sources
 
