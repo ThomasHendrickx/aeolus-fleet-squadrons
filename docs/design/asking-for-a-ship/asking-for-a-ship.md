@@ -137,7 +137,11 @@ Thomas's note, verbatim:
 
 ### 14. Who settles a conflict on a single ship
 
-The template's behavior governs this case too. Where it hands a decision to an owner, that is the ship's owner, not automatically the template owner. The design does not choose a conflict policy for the template owner to follow.
+Approved option 1: the template's rule decides. Where it hands a case to the owner, that is the ship's owner, not automatically the template owner. The design does not choose a conflict policy for the template owner to follow.
+
+Thomas's note, verbatim:
+
+> Basic rule for aeolus has been to enable as many options to these types of questions as possible, allowing behaviour to be set in templates gives maximum flexibility while being transparent.
 
 ## What the template can state
 
