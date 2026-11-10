@@ -50,13 +50,15 @@ flowchart TD
 
 ## Questions about the person's experience
 
-These options and picks are proposals for discussion, not agreed behavior. Start with asking, waiting and working with the ship; permissions and ownership follow from that experience. Technical design follows later.
+Answers marked approved are agreed behavior; unanswered options and picks remain proposals for discussion. Start with asking, waiting and working with the ship; permissions and ownership follow from that experience. Technical design follows later.
 
 ### 1. How does a person find and ask for the work they need?
 
 1. See the kinds of work available to them, each described in everyday words, choose one and describe their request.
 2. Describe their need in a conversation and have a ship suggest what to ask for, confirming before starting.
 3. Offer both, so a person can browse or describe their need.
+
+**Approved answer: option 1.** The person picks from a list of kinds of work described in everyday words, then describes the request.
 
 **Pick: 1.** It gives the person a clear promise of what they can ask for without requiring them to know ship names or how ships run. A conversational route can follow if needed.
 
@@ -118,7 +120,7 @@ These options and picks are proposals for discussion, not agreed behavior. Start
 
 ## Approval boundary
 
-Only the purpose and Thomas's UX-first direction are approved. The questions above await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
+The purpose, Thomas's UX-first direction and the answer to question 1 are approved. Questions 2 through 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
 
 ## Sources
 
