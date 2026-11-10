@@ -213,7 +213,7 @@ The approved purpose and lessons remain the starting point. The experience is ap
 | 18: placement | Option 1: squadrons, with its own page and ship; the person's app presents it | Core keeps its generic jobs; the conversation stays in the person's app. |
 | 19: ship powers | Option 2: the organisation approves rights a template's ships may get | Requester ownership stays intact. A small explicit core rights extension may be needed; no bypass of core checks. |
 | 20: count guarantee | Option 1: squadrons claims the available place before commission | A restart reconciles half-finished cases instead of creating another ship. |
-| 21: privacy | Option 1: one conversation per person and request | App and fleet check access. The ship gets only needed context; replies return to that request. |
+| 21: privacy | Option 1: one conversation per person and request, using existing app and fleet access checks | No extra isolation inside a shared crew. Its crew sees what it is given; a template wanting privacy should be bespoke. |
 | 22: recovery | Option 2: squadrons keeps the request and progress, sending work as a message tied to it | Retry continues that request. The ship explicitly says when it started; no duplicate ship or lost request. |
 
 ### Parts and boundaries
@@ -327,7 +327,11 @@ These are guarantees to prove in implementation with concurrency, rollback and r
 
 Access is checked in the app and by fleet scopes/reach, with squadrons checking request ownership and reply association. A shared ship's send reach is not permission for a person to read every request it serves. An app cannot derive a private request conversation by returning the entire exchange with that shared ship or filtering other people's payloads in the browser.
 
-The approved context boundary also requires runtime support: a long-lived shared crew must not receive another person's whole conversation merely to answer this request. Instructions alone do not prove that boundary. Question 26 asks how the crew obtains isolated request context while still supporting the minimum context needed for template-defined conflict handling.
+A shared ship's crew sees what it is given. Separate conversations and existing app and fleet access checks do not isolate context inside that crew. No extra isolation inside a shared crew is proposed. A template wanting privacy should be bespoke.
+
+Thomas's clarification on question 21, verbatim:
+
+> privacy on a shared ship -> a shared ship has the disadvantages it has. So no unneeded over engineering
 
 Design for 3,000 ships and 10 million messages per fleet. Choices and request histories are paged and filtered before returning to the app; request-to-ship and claim lookups are indexed by fleet and identity. No full fleet or message-history scan belongs on the ask path. Read budgets are p95 under 100 ms, p99 under 500 ms and errors under 1%, to be measured when built. Loading, empty, refusal, failure and partial-progress states are distinct. A cache of template availability cannot substitute for the ask-time rights check.
 
@@ -359,17 +363,9 @@ These propose technical structures, not business rules for template owners. No i
 
 **Pick: 1.** Updating a version should not accidentally provide a second place for the same single template. This extends association and claims to existing forming rather than claiming a fleet-wide limit from an ask-only table. Changes to the configured count while ships exist need an explicit design, not automatic retirement.
 
-**26. How does a shared ship keep each request's context separate?**
-
-1. Runtime-supported request contexts under the same ship, with request-bound messages and only the minimum permitted conflict facts available across contexts.
-2. Separate ships per person or request, which would change the approved single shared-ship experience.
-3. One shared session context, relying only on instructions not to disclose.
-
-**Pick: 1.** It matches the approved privacy boundary; support in the trierarch and harness must be established, not assumed. If unavailable, leave the shared path explicitly blocked on that capability rather than presenting instruction-only privacy as enforced isolation.
-
 ## Approval boundary
 
-The purpose, UX direction and experience answers above incorporate Thomas's ownership correction and his direction that template owners supply ship-count, existing-ship and conflict behavior. The journey follows those answers without choosing that behavior for a template. Answers 15 through 22 approve the technical boundaries recorded above. The proposed structure, core rights addition and questions 23 through 26 still need resolution before implementation approval. No code is changed.
+The purpose, UX direction and experience answers above incorporate Thomas's ownership correction and his direction that template owners supply ship-count, existing-ship and conflict behavior. The journey follows those answers without choosing that behavior for a template. Answers 15 through 22 approve the technical boundaries recorded above. The proposed structure, core rights addition and questions 23 through 25 still need resolution before implementation approval. No code is changed.
 
 ## Sources
 
