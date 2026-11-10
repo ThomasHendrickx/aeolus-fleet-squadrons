@@ -151,7 +151,7 @@ The template owner supplies the behavior for:
 - what happens when someone asks while the allowed ship already exists;
 - how conflicting requests are handled, including whether a case needs the ship owner's decision.
 
-These describe work and behavior the template owner fills in. They do not define new fields, a policy language or a native core feature.
+These describe work and behavior the template owner fills in. The technical choices below separate the enforced count setting from owner-written instructions; they do not introduce a native core policy language.
 
 ## The person's journey
 
@@ -199,9 +199,177 @@ For bespoke work, the ship and conversation stay available for follow-up on that
 | The person wants to stop | Ask to stop their own request and see whether it worked. Other people's work and the shared ship are not ended. Completed actions are not presented as undone. |
 | The person wants work they are not allowed to ask for | That kind of work is absent from their choices. No access-request flow is proposed here. |
 
+## Technical design
+
+The approved purpose and lessons remain the starting point. The experience is approved; answers 15 through 22 establish the boundaries below. The detailed structure and unresolved questions are design proposals, not implementation approval.
+
+### Approved technical choices
+
+| Question | Approved choice | Consequence |
+| --- | --- | --- |
+| 15: template rules | Option 2: an enforced count setting; other behavior as template-owner instructions | Concurrent asks cannot bypass the count. Instructions reach whichever ship handles a case before it acts. |
+| 16: template owner | Option 2: set by the fleet when making the template available | Portable files name no fleet-specific person. A base's author does not automatically own templates built on it. |
+| 17: asking rights | Option 2: each template names the rights needed to ask; the organisation grants them | Check the actual actor when listing and again when asking. Asking rights differ from ship powers. |
+| 18: placement | Option 1: squadrons, with its own page and ship; the person's app presents it | Core keeps its generic jobs; the conversation stays in the person's app. |
+| 19: ship powers | Option 2: the organisation approves rights a template's ships may get | Requester ownership stays intact. A small explicit core rights extension may be needed; no bypass of core checks. |
+| 20: count guarantee | Option 1: squadrons claims the available place before commission | A restart reconciles half-finished cases instead of creating another ship. |
+| 21: privacy | Option 1: one conversation per person and request | App and fleet check access. The ship gets only needed context; replies return to that request. |
+| 22: recovery | Option 2: squadrons keeps the request and progress, sending work as a message tied to it | Retry continues that request. The ship explicitly says when it started; no duplicate ship or lost request. |
+
+### Parts and boundaries
+
+| Part | Responsibility |
+| --- | --- |
+| Template file and built template | Existing charter, crew settings, parameters and powers, plus the enforced count setting, required asking rights and instructions for existing-ship and conflict cases. Keep the version and built base chain used. |
+| Template made available in a fleet | Its fleet-set template owner and organisation-approved ship powers, separate from the portable file and the resulting ship's owner. |
+| Squadrons | Available templates, authorisation of asks, durable requests and progress, count claims, commission and crew-request steps, recovery and request-to-ship/message associations. Its domain and ports remain independent of frameworks and core internals. |
+| Ship handling a template case | Receives the relevant template instructions before acting. Decides the case according to those instructions, without overriding count or rights checks. Which ship handles a case before the requested ship exists remains question 23. |
+| Requested ship's crew | Takes the request as a message, explicitly reports starting it, handles clarification, follow-up and stopping, and sends replies tied to that request. |
+| Person's app | Presents the allowed choices, durable progress and separate conversations; authenticates the person and does not expose another person's request. It never lends its person ship's crew token to squadrons. |
+| Core | Authenticates actors; checks scopes, ownership and reach; commissions, keeps crew requests and delivers opaque messages. It does not read templates or choose business behavior. |
+| Trierarch plugin and trierarch | Assign the existing crew request and start, restart or wake the crew. They do not decide which work a template accepts. |
+
+The new fields' exact names, base merge rules and message shapes are not fixed by these answers. They must preserve the existing meaning of template versions, snapshots and parameter substitution. A template owner writes behavior; a template file alone is never a grant of powers.
+
+### Authorisation and core's possible addition
+
+Listing checks the signed-in account or actual sending ship, scoped to its fleet. Asking rechecks the required rights, even if the person saw that template earlier. A message cannot claim a different actor or carry usable rights. A request key belongs to that actor in that fleet; another person cannot use it to read or change the request.
+
+There are three separate checks: may this actor ask for this template; which powers has the organisation approved for ships made from it; and may this operation reach its target. Neither template ownership nor asking permission grants the resulting ship arbitrary powers or reach. Reusing a ship does not change its owner or broaden its powers merely because another person asks for work.
+
+Today's `ownerOf` commission check uses the asking ship both for ownership and as the scope source. It cannot, by itself, express a requester who owns the new ship but does not hold all its powers. The proposed core addition is a generic checked commission authorisation separating the owner from the approved source of powers. Core must verify the authoriser may grant every requested scope, that the authorisation applies to this commission and fleet, and record the actor and source. Squadrons must not simulate this by commissioning under a powerful owner and silently changing ownership afterward.
+
+Question 24 asks how to represent that authorisation. Until answered, this is an explicit dependency, not an available API. Any required change to decisions 0045/0046, the public compatibility contract and the minimum core version belongs in the implementation design before code. Asking and template behavior remain outside core.
+
+### Durable requests and the count
+
+Proposed structure: squadrons keeps each accepted request with its fleet, actual requester, selected built template, original request, progress, resulting ship association, and the commission/send references needed to resume. The acceptance write precedes confirmation that the request is kept. Repeating the same request key returns that request; it does not create another one. Reusing a key for different content must be distinguished from retrying the original request.
+
+For a template with an available place, the count claim and decision to create belong to one local transaction. All processes serving that fleet share this claim. Commission uses a stable key from the recorded creation step. A lost commission response is reconciled with the same key before any new commission is attempted. A claim is not freed just because a request finished, its crew was released or the process restarted: the ship still exists. A confirmed retirement or confirmed failed commission permits reconciliation of the place. A retry never retires a working shared ship to make room.
+
+A fleet-wide claim needs a stable template identity across versions and a defined relation to ordinary blueprint forming. The guarantee cannot honestly cover ships that squadrons cannot associate with that template. Question 25 makes those boundaries explicit before choosing keys or claiming full coverage.
+
+### Complete flow
+
+This diagram shows the approved responsibilities and the proposed sequence. The case-handling ship and commission authorisation are explicit unresolved parts, not hidden automatic choices.
+
+```mermaid
+sequenceDiagram
+    actor Person
+    participant App as Person's app
+    participant S as Squadrons
+    participant H as Ship handling template case
+    participant C as Core
+    participant T as Trierarch plugin and trierarch
+    participant W as Requested ship
+    Person->>App: Find work
+    App->>S: List available templates as the actual actor
+    S-->>App: Allowed choices only
+    Person->>App: Choose and describe request
+    App->>S: Ask with repeatable key
+    S->>S: Recheck rights; keep request and progress
+    S-->>App: Request kept
+    S->>S: Check existing ship and claim available place atomically
+    alt Template needs a decision for an existing ship
+        S->>H: Relevant template instructions and minimum case context
+        H-->>S: Outcome under template instructions
+        S-->>App: This request waits, proceeds or cannot proceed
+    end
+    alt Create a new ship
+        S->>C: Repeatable commission with requester ownership and approved powers
+        C-->>S: Ship reference or refusal
+        S->>C: Write crew request with supplied settings
+        C-->>T: Crew request available
+        T->>W: Start crew
+        W->>S: Check in if formed as a squadron member
+        S-->>W: Charter and instructions before work
+    else Existing ship may take work
+        S->>S: Keep existing owner and associate this request
+    end
+    S->>C: Repeatable send tied to request
+    C->>W: Deliver request with only needed context
+    W->>S: Explicitly report this request started
+    S-->>App: Started and start notice
+    W-->>App: Request-bound clarification or result through checked route
+    Person->>App: Follow up or stop own request
+    App->>S: Authorised follow-up or stop tied to request
+    S->>C: Send to associated ship
+    C->>W: Deliver follow-up or stop
+    W-->>App: Outcome for this request
+```
+
+The requested ship being crewed or acknowledging a delivery does not mark the work started. A refusal to send remains visible on the kept request. The app reads progress after returning; closing the app does not own or cancel recovery. Reply routing must validate the ship-to-request association and the person entitled to that conversation, not trust a recipient supplied in a payload.
+
+Where forming uses the existing squadron path, its snapshot, crew request and check-in remain applicable. Whether asking for one template forms a one-member squadron or commissions an individual ship is part of question 23. The diagram does not presume a hidden flagship or a new agent that has not been approved.
+
+### Happy and unhappy paths
+
+| Path | Result and recovery |
+| --- | --- |
+| New bespoke ship | Check asking rights and approved powers, keep request, claim place, commission once, request crew, supply instructions, send request and wait for the ship's explicit start report. Conversation and ship stay for follow-up. |
+| Existing single ship | Preserve the count and owner. Give the case-handling ship its template instructions before deciding what happens; keep and explain this person's outcome privately. Accepting work does not expose other conversations. |
+| Two simultaneous asks | The shared claim admits no more commissions than the setting allows. The other request follows the template's existing-ship behavior; it is not silently dropped or assigned a second ship. |
+| Not allowed, unavailable template or invalid ask | Refuse without commission. Do not confirm a request was kept before it is durably accepted. Recheck rights after listing; show no forbidden choices or other requests. |
+| Confirmation lost | Repeating the same key finds the kept request and its progress. It does not repeat business work as a new request. |
+| Commission answer lost or restart after commission | Reconcile the recorded creation key and ship before proceeding. Keep the place claimed while the outcome is unknown. |
+| Commission refused | Keep the failed progress and explanation. Reconcile that no ship exists before freeing the place; retry remains the same request. |
+| Crew settings refused or no computer can take the request | Show getting ready or failure with the reason and permitted next action. Do not claim started, lose the original request or release the count merely because no crew runs. |
+| Restart around sending | Resume the recorded send with its stable key. Core's delivery recovery and the ship's request association prevent creating a new request; business execution is not claimed to be exactly once. |
+| Send refused by rights, reach or unavailable core | Keep progress and the original request for retry or owner help. Do not mark delivered or started. |
+| Crew dies after delivery | Core recovers deliveries by its existing contract. Squadrons retains request progress; the new crew receives needed context rather than relying on a first prompt running again. |
+| Requests conflict | The ship handling the case receives the template's conflict instructions first. Where an owner decision is called for, pause conflicting work for the ship owner. Continue non-conflicting work and explain only the affected person's outcome. |
+| Stop races with start | Keep both facts and route stop to the same request. Show the confirmed stop outcome; do not imply actions already completed were undone. Do not stop another request or retire a shared ship. |
+| Explicit release or retirement | Apply existing core authorisation and lifecycle. Release leaves the ship existing; retirement triggers count reconciliation. Never automatically retire merely because work finished. |
+
+These are guarantees to prove in implementation with concurrency, rollback and restart tests, not claims that the current package already provides them.
+
+### Conversation privacy and reads
+
+Access is checked in the app and by fleet scopes/reach, with squadrons checking request ownership and reply association. A shared ship's send reach is not permission for a person to read every request it serves. An app cannot derive a private request conversation by returning the entire exchange with that shared ship or filtering other people's payloads in the browser.
+
+The approved context boundary also requires runtime support: a long-lived shared crew must not receive another person's whole conversation merely to answer this request. Instructions alone do not prove that boundary. Question 26 asks how the crew obtains isolated request context while still supporting the minimum context needed for template-defined conflict handling.
+
+Design for 3,000 ships and 10 million messages per fleet. Choices and request histories are paged and filtered before returning to the app; request-to-ship and claim lookups are indexed by fleet and identity. No full fleet or message-history scan belongs on the ask path. Read budgets are p95 under 100 ms, p99 under 500 ms and errors under 1%, to be measured when built. Loading, empty, refusal, failure and partial-progress states are distinct. A cache of template availability cannot substitute for the ask-time rights check.
+
+### Questions needed to finish the structure
+
+These propose technical structures, not business rules for template owners. No implementation choice is made where the approved answers leave a gap.
+
+**23. Which ship handles a template case before the requested ship exists, and how is a ship formed from one template?**
+
+1. Use the existing one-member squadron path and its flagship, with case instructions handled by an explicitly crewed ship before any requested member is commissioned.
+2. Add individual-template forming in squadrons, with a separately identified ship handling cases that need agent instructions before commission.
+3. Let squadrons software interpret all free-form instructions itself.
+
+**Pick: 2.** It gives a template request its own concrete flow without treating software as an agent or requiring an invisible squadron. The case-handling ship's charter, crew, ownership and powers still need to be specified for approval; this pick does not commission it or choose its business decisions.
+
+**24. How does core check the approved powers separately from ownership?**
+
+1. An explicit authorisation records which actor approved a bounded set of powers and which commissioner may use it; core checks it at commission while separately setting requester ownership.
+2. Separate owner and scope-source references on commission, checked against the referenced actor's live powers, without a kept authorisation.
+3. Keep today's coupling and require the asker to hold every power.
+
+**Pick: 1.** It makes the organisation's approval explicit and auditable instead of treating a reference to a powerful actor as permission to grant. Who may approve, revocation, version binding and core's exact check must be designed under decisions 0045/0046 before implementation; no template grant is assumed.
+
+**25. What is counted together across template versions and forming paths?**
+
+1. Count all versions of one repository and template name together, across every squadrons forming path using it; squadrons records those associations. Ships commissioned independently without a template association are not claimed to be instances of it.
+2. Count each version separately.
+3. Count only the new ask path, excluding blueprint forming.
+
+**Pick: 1.** Updating a version should not accidentally provide a second place for the same single template. This extends association and claims to existing forming rather than claiming a fleet-wide limit from an ask-only table. Changes to the configured count while ships exist need an explicit design, not automatic retirement.
+
+**26. How does a shared ship keep each request's context separate?**
+
+1. Runtime-supported request contexts under the same ship, with request-bound messages and only the minimum permitted conflict facts available across contexts.
+2. Separate ships per person or request, which would change the approved single shared-ship experience.
+3. One shared session context, relying only on instructions not to disclose.
+
+**Pick: 1.** It matches the approved privacy boundary; support in the trierarch and harness must be established, not assumed. If unavailable, leave the shared path explicitly blocked on that capability rather than presenting instruction-only privacy as enforced isolation.
+
 ## Approval boundary
 
-The purpose, UX direction and experience answers above incorporate Thomas's ownership correction and his direction that template owners supply ship-count, existing-ship and conflict behavior. The journey follows those answers without choosing that behavior for a template. No API, data or squadrons/core placement design is proposed in this round. Implementation design and implementation approval remain separate.
+The purpose, UX direction and experience answers above incorporate Thomas's ownership correction and his direction that template owners supply ship-count, existing-ship and conflict behavior. The journey follows those answers without choosing that behavior for a template. Answers 15 through 22 approve the technical boundaries recorded above. The proposed structure, core rights addition and questions 23 through 26 still need resolution before implementation approval. No code is changed.
 
 ## Sources
 
