@@ -78,6 +78,8 @@ Answers marked approved are agreed behavior; unanswered options and picks remain
 2. A page showing progress and results, without a conversation.
 3. A notification that it started, with results sent later.
 
+**Approved answer: option 1.** The person gets a conversation with the ship, opening with their request. The ship says it started, asks for clarification there and gives the result there. Ready is never shown as started.
+
 **Pick: 1.** It gives the person a place to continue the work, correct a misunderstanding and see the result. A ship being ready alone must not be presented as having started the request.
 
 ### 4. What happens when the work uses a single ship that already exists?
@@ -122,7 +124,7 @@ Answers marked approved are agreed behavior; unanswered options and picks remain
 
 ## Approval boundary
 
-The purpose, Thomas's UX-first direction and the answers to questions 1 and 2 are approved. Questions 3 through 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
+The purpose, Thomas's UX-first direction and the answers to questions 1 through 3 are approved. Questions 4 through 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
 
 ## Sources
 
