@@ -102,6 +102,12 @@ Thomas's note, verbatim:
 2. Tell the people their requests conflict and pause the conflicting work until the ship's owner gives direction; do not expose either person's private request to the other.
 3. Give the later request priority and stop the earlier one.
 
+**Approved answer: option 2.** Both people are told their requests conflict and that work pauses until the ship's owner decides. Neither sees the other's request. Requests that do not conflict keep going.
+
+Thomas's note, verbatim:
+
+> Can be also set as a policy / rule on a ship by the owner (not natively in aeolus core) on how to handle conflicts
+
 **Pick: 2.** Arrival order should not silently decide incompatible business outcomes. Each person sees what is happening to their own request, and one accountable person resolves the conflict. Ordinary requests that do not conflict need not wait for that decision.
 
 ### 6. What can a person do after asking?
@@ -130,7 +136,7 @@ Thomas's note, verbatim:
 
 ## Approval boundary
 
-The purpose, Thomas's UX-first direction and the answers to questions 1 through 4, including Thomas's note about bespoke ships, are approved. Questions 5 through 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
+The purpose, Thomas's UX-first direction and the answers to questions 1 through 5, including Thomas's notes about bespoke ships and owner-set conflict policy, are approved. Questions 6 through 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
 
 ## Sources
 
