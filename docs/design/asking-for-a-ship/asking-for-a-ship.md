@@ -223,7 +223,7 @@ The approved purpose and lessons remain the starting point. The experience is ap
 | Template file and built template | Existing charter, crew settings, parameters and powers, plus the enforced count setting, required asking rights and instructions for existing-ship and conflict cases. Keep the version and built base chain used. |
 | Template made available in a fleet | Its fleet-set template owner and organisation-approved ship powers, separate from the portable file and the resulting ship's owner. |
 | Squadrons | Available templates, authorisation of asks, durable requests and progress, count claims, commission and crew-request steps, recovery and request-to-ship/message associations. Its domain and ports remain independent of frameworks and core internals. |
-| Ship handling a template case | Receives the relevant template instructions before acting. Decides the case according to those instructions, without overriding count or rights checks. Which ship handles a case before the requested ship exists remains question 23. |
+| Ship handling a template case | Receives the relevant template instructions before acting. Decides the case according to those instructions, without overriding count or rights checks. Individual-template forming uses one named ship for pre-creation cases. Its charter, owner and rights require approval before it is created. |
 | Requested ship's crew | Takes the request as a message, explicitly reports starting it, handles clarification, follow-up and stopping, and sends replies tied to that request. |
 | Person's app | Presents the allowed choices, durable progress and separate conversations; authenticates the person and does not expose another person's request. It never lends its person ship's crew token to squadrons. |
 | Core | Authenticates actors; checks scopes, ownership and reach; commissions, keeps crew requests and delivers opaque messages. It does not read templates or choose business behavior. |
@@ -231,15 +231,15 @@ The approved purpose and lessons remain the starting point. The experience is ap
 
 The new fields' exact names, base merge rules and message shapes are not fixed by these answers. They must preserve the existing meaning of template versions, snapshots and parameter substitution. A template owner writes behavior; a template file alone is never a grant of powers.
 
-### Authorisation and core's possible addition
+### Authorisation and the recorded core approval
 
 Listing checks the signed-in account or actual sending ship, scoped to its fleet. Asking rechecks the required rights, even if the person saw that template earlier. A message cannot claim a different actor or carry usable rights. A request key belongs to that actor in that fleet; another person cannot use it to read or change the request.
 
 There are three separate checks: may this actor ask for this template; which powers has the organisation approved for ships made from it; and may this operation reach its target. Neither template ownership nor asking permission grants the resulting ship arbitrary powers or reach. Reusing a ship does not change its owner or broaden its powers merely because another person asks for work.
 
-Today's `ownerOf` commission check uses the asking ship both for ownership and as the scope source. It cannot, by itself, express a requester who owns the new ship but does not hold all its powers. The proposed core addition is a generic checked commission authorisation separating the owner from the approved source of powers. Core must verify the authoriser may grant every requested scope, that the authorisation applies to this commission and fleet, and record the actor and source. Squadrons must not simulate this by commissioning under a powerful owner and silently changing ownership afterward.
+Today's `ownerOf` commission check uses the asking ship both for ownership and as the scope source. It cannot, by itself, express a requester who owns the new ship but does not hold all its powers. The approved core addition is a recorded commission approval: who approved which rights and which commissioner may use them, with requester ownership set separately. Core must verify the authoriser may grant every requested scope, that the authorisation applies to this commission and fleet, and record the actor and source. Squadrons must not simulate this by commissioning under a powerful owner and silently changing ownership afterward.
 
-Question 24 asks how to represent that authorisation. Until answered, this is an explicit dependency, not an available API. Any required change to decisions 0045/0046, the public compatibility contract and the minimum core version belongs in the implementation design before code. Asking and template behavior remain outside core.
+Core keeps and checks that approval when commissioning the ship. Approval authority, revocation and version binding still require design before any build; this is not yet an available API. Any required change to decisions 0045/0046, the public compatibility contract and the minimum core version belongs in the implementation design before code. Asking and template behavior remain outside core.
 
 ### Durable requests and the count
 
@@ -247,11 +247,11 @@ Proposed structure: squadrons keeps each accepted request with its fleet, actual
 
 For a template with an available place, the count claim and decision to create belong to one local transaction. All processes serving that fleet share this claim. Commission uses a stable key from the recorded creation step. A lost commission response is reconciled with the same key before any new commission is attempted. A claim is not freed just because a request finished, its crew was released or the process restarted: the ship still exists. A confirmed retirement or confirmed failed commission permits reconciliation of the place. A retry never retires a working shared ship to make room.
 
-A fleet-wide claim needs a stable template identity across versions and a defined relation to ordinary blueprint forming. The guarantee cannot honestly cover ships that squadrons cannot associate with that template. Question 25 makes those boundaries explicit before choosing keys or claiming full coverage.
+Count every version of the same repository and template name together across every squadrons forming path, including blueprint forming and individual-template forming. A new version opens no second place. Squadrons records the template association for each ship it forms. Ships created outside templates are not counted. Changing the count while ships exist needs its own design and never automatically retires ships.
 
 ### Complete flow
 
-This diagram shows the approved responsibilities and the proposed sequence. The case-handling ship and commission authorisation are explicit unresolved parts, not hidden automatic choices.
+This diagram shows the approved responsibilities and the proposed sequence. Individual-template forming, a named case-handling ship and recorded core approval are approved choices. The case ship's charter, owner and rights, and the approval's authority, revocation and version rules remain design dependencies.
 
 ```mermaid
 sequenceDiagram
@@ -281,8 +281,7 @@ sequenceDiagram
         S->>C: Write crew request with supplied settings
         C-->>T: Crew request available
         T->>W: Start crew
-        W->>S: Check in if formed as a squadron member
-        S-->>W: Charter and instructions before work
+        S-->>W: Built template charter and instructions before work
     else Existing ship may take work
         S->>S: Keep existing owner and associate this request
     end
@@ -300,7 +299,7 @@ sequenceDiagram
 
 The requested ship being crewed or acknowledging a delivery does not mark the work started. A refusal to send remains visible on the kept request. The app reads progress after returning; closing the app does not own or cancel recovery. Reply routing must validate the ship-to-request association and the person entitled to that conversation, not trust a recipient supplied in a payload.
 
-Where forming uses the existing squadron path, its snapshot, crew request and check-in remain applicable. Whether asking for one template forms a one-member squadron or commissions an individual ship is part of question 23. The diagram does not presume a hidden flagship or a new agent that has not been approved.
+Asking for one template uses individual-template forming in squadrons, not an implicit one-member squadron. Existing blueprint forming keeps its snapshot, crew request and check-in path and participates in the same template count. The individual ship must receive its built charter before work; its exact instruction hand-over needs specification without assuming a flagship. One named ship handles pre-creation cases; its charter, owner and rights return for approval before it is created.
 
 ### Happy and unhappy paths
 
@@ -335,37 +334,26 @@ Thomas's clarification on question 21, verbatim:
 
 Design for 3,000 ships and 10 million messages per fleet. Choices and request histories are paged and filtered before returning to the app; request-to-ship and claim lookups are indexed by fleet and identity. No full fleet or message-history scan belongs on the ask path. Read budgets are p95 under 100 ms, p99 under 500 ms and errors under 1%, to be measured when built. Loading, empty, refusal, failure and partial-progress states are distinct. A cache of template availability cannot substitute for the ask-time rights check.
 
-### Questions needed to finish the structure
+### Approved structure: answers 23 through 25
 
-These propose technical structures, not business rules for template owners. No implementation choice is made where the approved answers leave a gap.
+- **23, option 2:** squadrons forms one ship from one template. One named ship handles cases before the requested ship exists. Its charter, owner and rights return for approval; nothing is created by this design round.
+- **24, option 1:** core keeps a recorded approval of who approved which rights and for whom to use. It checks that approval at commission and sets ownership separately. Approval authority, taking approval back and version rules are designed before building.
+- **25, option 1:** count every version and every forming path of the same template together. A new version never opens a second place. Ships created outside templates are excluded. Changing a count while ships exist has its own design, never automatic retirement.
 
-**23. Which ship handles a template case before the requested ship exists, and how is a ship formed from one template?**
+### Remaining design before implementation
 
-1. Use the existing one-member squadron path and its flagship, with case instructions handled by an explicitly crewed ship before any requested member is commissioned.
-2. Add individual-template forming in squadrons, with a separately identified ship handling cases that need agent instructions before commission.
-3. Let squadrons software interpret all free-form instructions itself.
+The approved choices do not yet settle the following concrete parts:
 
-**Pick: 2.** It gives a template request its own concrete flow without treating software as an agent or requiring an invisible squadron. The case-handling ship's charter, crew, ownership and powers still need to be specified for approval; this pick does not commission it or choose its business decisions.
+- The name, charter, owner, crew and rights of the ship handling pre-creation cases, and how squadrons gives it instructions and accepts its outcome without giving it a way around count or rights checks.
+- Who may record core approval, how it is withdrawn, how it binds versions, and the exact generic public contract and audit record. The core decisions and compatibility contract must describe the approved addition before implementation.
+- The individual ship's instruction hand-over before work, without assuming the existing flagship check-in works for a ship outside a squadron.
+- The count-change flow for templates with existing ships. It must preserve the no-automatic-retirement direction.
 
-**24. How does core check the approved powers separately from ownership?**
-
-1. An explicit authorisation records which actor approved a bounded set of powers and which commissioner may use it; core checks it at commission while separately setting requester ownership.
-2. Separate owner and scope-source references on commission, checked against the referenced actor's live powers, without a kept authorisation.
-3. Keep today's coupling and require the asker to hold every power.
-
-**Pick: 1.** It makes the organisation's approval explicit and auditable instead of treating a reference to a powerful actor as permission to grant. Who may approve, revocation, version binding and core's exact check must be designed under decisions 0045/0046 before implementation; no template grant is assumed.
-
-**25. What is counted together across template versions and forming paths?**
-
-1. Count all versions of one repository and template name together, across every squadrons forming path using it; squadrons records those associations. Ships commissioned independently without a template association are not claimed to be instances of it.
-2. Count each version separately.
-3. Count only the new ask path, excluding blueprint forming.
-
-**Pick: 1.** Updating a version should not accidentally provide a second place for the same single template. This extends association and claims to existing forming rather than claiming a fleet-wide limit from an ask-only table. Changes to the configured count while ships exist need an explicit design, not automatic retirement.
+These need concrete proposals for approval, not a reopening of which business behavior template owners may write. No ship is created and no rights are granted in this design round.
 
 ## Approval boundary
 
-The purpose, UX direction and experience answers above incorporate Thomas's ownership correction and his direction that template owners supply ship-count, existing-ship and conflict behavior. The journey follows those answers without choosing that behavior for a template. Answers 15 through 22 approve the technical boundaries recorded above. The proposed structure, core rights addition and questions 23 through 25 still need resolution before implementation approval. No code is changed.
+The purpose, UX direction and experience answers above incorporate Thomas's ownership correction and his direction that template owners supply ship-count, existing-ship and conflict behavior. The journey follows those answers without choosing that behavior for a template. Answers 15 through 25 approve the technical choices recorded above, with shared-crew privacy limited by Thomas's clarification. The remaining design dependencies above must be resolved before implementation approval. No code is changed.
 
 ## Sources
 
