@@ -88,6 +88,12 @@ Answers marked approved are agreed behavior; unanswered options and picks remain
 2. Say the ship is already in use and ask the person to return later.
 3. Ask the person already using it to let the next person use it.
 
+**Approved answer: option 1.** The person gives the existing ship their request too. It says the ship is shared and whether their request started or waits; nobody sees other people's conversations.
+
+Thomas's note, verbatim:
+
+> Type of ship can define that it should always be bespoke, so unique per request. Then those are never shared.
+
 **Pick: 1.** Single means one ship for that work in the fleet, rather than one person's exclusive possession. People can still ask for work without finding and negotiating with the previous asker. This does not yet settle which requests can run together.
 
 ### 5. What happens when two people's requests conflict on that ship?
@@ -124,7 +130,7 @@ Answers marked approved are agreed behavior; unanswered options and picks remain
 
 ## Approval boundary
 
-The purpose, Thomas's UX-first direction and the answers to questions 1 through 3 are approved. Questions 4 through 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
+The purpose, Thomas's UX-first direction and the answers to questions 1 through 4, including Thomas's note about bespoke ships, are approved. Questions 5 through 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
 
 ## Sources
 
