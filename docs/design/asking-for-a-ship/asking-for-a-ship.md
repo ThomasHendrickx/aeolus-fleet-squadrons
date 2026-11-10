@@ -116,6 +116,8 @@ Thomas's note, verbatim:
 2. Direct all work on the ship, including stopping other people's requests.
 3. Read the result only; a change requires another request.
 
+**Approved answer: option 1.** The person can follow up, clarify or stop their own request. They cannot change other people's work or end a shared ship. Stopping shows whether it worked, never that completed actions were undone.
+
 **Pick: 1.** The person can steer the work they asked for without becoming responsible for everyone using a shared ship. Asking to stop must show whether stopping succeeded, rather than implying completed actions were undone.
 
 ### 7. Who can ask for each kind of work?
@@ -136,7 +138,7 @@ Thomas's note, verbatim:
 
 ## Approval boundary
 
-The purpose, Thomas's UX-first direction and the answers to questions 1 through 5, including Thomas's notes about bespoke ships and owner-set conflict policy, are approved. Questions 6 through 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
+The purpose, Thomas's UX-first direction and the answers to questions 1 through 6, including Thomas's notes about bespoke ships and owner-set conflict policy, are approved. Questions 7 and 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
 
 ## Sources
 
