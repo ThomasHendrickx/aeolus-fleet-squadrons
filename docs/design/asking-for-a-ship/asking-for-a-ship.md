@@ -136,11 +136,17 @@ Thomas's note, verbatim:
 2. The asker owns a ship made for their request; a single shared ship has a named owner chosen by the organisation before people use it. People can see who answers for it.
 3. The organisation names the owner for every ship, including those made for one person's request.
 
+**Approved answer: option 2.** The asker owns a ship made for their request. A single shared ship has an owner the organisation names beforehand. Everyone can see who answers for it. Clarifications about a request stay in that person's conversation.
+
+Thomas's note, verbatim:
+
+> A ships owner is the one requesting it's existence. A template (or whatever we call it) also has a template owner.
+
 **Pick: 2.** A ship made for one person's request has a clear person to turn to, while a shared ship's questions and conflicting requests do not become the first asker's responsibility by accident. Clarifications about an individual request belong in that person's conversation; decisions the ship's owner must make go to its owner under the existing ownership rule.
 
 ## Approval boundary
 
-The purpose, Thomas's UX-first direction and the answers to questions 1 through 7, including Thomas's notes about bespoke ships and owner-set conflict policy, are approved. Question 8 awaits an answer. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
+The purpose, Thomas's UX-first direction and the answers to all eight experience questions, including Thomas's notes about bespoke ships, owner-set conflict policy, ship ownership and template ownership, are approved. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
 
 ## Sources
 
