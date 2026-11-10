@@ -126,6 +126,8 @@ Thomas's note, verbatim:
 2. People see and can ask for the kinds of work their organisation has allowed them to use; work they cannot use is left out.
 3. Everyone sees every kind of work, but must request approval for anything they cannot yet use.
 
+**Approved answer: option 2.** People see the kinds of work their organisation has allowed them to ask for; the rest is not shown. Being allowed to ask is separate from what the ship itself may do. The organisation sets both.
+
 **Pick: 2.** The choices shown are usable promises. Asking for work should not also require permission to perform every action the ship does; the organisation must decide both who may ask and what the ship may do. Whether requesting access is needed can be considered separately.
 
 ### 8. Who answers for the ship when it needs a decision?
@@ -138,7 +140,7 @@ Thomas's note, verbatim:
 
 ## Approval boundary
 
-The purpose, Thomas's UX-first direction and the answers to questions 1 through 6, including Thomas's notes about bespoke ships and owner-set conflict policy, are approved. Questions 7 and 8 await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
+The purpose, Thomas's UX-first direction and the answers to questions 1 through 7, including Thomas's notes about bespoke ships and owner-set conflict policy, are approved. Question 8 awaits an answer. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
 
 ## Sources
 
