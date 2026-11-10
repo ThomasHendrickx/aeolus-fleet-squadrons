@@ -1,10 +1,14 @@
 # Asking for a ship by what it does
 
-## Proposed purpose
+## Approved purpose
 
 A person asks for a ship by what it does, gives it a request, and gets a ship that is crewed and starts on that request without the person arranging how it runs.
 
 This is for a business user. Templates describe the work available to ask for. Some are single, with at most one ship of that template at a time in a fleet; others are multiple, with one ship per request. These are the needs in [#41](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/41), not an agreed implementation or an ownership rule.
+
+Thomas approved this purpose, option 1. His direction, verbatim:
+
+> We do need to look at this from the user experience, not technical. UX first, and technical follows after that.
 
 ## Lessons to check against
 
@@ -44,9 +48,77 @@ flowchart TD
 - Limits bound squadrons per fleet, squadrons per forming ship and members per squadron. They do not impose at most one ship of a template across a fleet.
 - Existing template scopes describe powers granted to members. They do not identify which people may ask for which templates. The issue's access premise therefore needs clarification rather than a claim that per-template access exists today.
 
+## Questions about the person's experience
+
+These options and picks are proposals for discussion, not agreed behavior. Start with asking, waiting and working with the ship; permissions and ownership follow from that experience. Technical design follows later.
+
+### 1. How does a person find and ask for the work they need?
+
+1. See the kinds of work available to them, each described in everyday words, choose one and describe their request.
+2. Describe their need in a conversation and have a ship suggest what to ask for, confirming before starting.
+3. Offer both, so a person can browse or describe their need.
+
+**Pick: 1.** It gives the person a clear promise of what they can ask for without requiring them to know ship names or how ships run. A conversational route can follow if needed.
+
+### 2. What does the person see while their ship gets ready?
+
+1. Stay on a waiting screen until the ship starts.
+2. Get a confirmation that the request is kept, see whether the ship is getting ready or has started, and be told when it starts; they can leave and return.
+3. Get only a message once the ship has started.
+
+**Pick: 2.** The person knows their request was received and can leave without wondering whether to ask again. If starting fails, show that it has not started, keep the request visible and explain what they can do next without asking them to arrange how the ship runs.
+
+### 3. What does the person get when work starts?
+
+1. A conversation with the ship, showing the original request, where the ship says it has started and later asks for clarification or gives the result.
+2. A page showing progress and results, without a conversation.
+3. A notification that it started, with results sent later.
+
+**Pick: 1.** It gives the person a place to continue the work, correct a misunderstanding and see the result. A ship being ready alone must not be presented as having started the request.
+
+### 4. What happens when the work uses a single ship that already exists?
+
+1. Let the person give that ship a request, clearly saying it is shared and whether their request has started or is waiting; do not show other people's conversations merely because the ship is shared.
+2. Say the ship is already in use and ask the person to return later.
+3. Ask the person already using it to let the next person use it.
+
+**Pick: 1.** Single means one ship for that work in the fleet, rather than one person's exclusive possession. People can still ask for work without finding and negotiating with the previous asker. This does not yet settle which requests can run together.
+
+### 5. What happens when two people's requests conflict on that ship?
+
+1. Finish the earlier request before starting the later one, even when their outcomes conflict.
+2. Tell the people their requests conflict and pause the conflicting work until the ship's owner gives direction; do not expose either person's private request to the other.
+3. Give the later request priority and stop the earlier one.
+
+**Pick: 2.** Arrival order should not silently decide incompatible business outcomes. Each person sees what is happening to their own request, and one accountable person resolves the conflict. Ordinary requests that do not conflict need not wait for that decision.
+
+### 6. What can a person do after asking?
+
+1. Follow up, clarify or ask to stop their own request, without changing other people's work or ending a shared ship.
+2. Direct all work on the ship, including stopping other people's requests.
+3. Read the result only; a change requires another request.
+
+**Pick: 1.** The person can steer the work they asked for without becoming responsible for everyone using a shared ship. Asking to stop must show whether stopping succeeded, rather than implying completed actions were undone.
+
+### 7. Who can ask for each kind of work?
+
+1. Everyone in the fleet can ask for every kind of work.
+2. People see and can ask for the kinds of work their organisation has allowed them to use; work they cannot use is left out.
+3. Everyone sees every kind of work, but must request approval for anything they cannot yet use.
+
+**Pick: 2.** The choices shown are usable promises. Asking for work should not also require permission to perform every action the ship does; the organisation must decide both who may ask and what the ship may do. Whether requesting access is needed can be considered separately.
+
+### 8. Who answers for the ship when it needs a decision?
+
+1. The first person who asks owns it, including a shared ship.
+2. The asker owns a ship made for their request; a single shared ship has a named owner chosen by the organisation before people use it. People can see who answers for it.
+3. The organisation names the owner for every ship, including those made for one person's request.
+
+**Pick: 2.** A ship made for one person's request has a clear person to turn to, while a shared ship's questions and conflicting requests do not become the first asker's responsibility by accident. Clarifications about an individual request belong in that person's conversation; decisions the ship's owner must make go to its owner under the existing ownership rule.
+
 ## Approval boundary
 
-The purpose is proposed. No detailed decisions are made here. Questions with options and a pick follow only once the purpose is agreed: the six topics in #41, plus request delivery and recovery, template versions and bases for a single ship, its lifetime, crew readiness, and what the person sees when starting fails.
+Only the purpose and Thomas's UX-first direction are approved. The questions above await answers. No API, data or squadrons/core placement decisions are proposed in this round. A full proposed flow with happy and unhappy paths follows the experience decisions, before implementation design.
 
 ## Sources
 
