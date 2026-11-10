@@ -247,7 +247,7 @@ Proposed structure: squadrons keeps each accepted request with its fleet, actual
 
 For a template with an available place, the count claim and decision to create belong to one local transaction. All processes serving that fleet share this claim. Commission uses a stable key from the recorded creation step. A lost commission response is reconciled with the same key before any new commission is attempted. A claim is not freed just because a request finished, its crew was released or the process restarted: the ship still exists. A confirmed retirement or confirmed failed commission permits reconciliation of the place. A retry never retires a working shared ship to make room.
 
-Count every version of the same repository and template name together across every squadrons forming path, including blueprint forming and individual-template forming. A new version opens no second place. Squadrons records the template association for each ship it forms. Ships created outside templates are not counted. Changing the count while ships exist needs its own design and never automatically retires ships.
+Count every version of the same repository and template name together across every squadrons forming path, including blueprint forming and individual-template forming. A new version opens no second place. Squadrons records the template association for each ship it forms. Ships created outside templates are not counted. Changing the count while ships exist is separate product design in [#43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43), never automatic retirement.
 
 ### Complete flow
 
@@ -377,11 +377,46 @@ Before commissioning, each forming path claims the required places using the sam
 
 Claims include confirmed ships and creation attempts with uncertain outcomes. They survive restart and release. Failed formation reconciles each commissioned ship's retirement before releasing its claim; uncertainty never opens a second place. Ordinary retirement frees a confirmed ship's place only after squadrons observes it retired. Ships created outside templates have no template association and are excluded, even if their ship type happens to match a template name.
 
-Existing template-formed ships must be associated before enforcement is enabled for that template; otherwise the guarantee would start by ignoring them. A disagreement between versions about the count, or a requested count change while ships exist, goes through a separate explicit count-change design. This proposal does not choose a new count from whichever version was asked for last, retire ships automatically, or treat release as retirement.
+Existing template-formed ships must be associated before enforcement is enabled for that template; otherwise the guarantee would start by ignoring them. A disagreement between versions about the count, or a requested count change while ships exist, is covered by [#43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). This proposal does not choose a new count from whichever version was asked for last, retire ships automatically, or treat release as retirement.
 
 ### Proposal status
 
 This design is complete for approval. It covers the approved experience and technical boundaries, proposed case ship, recorded core approval, instruction hand-over, shared count, full flow and unhappy paths. The concrete proposals in this section await Thomas's approval; they are not approved merely because the earlier options were selected. Implementation and any required ADR or compatibility changes follow design approval, one part at a time.
+
+### Three proposals awaiting approval
+
+The purpose and lessons are unchanged. These proposals complete the remaining parts with existing crew, messaging and actor checks wherever possible. They do not create ships, grant rights or begin implementation.
+
+**27. Should the fleet enable one named ship to handle template cases before the requested ship exists?**
+
+1. Enable `squadrons-requests` with the charter below, owned by the person requesting its existence, crewed through a normal crew request using fleet-supplied harness, exact model and workspace, and only sending/receiving rights. Squadrons sends the template instructions and case facts, then checks the outcome before commissioning anything.
+2. Have the person supply an existing agent ship for this job, with its existing owner and crew; squadrons still checks its outcomes.
+
+**Pick: 1.** It makes the responsibility visible and gives requests one known place to wait when that crew is unavailable. The fleet chooses crew settings rather than this design prescribing a model or computer. The proposed charter and full rights boundary are in [Proposed case-handling ship](#proposed-case-handling-ship). Owner and crew are explicitly chosen during enablement; argo is not the normal owner. Only its first enablement creates it, not each template ask. No custom crew lifecycle is added.
+
+**28. Should a recorded approval remain usable until it is explicitly withdrawn, and bind one exact built template?**
+
+1. Yes: an actor authorised to grant the rights records approval for squadrons to use with one exact built template. Core checks that record at each new commission. Withdrawing stops new commissions, not ships already made. A changed build needs a new approval.
+2. Recheck the approver's current rights whenever a new ship is made; a loss of rights blocks use even without withdrawal.
+
+**Pick: 1.** It makes approval an explicit bounded grant with an explicit withdrawal, avoids retaining an account token for future work, and keeps existing ships stable. An actor with `scopes:grant`, `fleet:commission` and `fleet:on-behalf`, and manage reach over the commissioner, may approve only rights it can grant. The approver or another actor satisfying the same checks may withdraw. That lifetime and scope use are proposals under decisions 0045/0046, not existing behavior.
+
+Proposed public calls, through core's existing `/api/v1` door:
+
+- `fleet/approveCommission`: receives the permitted commissioner, exact scopes and opaque built-subject digest. Caller and fleet come from authentication. Returns the kept approval reference. Core records the approving actor and checks its grant authority and manage reach.
+- `fleet/withdrawCommissionApproval`: receives that approval reference, applies the withdrawal authorisation above and records withdrawal.
+- Existing `fleet/commission`: accepts an approval reference and matching subject digest, alongside the existing requester ownership reference. Checks the approval, commissioner, scope subset and ownership separately in the commission transaction. A withdrawal racing with a new commission is ordered by that transaction; retrying a completed commission returns its original outcome.
+
+The call names and fields are proposed contract names for approval, not shipped calls. This is a generic core grant record: no template parsing, workflow engine or new permission catalogue. Version binding uses the built hash squadrons already keeps. The record's exact scopes and subject are immutable; another build or changed scope set gets another record. No rule revokes existing ships merely because approval was withdrawn.
+
+**29. Should the one ship take up its template instructions by message before receiving work?**
+
+1. Yes: squadrons sends the recorded built charter and applicable instructions, waits for the crew to confirm that snapshot, then sends the kept request. A replacement crew repeats that hand-over. Crew startup tells it to wait for the messages; it does not contain the only copy.
+2. Put the charter and request only in the first prompt and rely on that prompt after restart.
+
+**Pick: 1.** It uses ordinary messages and the kept snapshot, with no flagship and no new instruction service. The confirmation means the crew took up instructions, not that the request started. Only the later explicit start report marks work started. Existing core lease identity distinguishes a replacement crew; squadrons does not invent another lease. The hand-over is repeatable for that ship, snapshot and crew, so a lost confirmation asks for the same hand-over rather than making another ship. The precise content types belong to implementation after this structure is approved.
+
+Count changes with existing ships are separate product design in [#43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43), not a prerequisite choice or a later list in this design. This design does not change a count while ships exist.
 
 ## Approval boundary
 
