@@ -2,7 +2,7 @@
 
 Issue: [#43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). Builds on [Asking for a ship by what it does](../asking-for-a-ship/asking-for-a-ship.md) ([#41](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/41), [#42](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/pull/42)).
 
-Status: Thomas approved the eight picks below (questions 1 to 8) at commit 334f90b, by answer `msg_01m77aaertnrt09vhrhsbksza9`, option 1, to question `05bacade-47e3-419c-9e36-f35b96206b71`, relayed by the orchestrator ship. That approval covers these picks only. It does not approve the #41 proposals 27 to 29 this design depends on, which stay open. The screen design for the confirmation page follows as its own proposal. Nothing is built, commissioned, retired or granted by this document.
+Status: Thomas approved the eight picks below (questions 1 to 8) at commit 334f90b, by answer `msg_01m77aaertnrt09vhrhsbksza9`, option 1, to question `05bacade-47e3-419c-9e36-f35b96206b71`, relayed by the orchestrator ship. That approval covers these picks only. It does not approve the #41 proposals 27 to 29 this design depends on, which stay open. The [screens](#screens) are a proposal for approval. Nothing is built, commissioned, retired or granted by this document.
 
 ## Proposed purpose
 
@@ -155,6 +155,56 @@ flowchart TD
 | A ship owner explicitly retires or releases | Retiring frees the place once squadrons sees it retired. Releasing frees nothing: the ship still exists. |
 
 These guarantees are to be proven by concurrency, rollback and restart tests when built. Nothing in the package provides them today.
+
+## Screens
+
+Proposed, for Thomas's approval: [the screens](mockups/README.md), drawn on the console's existing template page, before and after, at 1440 and 375, light and dark. They show:
+- the current and proposed counts;
+- the ships that count toward the count, including one being created;
+- the waiting count;
+- lowering below the ships that exist, and raising;
+- a version proposing another count;
+- a missing template owner;
+- busy, confirmed, lost-answer and refused outcomes.
+
+They are simulated: invented data, nothing built.
+
+### Screen questions
+
+**S1. Where does the template owner see and confirm the count?**
+
+1. A Ships allowed section on the console's template page, under the read-only note. Everyone who sees the page sees the count, and only the template owner gets the buttons.
+2. A page of its own in squadrons, apart from the console.
+
+**Pick: 1.** The template page already shows each version, so a version proposing another count sits beside the version it comes from. This needs one exception from Thomas. The console's conventions say blueprints and templates are read-only, with "never edit controls". Confirming the count edits no file, so the read-only note stays, but it is still an action on that page. Who among people can reach the console's template page is not decided here.
+
+**S2. What do the screens call it?**
+
+1. "Ships allowed at a time in this fleet", and "N ships count toward it".
+2. "Places", as this document says.
+
+**Pick: 1.** "Place" is no console term, and a person reads "ships allowed" without learning one.
+
+**S3. What does the confirm button say and look like?**
+
+1. A primary button that names the action and the consequence, such as "Allow 1, keep all 4 ships" or "Allow 3 ships". The dialog title is the question: "Allow 1 baker ship instead of 4?"
+2. A destructive button, "Lower to 1".
+
+**Pick: 1.** Nothing is lost and another confirmation undoes it (question 8). The console keeps destructive for irreversible actions.
+
+**S4. Where does a version that proposes another count show?**
+
+1. On the template page only: the Ships allowed callout, "proposes 1" in the version picker, and each version's count in Versions.
+2. As 1, plus a badge on the Templates list.
+
+**Pick: 1.** It is drawn and needs nothing new. Option 2 is not drawn yet. A notice to the template owner is not proposed: squadrons sending one needs reach that is not decided here.
+
+**S5. Who sees how many requests wait?**
+
+1. The template owner only.
+2. Everyone who sees the page.
+
+**Pick: 1.** Question 3 shows the waiting count to the template owner. Others see the count and the ships, which experience 8 already makes visible: who answers for each ship.
 
 ## What this design does not do
 
