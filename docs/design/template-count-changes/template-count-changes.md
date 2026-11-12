@@ -158,25 +158,41 @@ These guarantees are to be proven by concurrency, rollback and restart tests whe
 
 ## Screens
 
-Proposed, for Thomas's approval: [the screens](mockups/README.md), drawn on the console's existing template page, before and after, at 1440 and 375, light and dark. They show:
+Proposed, for Thomas's approval: [the screens](mockups/README.md), 15 states at 1440 and 375, light and dark, with today's template page as the before. They show:
 - the current and proposed counts;
 - the ships that count toward the count, including one being created;
 - the waiting count;
 - lowering below the ships that exist, and raising;
-- a version proposing another count;
+- a version proposing another count, and the count kept;
+- a one-per-request template;
 - a missing template owner;
-- busy, confirmed, lost-answer and refused outcomes.
+- loading and a count that cannot be read;
+- busy, confirmed, failed, lost-answer and refused outcomes.
+
+A failed write and a lost answer are different screens. A failed write is squadrons answering that it wrote nothing, so the old count holds. A lost answer, or a restart mid-confirm, means the change may or may not be written. The page claims neither and reads the count squadrons kept, and confirming the same count again changes nothing twice (question 7).
 
 They are simulated: invented data, nothing built.
 
 ### Screen questions
 
-**S1. Where does the template owner see and confirm the count?**
+**S0. Is the proposed purpose approved?**
 
-1. A Ships allowed section on the console's template page, under the read-only note. Everyone who sees the page sees the count, and only the template owner gets the buttons.
-2. A page of its own in squadrons, apart from the console.
+1. Yes, as written in [Proposed purpose](#proposed-purpose).
+2. No: Thomas restates it, and the screens are checked against his words.
 
-**Pick: 1.** The template page already shows each version, so a version proposing another count sits beside the version it comes from. This needs one exception from Thomas. The console's conventions say blueprints and templates are read-only, with "never edit controls". Confirming the count edits no file, so the read-only note stays, but it is still an action on that page. Who among people can reach the console's template page is not decided here.
+**Pick: 1.** The eight approved picks and these screens follow from it. Until Thomas answers, it stays labelled proposed: the approval of questions 1 to 8 did not state it.
+
+**S1. Where does the template owner see and confirm the count? A founder choice.**
+
+1. A Ships allowed section on the console's existing template page, under the read-only note. Everyone who sees the page sees the count, and only the template owner gets the buttons. This needs Thomas to make an exception to the console's conventions, which say templates are read-only, with "never edit controls". Confirming the count edits no file, so the read-only note stays, but it is still an action on that page. These screens do not assume that exception is granted.
+2. A page that squadrons serves itself, apart from the console, as decision 0017 allows ("its own pages run apart from the console"). The console's read-only rule stays whole.
+
+**Pick: 1**, if Thomas grants the exception, and otherwise 2. The template page already shows each version, so a version proposing another count sits beside the version it comes from.
+
+What each option needs, so the choice is concrete:
+- **Who builds the page.** The console's squadrons pages live in aeolus-fleet's console package and call squadrons' API through the web app's server. So option 1 is a console change in aeolus-fleet as well as a squadrons API call in this repository, two pull requests. Option 2 is built in this repository only. Squadrons serves no page of its own today, so option 2 also needs that page's sign-in through `console.session`, as 0017 says.
+- **Knowing the template owner.** Either way squadrons must know whether the person signed in is the template owner. Today a console session tells squadrons its fleet, kind, scopes and an optional account, not the person's ship. Before building, it must be checked whether a call already listed in [docs/compatibility.md](https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/compatibility.md) answers that. If none does, it comes back to Thomas as a core compatibility question. This design invents no call.
+- **Reaching the page.** Today squadrons' API serves reads to sessions holding `fleet:read` and changes to those holding `fleet:manage`. A template owner who holds neither cannot reach either page. This design grants no right: confirming checks only that the person signed in is the template owner. How a template owner without those scopes reaches the page comes back to Thomas with the template-owner design (#41, answer 16).
 
 **S2. What do the screens call it?**
 
@@ -197,7 +213,7 @@ They are simulated: invented data, nothing built.
 1. On the template page only: the Ships allowed callout, "proposes 1" in the version picker, and each version's count in Versions.
 2. As 1, plus a badge on the Templates list.
 
-**Pick: 1.** It is drawn and needs nothing new. Option 2 is not drawn yet. A notice to the template owner is not proposed: squadrons sending one needs reach that is not decided here.
+**Pick: 1.** It is drawn and needs nothing new. Option 2 is not drawn. A notice to the template owner is not proposed: squadrons sending one needs reach that is not decided here.
 
 **S5. Who sees how many requests wait?**
 
@@ -210,7 +226,7 @@ They are simulated: invented data, nothing built.
 
 - No automatic retirement or crew release, and no retire or release action for the template owner on ships they do not own.
 - No per-version count, and no count taken from the version asked for last.
-- No change to the #41 design, to core's commission approval or to core's rights. No new core call, and no `MINIMUM_CORE_VERSION` change.
+- No change to the #41 design, to core's commission approval or to core's rights. No new core call, and no `MINIMUM_CORE_VERSION` change. S1 names the one place a core call might be needed, as a question, not a choice.
 - No choice of what a template's instructions do when the allowed ships exist. That stays the template owner's.
 
 ## Sources

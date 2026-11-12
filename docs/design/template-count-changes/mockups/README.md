@@ -16,13 +16,16 @@ The page is the console's existing template page (`TemplateView`), drawn as buil
 | Confirming, busy | [png](busy-1440-light.png) | [png](busy-1440-dark.png) | [png](busy-375-light.png) | [png](busy-375-dark.png) |
 | Confirmed below the ships that exist: none retired or released | [png](lowered-1440-light.png) | [png](lowered-1440-dark.png) | [png](lowered-375-light.png) | [png](lowered-375-dark.png) |
 | Confirming more ships: 1 allowed, baker@3 states 3, 2 waiting | [png](raise-confirm-1440-light.png) | [png](raise-confirm-1440-dark.png) | [png](raise-confirm-375-light.png) | [png](raise-confirm-375-dark.png) |
-| The answer is lost or squadrons restarted: the old count holds, Try again is safe | [png](error-1440-light.png) | [png](error-1440-dark.png) | [png](error-375-light.png) | [png](error-375-dark.png) |
+| The confirmation failed: squadrons wrote nothing, 4 stay allowed, Try again is safe | [png](failed-1440-light.png) | [png](failed-1440-dark.png) | [png](failed-375-light.png) | [png](failed-375-dark.png) |
+| The answer is lost or squadrons restarted: the change may or may not be written; Read the count again shows what squadrons kept | [png](lost-1440-light.png) | [png](lost-1440-dark.png) | [png](lost-375-light.png) | [png](lost-375-dark.png) |
 | Refused: no longer the template owner | [png](refused-1440-light.png) | [png](refused-1440-dark.png) | [png](refused-375-light.png) | [png](refused-375-dark.png) |
+| The template owner kept the count: baker@2 still states 1, not confirmed | [png](kept-1440-light.png) | [png](kept-1440-dark.png) | [png](kept-375-light.png) | [png](kept-375-dark.png) |
+| A one-per-request template whose version 2 states 1 ship at a time, shared | [png](per-request-1440-light.png) | [png](per-request-1440-dark.png) | [png](per-request-375-light.png) | [png](per-request-375-dark.png) |
+| Loading: the section shows a skeleton | [png](loading-1440-light.png) | [png](loading-1440-dark.png) | [png](loading-375-light.png) | [png](loading-375-dark.png) |
+| The count cannot be read: no count shown, no change offered | [png](read-error-1440-light.png) | [png](read-error-1440-dark.png) | [png](read-error-375-light.png) | [png](read-error-375-dark.png) |
 | Someone other than the template owner reads the page | [png](viewer-1440-light.png) | [png](viewer-1440-dark.png) | [png](viewer-375-light.png) | [png](viewer-375-dark.png) |
 | No template owner: the template owner's ship is retired | [png](no-owner-1440-light.png) | [png](no-owner-1440-dark.png) | [png](no-owner-375-light.png) | [png](no-owner-375-dark.png) |
 
-Not drawn:
-- The page after Keep. The callout goes, and the version row keeps "States 1 ship" without Confirmed.
-- A template with one ship per request.
-- Loading and the page's read error, which stay as the template page has them today.
-- In the raise screen, the source line and charter still show baker@2's file and commit, not baker@3's.
+After a lost answer, reading the count again shows one of two screens. If the change was written, it is the confirmed screen (`lowered`). If it was not, the proposal is still waiting (`lower`). The page claims neither until it has read the count squadrons kept.
+
+One shortcut in the drawing: the raise screen's source line and charter still show baker@2's file and commit, not baker@3's.
