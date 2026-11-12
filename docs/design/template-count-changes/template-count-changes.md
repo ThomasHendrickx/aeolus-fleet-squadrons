@@ -9,7 +9,15 @@ Status: Thomas approved the eight picks below (questions 1 to 8) at commit 334f9
 - The console link shows only to those who can read the console today, the switcher only to those its manifest allows, and an owner without `fleet:read` uses a direct link.
 - No automatic notice and no ungated entry.
 
-That approval covers these policy picks only. It approves no endpoint, contract or implementation. The exact API and identity design is a proposal in [api-and-identity.md](api-and-identity.md). Nothing is built, commissioned, retired or granted by this document.
+That approval covers these policy picks only. It approves no endpoint, contract or implementation. The exact API and identity design is a proposal in [api-and-identity.md](api-and-identity.md).
+
+Thomas then approved the remaining screens of the separate Squadrons page at commit 34b2a83, by answer `msg_01m77ndpna3jctegxvam4w2e7m`, option 1, to question `17997003-096f-4e30-b086-09c2a65497dd` (request `msg_01m77mx5vnb6btds1w5d5vzqv3`), relayed by the orchestrator ship. The approved screens, in the separate shell with the approved card and behaviour:
+- the console entry;
+- signed out and the return after signing in, through the shared sign-in;
+- the ended sign-in states, and the outcome states tied to one decision;
+- no access, loading and read error.
+
+That approval covers those screens only. It excludes the exact core identity, on-behalf and filter compatibility in [core-compatibility-brief.md](core-compatibility-brief.md), which stays for its own design issue. It also excludes implementation, merge, scope grants, deployment and partial rollout. Nothing is built, commissioned, retired or granted by this document.
 
 ## Purpose
 
