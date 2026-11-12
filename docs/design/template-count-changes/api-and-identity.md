@@ -4,6 +4,12 @@ Issue: [#43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43
 
 Status: a proposal for Thomas's approval. Every call, field and error code named here is proposed: none exists in core, pagasae or squadrons today. Nothing is built, granted or released by this document.
 
+Thomas approved two picks, option 1 each, at commit 3a5076e, by answer `msg_01m77m5b8495e8hbbrfr89jrmj`, option 1, to question `157c6d2e-121d-4cc4-a875-47b1ba7a8ca7` (request `msg_01m77k8dsbqafxsx1jpfqzw10n`), relayed by the orchestrator ship:
+- **A3 and A3b:** counted ships outside the reader's reach show as redacted rows, and the count stays exact.
+- **O1:** the owner's ship is checked active within the same request, with the retirement window disclosed.
+
+That approval covers those picks only. Every other pick here is still a proposal, including the exact identity, compatibility and decision-key contracts, any endpoint, and the other new-page screens.
+
 ## Purpose
 
 The approved picks say who may read the Squadrons page for a template, who may approve or decline, and what the page must never claim. This design proposes how that is made true:
@@ -147,7 +153,7 @@ The identity call (I1) answers who the person is and their token's scopes. It is
 1. **Account-token reads for an account that holds `fleet:read`, and reads on behalf of the person ship for an owner without it.**
 2. Reads on behalf of the person ship for everyone.
 
-**Pick: 1.** Each reader sees what core lets that actor see. The person ship's reach can differ from the account's, which also reaches by its token's group values, so option 2 could show a reader less, or more, than core gives them.
+**Pick: 1. Approved.** Each reader sees what core lets that actor see. The person ship's reach can differ from the account's, which also reaches by its token's group values, so option 2 could show a reader less, or more, than core gives them.
 
 What core answers today: `fleet/list` answers a ship outside the caller's read reach by id, name, type and status only (`shipOutsideReadReachSchema`, `@aeolus-fleet/common`). It gives the owner (`ownerShipId`) only for ships within reach.
 
@@ -157,7 +163,7 @@ What core answers today: `fleet/list` answers a ship outside the caller's read r
 2. The name and status core gives for a ship outside reach, with "Answers for it: not shown to you", and no squadrons detail.
 3. Every name and owner from squadrons' own records. This needs 0017 changed.
 
-**Pick: 1.** It shows the least, and the count is still exact, as approving needs. What it still reveals: how many ships count, and so how many the reader cannot see. That leak comes with showing an exact count to someone with narrower reach, and the template owner needs the count to decide. Option 2 also reveals names, which core does give to an on-behalf reader. Option 3 changes 0017.
+**Pick: 1. Approved.** It shows the least, and the count is still exact, as approving needs. What it still reveals: how many ships count, and so how many the reader cannot see. That leak comes with showing an exact count to someone with narrower reach, and the template owner needs the count to decide. Option 2 also reveals names, which core does give to an on-behalf reader. Option 3 changes 0017.
 
 This changes what the approved owner view showed: names and owners for every counted ship. It does so only for an owner without `fleet:read`, and only for ships outside their reach. Readers holding `fleet:read` see what their reach gives, as before.
 
@@ -188,7 +194,7 @@ Squadrons' own API for the page. The procedure names are proposed:
 2. Read it inside the transaction, after the lock. That narrows the window, but holds the claims lock across a core call.
 3. Learn retirements from core events. No such event is listed for squadrons.
 
-**Pick: 1.** It names a guarantee squadrons can keep. Option 2 makes every claim on that template wait on core's answer. Retirement changes no claim: the ships stay, and only who may decide changes.
+**Pick: 1. Approved.** It names a guarantee squadrons can keep. Option 2 makes every claim on that template wait on core's answer. Retirement changes no claim: the ships stay, and only who may decide changes.
 
 **K1. Who makes the decision key?**
 

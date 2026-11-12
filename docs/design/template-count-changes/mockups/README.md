@@ -21,7 +21,7 @@ The before is the console's template page as built today (`TemplateView`). The a
 | Back after an unknown outcome, with no record tied to that approval: current count shown, earlier outcome can't be told | [png](return-unknown-1440-light.png) | [png](return-unknown-1440-dark.png) | [png](return-unknown-375-light.png) | [png](return-unknown-375-dark.png) |
 | Signed in but not allowed to see the page (R1 open) | [png](no-access-1440-light.png) | [png](no-access-1440-dark.png) | [png](no-access-375-light.png) | [png](no-access-375-dark.png) |
 | The template owner: a proposed change, with the approved card | [png](arrive-1440-light.png) | [png](arrive-1440-dark.png) | [png](arrive-375-light.png) | [png](arrive-375-dark.png) |
-| The template owner without fleet:read: ships outside their reach count as "A ship you can't see" (proposed, A3b in api-and-identity.md) | [png](owner-redacted-1440-light.png) | [png](owner-redacted-1440-dark.png) | [png](owner-redacted-375-light.png) | [png](owner-redacted-375-dark.png) |
+| The template owner without fleet:read: ships outside their reach count as "A ship you can't see" (A3b, approved at 3a5076e) | [png](owner-redacted-1440-light.png) | [png](owner-redacted-1440-dark.png) | [png](owner-redacted-375-light.png) | [png](owner-redacted-375-dark.png) |
 | Someone other than the template owner reads the page | [png](viewer-1440-light.png) | [png](viewer-1440-dark.png) | [png](viewer-375-light.png) | [png](viewer-375-dark.png) |
 | No template owner | [png](no-owner-1440-light.png) | [png](no-owner-1440-dark.png) | [png](no-owner-375-light.png) | [png](no-owner-375-dark.png) |
 | Loading | [png](loading-1440-light.png) | [png](loading-1440-dark.png) | [png](loading-375-light.png) | [png](loading-375-dark.png) |
