@@ -1,0 +1,42 @@
+# Changing a template's ship count: screens
+
+Docs only. [Issue #43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). Thomas approved S0 (the purpose), the screen decisions S2 to S5 and D1 to D5 at d22c3db ([template-count-changes.md](../template-count-changes.md), status). Where the page lives (S1) and how squadrons knows the template owner (S1a) are not decided, Thomas then chose a page Squadrons serves itself for S1. These screens draw that page and its entry from the console. S1a, who may open the page (R1) and how the owner-only call is authorised (R2) stay open. The behaviour they show is the approved picks. Thomas approved the remaining Squadrons page screens at 34b2a83 (the design's status): every state below is approved as a screen. The core compatibility they rely on, implementation and rollout are not.
+
+**Simulated.** Everything here is drawn, not built. The data, people and ships are invented. No squadrons call, count, claim or page exists yet, and the buttons do nothing. **Assumed only to draw:** squadrons knows the signed-in person's ship (S1a option 1, not decided). The console link is a proposed aeolus-fleet change (E1), and Squadrons in the switcher assumes a manifest (E2). These screens do not decide who may see the page or how the fleet names a template owner. Approving them approves no identity, API or rights change (S1 and S1a in the design). The no-owner screen's words assume S1a option 1, a template owner that is a person ship.
+
+[screens.html](screens.html) stands alone: it carries aeolus-fleet's `packages/ui/src/tokens.css` and its Geist fonts, from aeolus-fleet main on 12 Nov 2026. To preview it, open the file in a browser, or serve the folder with `python3 -m http.server 8043 --directory docs/design/template-count-changes/mockups` and open `http://localhost:8043/screens.html`. Each PNG is one frame of that file, rendered whole in Chromium at 1x: desktop 1440 wide, phone 375, light and dark.
+
+The before is the console's template page as built today (`TemplateView`). The after is Squadrons' own page in the shared Aeolus header (`AppHeader`: fleet and app switcher, search, avatar menu), with the approved change card.
+
+| State | 1440 light | 1440 dark | 375 light | 375 dark |
+| --- | --- | --- | --- | --- |
+| Before: the console's template page today | [png](today-template-1440-light.png) | [png](today-template-1440-dark.png) | [png](today-template-375-light.png) | [png](today-template-375-dark.png) |
+| Entry from the console: a link to Squadrons, no count, no actions (proposed console change) | [png](entry-1440-light.png) | [png](entry-1440-dark.png) | [png](entry-375-light.png) | [png](entry-375-dark.png) |
+| Squadrons' page, signed out: the one Aeolus sign-in, returning here | [png](signed-out-1440-light.png) | [png](signed-out-1440-dark.png) | [png](signed-out-375-light.png) | [png](signed-out-375-dark.png) |
+| Back after signing in, at the page asked for | [png](return-1440-light.png) | [png](return-1440-dark.png) | [png](return-375-light.png) | [png](return-375-dark.png) |
+| Sign-in ended, known not written: squadrons refused this request before any write (proposed contract C1). It shows only when no earlier send of that key had an unknown outcome (P1). Sign in again returns here; nothing replayed | [png](expired-refused-1440-light.png) | [png](expired-refused-1440-dark.png) | [png](expired-refused-375-light.png) | [png](expired-refused-375-dark.png) |
+| Sign-in ended, outcome unknown: approval sent, no answer; no count or result claimed; Sign in again returns here, nothing replayed | [png](expired-unknown-1440-light.png) | [png](expired-unknown-1440-dark.png) | [png](expired-unknown-375-light.png) | [png](expired-unknown-375-dark.png) |
+| Back after an unknown outcome: squadrons answered, for that approval's own key, that it was written (proposed contract) | [png](return-written-1440-light.png) | [png](return-written-1440-dark.png) | [png](return-written-375-light.png) | [png](return-written-375-dark.png) |
+| Back after an unknown outcome: squadrons answered, for that approval's own key, that it holds no such decision (proposed contract) | [png](return-not-written-1440-light.png) | [png](return-not-written-1440-dark.png) | [png](return-not-written-375-light.png) | [png](return-not-written-375-dark.png) |
+| Back after an unknown outcome, with no record tied to that approval: current count shown, earlier outcome can't be told | [png](return-unknown-1440-light.png) | [png](return-unknown-1440-dark.png) | [png](return-unknown-375-light.png) | [png](return-unknown-375-dark.png) |
+| Signed in but not allowed to see the page (R1 open) | [png](no-access-1440-light.png) | [png](no-access-1440-dark.png) | [png](no-access-375-light.png) | [png](no-access-375-dark.png) |
+| The template owner: a proposed change, with the approved card | [png](arrive-1440-light.png) | [png](arrive-1440-dark.png) | [png](arrive-375-light.png) | [png](arrive-375-dark.png) |
+| The template owner without fleet:read: ships outside their reach count as "A ship you can't see" (A3b, approved at 3a5076e) | [png](owner-redacted-1440-light.png) | [png](owner-redacted-1440-dark.png) | [png](owner-redacted-375-light.png) | [png](owner-redacted-375-dark.png) |
+| Someone other than the template owner reads the page | [png](viewer-1440-light.png) | [png](viewer-1440-dark.png) | [png](viewer-375-light.png) | [png](viewer-375-dark.png) |
+| No template owner | [png](no-owner-1440-light.png) | [png](no-owner-1440-dark.png) | [png](no-owner-375-light.png) | [png](no-owner-375-dark.png) |
+| Loading | [png](loading-1440-light.png) | [png](loading-1440-dark.png) | [png](loading-375-light.png) | [png](loading-375-dark.png) |
+| The count cannot be read | [png](read-error-1440-light.png) | [png](read-error-1440-dark.png) | [png](read-error-375-light.png) | [png](read-error-375-dark.png) |
+| Approving: the last check | [png](approve-1440-light.png) | [png](approve-1440-dark.png) | [png](approve-375-light.png) | [png](approve-375-dark.png) |
+| Approving, busy | [png](busy-1440-light.png) | [png](busy-1440-dark.png) | [png](busy-375-light.png) | [png](busy-375-dark.png) |
+| After approving, below the ships that exist | [png](approved-1440-light.png) | [png](approved-1440-dark.png) | [png](approved-375-light.png) | [png](approved-375-dark.png) |
+| Declining: the last check | [png](decline-1440-light.png) | [png](decline-1440-dark.png) | [png](decline-375-light.png) | [png](decline-375-dark.png) |
+| After declining, with Reconsider | [png](declined-1440-light.png) | [png](declined-1440-dark.png) | [png](declined-375-light.png) | [png](declined-375-dark.png) |
+| Reconsidering a declined proposal | [png](revisit-1440-light.png) | [png](revisit-1440-dark.png) | [png](revisit-375-light.png) | [png](revisit-375-dark.png) |
+| A newer version sets the current proposal | [png](new-version-1440-light.png) | [png](new-version-1440-dark.png) | [png](new-version-375-light.png) | [png](new-version-375-dark.png) |
+| Approving more ships | [png](raise-1440-light.png) | [png](raise-1440-dark.png) | [png](raise-375-light.png) | [png](raise-375-dark.png) |
+| Approving failed: nothing written | [png](failed-1440-light.png) | [png](failed-1440-dark.png) | [png](failed-375-light.png) | [png](failed-375-dark.png) |
+| The approval's answer is lost: read what squadrons kept | [png](lost-1440-light.png) | [png](lost-1440-dark.png) | [png](lost-375-light.png) | [png](lost-375-dark.png) |
+| Approving refused: no longer the template owner | [png](refused-1440-light.png) | [png](refused-1440-dark.png) | [png](refused-375-light.png) | [png](refused-375-dark.png) |
+| A one-per-request template | [png](per-request-1440-light.png) | [png](per-request-1440-dark.png) | [png](per-request-375-light.png) | [png](per-request-375-dark.png) |
+
+After a lost answer, reading the count again shows the approved screen if the approval was written, or the arriving screen if it was not. When the sign-in also ended, the page shows no count until the person signs in again. It then shows `return-written` or `return-not-written` only when squadrons answers for that one approval by its own decision key, a proposed contract with no call today. Otherwise it shows `return-unknown`. Nothing is replayed. "Nothing was written" appears only where squadrons refused this request before any write, under a proposed server contract that is not built. It never covers an earlier send of the same key (api-and-identity.md, C1 and P1).
