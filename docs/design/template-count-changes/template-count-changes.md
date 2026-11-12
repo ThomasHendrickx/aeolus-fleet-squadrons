@@ -163,7 +163,11 @@ These guarantees are to be proven by concurrency, rollback and restart tests whe
 The count flow on that page is the approved card and decisions below (S0, S2 to S5, D1 to D5), unchanged. The page around it is a proposal:
 - **Shell.** The shared Aeolus header (header design, `AppHeader`): "acme fleet / Squadrons" switcher, a breadcrumb "Templates › baker", search and the avatar menu. Then the template's name, the version picker, the Ships allowed section with the change card, and Versions beside it. Phone uses the app's own bar with the compact switcher (H6).
 - **Entry.** The console's template page links to it, as 0043 has the console link to plugin pages (E1). A shared link opens the same page.
-- **Sign-in.** The one Aeolus account sign-in through pagasae (header design H5). Signed out, the page asks to sign in and returns to the page asked for afterwards. If the sign-in ends mid-decision, nothing is approved, and Sign in again returns to the page; the decision is not replayed by itself. Signed in without the rights to see the page, it shows nothing about the template and points to the account's rights (R1).
+- **Sign-in.** The one Aeolus account sign-in through pagasae (header design H5). Signed out, the page asks to sign in and returns to the page asked for afterwards. If the sign-in ends mid-decision, there are two cases:
+  - **Known not written:** squadrons answered that the sign-in had ended. It checks that before any write, so nothing was written.
+  - **Outcome unknown:** the approval was sent and no answer came. The page then claims no result and shows no count until the person signs in again. On return it reads the count and the proposal or decline record squadrons kept, and shows what it finds: written, or not written with the proposal still waiting.
+
+  In both cases, Sign in again returns to the page asked for, and no decision is replayed by itself (question 7). Signed in without the rights to see the page, it shows nothing about the template and points to the account's rights (R1).
 - **Built** like every Aeolus web app (header design H3), in this repository. Squadrons serves no page today.
 
 **Assumed only to draw.** The screens show squadrons knowing the signed-in person's ship (S1a option 1). That is not decided, and nothing here is an identity or API contract.
@@ -272,6 +276,23 @@ A separate defect, not fixed here: aeolus-fleet's compatibility doc does not lis
 2. By links only.
 
 **Pick: 1.** It is the way the header design gives plugins to join, with no header change. Until then the switcher shows Squadrons only as the open app.
+
+What a template owner without `fleet:read` sees, under R1's pick:
+- **The console entry (E1):** nothing. The console is for fleet managers and argo (0043), and reading the template page needs `fleet:read`, so they never see the link.
+- **The switcher (E2):** an app's manifest names the rights each page needs (H4), and being a template owner is not a right a manifest can name. So the switcher would not list Squadrons for them.
+- **What is left:** they reach their template's page by a link, such as one shared with them, and R1 lets them in once squadrons knows them (S1a).
+
+Whether that is enough is E3.
+
+**E3. How does a template owner without `fleet:read` find their page? Proposed.**
+
+1. By a link only. No new entry: the console and the switcher stay as R1 and H4 make them.
+2. The switcher lists Squadrons for every signed-in account in the fleet, and the page shows each person only what R1 lets them see.
+3. A notice to the template owner when a version proposes a change, linking to the page.
+
+**Pick: 1**, until Thomas says otherwise. Options 2 and 3 each need something not decided:
+- option 2, a manifest entry no right gates, which shows Squadrons to people it will mostly turn away;
+- option 3, squadrons' reach to send a notice, which S4 left out.
 
 **S2. What do the screens call it?**
 
