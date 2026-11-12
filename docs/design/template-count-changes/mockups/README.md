@@ -31,4 +31,4 @@ The page is the console's existing template page (`TemplateView`), drawn as buil
 
 After a lost answer, reading the count again shows one of two screens. If the approval was written, it is the approved screen (`approved`). If it was not, the proposal still waits (`arrive`). The page claims neither until it has read the count squadrons kept.
 
-Approve is the approved "confirm" and Decline the approved "keep the current count" (questions 1 to 3). What a decline means later, for reconsidering and for newer versions, is D1 to D4 in the design.
+Approve is the approved "confirm" and Decline the approved "keep the current count" (questions 1 to 3). What a decline means later, for reconsidering and for newer versions, is D1 to D5 in the design.

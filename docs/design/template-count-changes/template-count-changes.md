@@ -278,17 +278,31 @@ The approved picks settle that a decline keeps the count in force. They do not s
 
 **D2. Can a declined proposal be reconsidered?**
 
-1. Yes: the declined record offers Reconsider, which shows the proposal with the earlier decline. Its choices are "Approve, allow 1" and "Leave declined", and leaving it records nothing again. Once a newer version proposes, Reconsider moves to that proposal.
-2. No: only a newer version proposes again.
+Two different things: reviewing the current proposal, which waits for a first answer, and reconsidering a declined one, which already has an answer.
 
-**Pick: 1.** The template owner can change their mind without asking someone to tag a new version. Both choices on Reconsider are real: approving changes the count, leaving it changes nothing.
+1. Yes, while the declined version is still the one that determines the current proposal (D3). The declined record offers Reconsider, which shows that proposal with the earlier decline. Its choices are "Approve, allow 1" and "Leave declined", and leaving it records nothing again. Once a newer version determines the current proposal, the declined record is history only and offers no Reconsider. The newer proposal is reviewed for the first time, with its own Approve and Decline, and names the earlier decline.
+2. No: a declined proposal stays declined, and only a newer version proposes again.
 
-**D3. A newer version arrives while an older proposal waits undecided.**
+**Pick: 1.** The template owner can change their mind without asking someone to tag a new version. Both choices on Reconsider are real: approving changes the count, leaving it changes nothing. Ending Reconsider once a newer version speaks keeps one current proposal at a time (D3).
 
-1. One proposal at a time, from the newest version that states a count other than the one in force. The older one is marked "replaced by baker@3, not decided" in Versions. If the newest version states the count in force, nothing waits.
-2. Each version's proposal waits on its own and is decided on its own.
+**D3. Which version determines the current proposal?**
 
-**Pick: 1.** The template owner decides about the latest statement of the template, not a queue of old ones. Option 2 can ask them to approve a count the template's author has already moved past.
+1. The newest available version alone. If its count differs from the count in force, that is the current proposal: waiting for a first answer, or declined, from D1 and D2. If its count equals the count in force, no proposal is current, even if an older version states another count. An older version's undecided proposal shows in Versions as "replaced by baker@3, not decided".
+2. The newest version whose count differs from the count in force, looking past newer versions that state the count in force.
+3. Each version's proposal waits on its own and is decided on its own.
+
+**Pick: 1.** The template owner answers the template's latest statement. Under option 2, an old count resurfaces after a newer version has gone back to the count in force. Option 3 can ask them to approve a count the template's author has already moved past.
+
+**D5. The newest version leaves the catalogue, or its tag moves.**
+
+The approved picks already say the count in force never changes by itself (question 2). This settles only which proposal is current.
+
+1. The current proposal is worked out again from the newest version still available, by D3. A version leaves when its tag is gone or its repository is removed.
+   - **Removed:** a decision already made stays in the history. A proposal from the removed version stops being current, and the page says "baker@3 is no longer in the catalogue". An older version's earlier answer, approved or declined, is not reopened by the removal.
+   - **Moved tag:** squadrons uses the new commit silently ([template bases](../template-bases/template-bases.md), decision 10). An approval or decline answers the version's count as read at that commit. If the moved tag now states another count, it is a new proposal from the same version. If it states the same count, the earlier answer stands.
+2. A removed or moved version keeps its proposal current until the template owner answers it.
+
+**Pick: 1.** The page shows only proposals from versions a ship can be formed from. A count already in force does not depend on the version that proposed it staying (question 2). Option 2 asks the template owner to answer for a version that can no longer be used.
 
 **D4. Can the template owner stop all future proposals for a template?**
 
