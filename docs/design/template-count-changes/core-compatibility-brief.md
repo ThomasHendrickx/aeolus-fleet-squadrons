@@ -92,7 +92,7 @@ Core answers each ship within reach in full, and each ship outside reach as id, 
    - pagasae: squadrons' page as an app of the shared sign-in (I2), and Squadrons in the app list (E2);
    - the console's link (E1).
 
-   Squadrons' page serves persons only once core and pagasae are both in place. Until then it serves argo and the viewer through `console.session`.
+   Squadrons' page can serve persons only once core and pagasae are both in place. **A proposed rollout option, not approved:** serve argo and the viewer through `console.session` before then. Whether to release any part early is Thomas's decision, and no implementation, deployment or partial rollout is approved by this brief.
 
 ## Not asked of core
 
