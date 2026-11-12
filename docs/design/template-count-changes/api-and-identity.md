@@ -8,7 +8,13 @@ Thomas approved two picks, option 1 each, at commit 3a5076e, by answer `msg_01m7
 - **A3 and A3b:** counted ships outside the reader's reach show as redacted rows, and the count stays exact.
 - **O1:** the owner's ship is checked active within the same request, with the retirement window disclosed.
 
-That approval covers those picks only. Every other pick here is still a proposal, including the exact identity, compatibility and decision-key contracts, any endpoint, and the other new-page screens.
+Thomas then approved option 1 of I1 to I4, A1, A2, C1, P1 and K1 to K6 at commit 7ad67ec, as squadrons' behaviour. That was answer `msg_01m77mjfz62q2wjx3t4ms455j0`, option 1, to question `24c2f55f-90d7-4e88-b829-4a8e3aa8e377` (request `msg_01m77mb7vbs65jgtrgr3r5t874`), relayed by the orchestrator ship.
+
+These approvals exclude:
+- the exact core endpoint and schema;
+- account-token, on-behalf and bulk-read compatibility, which is core's, in [core-compatibility-brief.md](core-compatibility-brief.md);
+- the new-page screens other than `owner-redacted`;
+- any implementation.
 
 ## Purpose
 
@@ -93,7 +99,7 @@ sequenceDiagram
 2. **Present the token on an existing account-accepting call, and trust its signed claims once core accepts it.** Core checks the signature on every call, so an accepted token's claims are pagasae's. No new core code, but the guarantee is a side effect, not a stated contract.
 3. **Squadrons checks pagasae's signature itself**, holding pagasae's keys as core does.
 
-**Pick: 1.** It is the "checked core compatibility addition" S1a approved: one explicit, testable contract. Squadrons parses no token. Option 2 builds an identity guarantee on a side effect that a later core change could drop without noticing. Option 3 makes squadrons a second token checker, which 0017 does not give it and 0058 gives core.
+**Pick: 1. Approved.** It is the "checked core compatibility addition" S1a approved: one explicit, testable contract. Squadrons parses no token. Option 2 builds an identity guarantee on a side effect that a later core change could drop without noticing. Option 3 makes squadrons a second token checker, which 0017 does not give it and 0058 gives core.
 
 What option 1 needs, outside this repository:
 - **A core design and issue** in aeolus-fleet: the call's name, schema in `@aeolus-fleet/common`, refusals and tests.
@@ -106,7 +112,7 @@ What option 1 needs, outside this repository:
 1. **From pagasae, server to server,** using the shared sign-in cookie on the shared Aeolus domain, for the fleet in view, as every Aeolus app's server does (0054, H5). The token stays on squadrons' server and is never sent to the browser.
 2. **The browser sends the token** to squadrons with each call.
 
-**Pick: 1.** It is how 0054 says every app gets account tokens, and it keeps the token off the page. It needs:
+**Pick: 1. Approved.** It is how 0054 says every app gets account tokens, and it keeps the token off the page. It needs:
 - **A pagasae issue:** squadrons' page as an app of the shared sign-in.
 - **Hosting:** squadrons' page on the shared domain.
 
@@ -115,14 +121,14 @@ What option 1 needs, outside this repository:
 1. **On every request** to squadrons' API: squadrons calls I1 with a token pagasae gave, never past the token's `endsAt`.
 2. **Once per page session**, cached for some minutes.
 
-**Pick: 1.** A decision must be checked at the moment it is made (contract C1), and a token lives 10 minutes at most (0058). The cost is one core call per squadrons request. It must stay within the page's read budget (p95 under 100 ms), to be measured when built.
+**Pick: 1. Approved.** A decision must be checked at the moment it is made (contract C1), and a token lives 10 minutes at most (0058). The cost is one core call per squadrons request. It must stay within the page's read budget (p95 under 100 ms), to be measured when built.
 
 **I4. What about a sign-in with no account?** That is argo or the viewer through `console.session`, or a fleet with no pagasae.
 
 1. **Such a session reads with `fleet:read`, through the existing `console.session` check, and never decides.**
 2. It is not served.
 
-**Pick: 1.** It matches question 8: argo never decides, and a fleet without pagasae has no person to be template owner, so its count stays as last approved.
+**Pick: 1. Approved.** It matches question 8: argo never decides, and a fleet without pagasae has no person to be template owner, so its count stays as last approved.
 
 ## Authorisation in squadrons
 
@@ -133,20 +139,20 @@ Squadrons keeps, per fleet and template identity, the template owner as a person
 1. **Allowed when the checked scopes hold `fleet:read`, or the checked person ship is that template's owner and is not retired.** Only that template: an owner without `fleet:read` gets no template list, no catalogue and no other template. The waiting count and the actions go to the owner only (S5).
 2. Allowed for the owner of any template, across the catalogue.
 
-**Pick: 1.** It is R1 as approved: "for that template only".
+**Pick: 1. Approved.** It is R1 as approved: "for that template only".
 
 **A2. Approving or declining.**
 
 1. **Allowed only when the checked person ship is that template's current owner,** checked inside the decision's transaction, after the lock (K2). No `fleet:manage`, no scope. Refused as `NOT_TEMPLATE_OWNER`, with nothing written.
 2. Checked once before the transaction.
 
-**Pick: 1.** A template owner the fleet replaced a moment ago cannot slip a decision in between the check and the write (the `refused` screen).
+**Pick: 1. Approved.** A template owner the fleet replaced a moment ago cannot slip a decision in between the check and the write (the `refused` screen).
 
 **A3. Which read gives each reader the ships' details?**
 
 The identity call (I1) answers who the person is and their token's scopes. It is not read reach. A1 uses its scopes only to decide whether the page may open. What each reader then sees of each counted ship comes from core reads, under contracts that exist today:
-- **A reader holding `fleet:read` by account:** squadrons presents their account token, with its own crew token, on `fleet/list` and `fleet/ship`. Core authorises the account by its own scopes and reach (architecture.md, Actors).
-- **An owner without `fleet:read`:** squadrons reads as itself, with `fleet:read` and `fleet:on-behalf` and the `Aeolus-On-Behalf-Of` header naming their person ship. Core answers what that ship's read reach gives (architecture.md, fleet procedures; decision 0034; 0017's "reads on behalf of the person's ship").
+- **A reader holding `fleet:read` by account:** squadrons presents their account token, with its own crew token, on `fleet/list` with `shipIds`. Core authorises the account by its own scopes and reach (architecture.md, Actors).
+- **An owner without `fleet:read`:** squadrons reads as itself, with `fleet:read` and `fleet:on-behalf` and the `Aeolus-On-Behalf-Of` header naming their person ship, on `fleet/list` with `shipIds`. Core answers what that ship's read reach gives (architecture.md, fleet procedures; decision 0034; 0017's "reads on behalf of the person's ship").
 - **argo or the viewer through `console.session`:** squadrons reads as itself. Both read the whole fleet already.
 - **Whether the template owner's ship is retired:** squadrons reads it as itself with `fleet/ship`, for its own check only. The page shows only "No template owner".
 
@@ -168,10 +174,9 @@ What core answers today: `fleet/list` answers a ship outside the caller's read r
 This changes what the approved owner view showed: names and owners for every counted ship. It does so only for an owner without `fleet:read`, and only for ships outside their reach. Readers holding `fleet:read` see what their reach gives, as before.
 
 **Compatibility requirements, separate from I1.** Each is a change to aeolus-fleet's `docs/compatibility.md`, with core confirming or adding the behaviour:
-- squadrons presenting an account token on `fleet/list` and `fleet/ship`;
-- squadrons sending `Aeolus-On-Behalf-Of` on `fleet/list` and `fleet/ship`. 0017 states it, but squadrons' row does not list it;
-- whether `fleet/ship` answers a ship outside reach as `fleet/list` does, or refuses. The core design says;
-- reading a given set of ships by id, on behalf, without listing the whole fleet: a fleet of 3,000 ships cannot be paged through on each page view. If no listed call does this, it is a requirement for the core design.
+- squadrons presenting an account token on `fleet/list`;
+- squadrons sending `Aeolus-On-Behalf-Of` on `fleet/list`. 0017 states it, but squadrons' row does not list it;
+- reading a given set of ships by id, on behalf or with an account token, without listing the whole fleet. `fleet/list` already has a `shipIds` filter (`fleetListFilterSchema`). The core brief asks core to confirm its behaviour and limit for these readers.
 
 ## Decisions: one write, one answer
 
@@ -182,9 +187,9 @@ Squadrons' own API for the page. The procedure names are proposed:
 
 "Leave declined" calls nothing and records nothing (D2).
 
-**C1. Proposed server contract: identity before any write.** `decide` calls I1 first and opens no transaction until it answers. A refused or ended token answers `UNAUTHORIZED`, meaning only that this request wrote nothing. It says nothing about an earlier request with the same key, because the key is never looked up before identity. A test must prove that a refused token leaves no decision and no key.
+**C1. Server contract: identity before any write.** Approved as squadrons' behaviour; to be enforced and tested. `decide` calls I1 first and opens no transaction until it answers. A refused or ended token answers `UNAUTHORIZED`, meaning only that this request wrote nothing. It says nothing about an earlier request with the same key, because the key is never looked up before identity. A test must prove that a refused token leaves no decision and no key.
 
-**P1. When the page may send a key again.** Only after a definite "wrote nothing" answer to every earlier send of that key: a squadrons refusal, or `UNAUTHORIZED`. After a send whose outcome is unknown (no answer), the page never sends that key again; it asks `outcome`. So:
+**P1. When the page may send a key again.** Approved. Only after a definite "wrote nothing" answer to every earlier send of that key: a squadrons refusal, or `UNAUTHORIZED`. After a send whose outcome is unknown (no answer), the page never sends that key again; it asks `outcome`. So:
 - `UNAUTHORIZED` on a key's first send, or after only definite refusals, shows `expired-refused`: "refused this request before writing anything".
 - `UNAUTHORIZED` after an unknown send of that key shows the outcome-unknown flow (`expired-unknown`), never `expired-refused`.
 
@@ -201,11 +206,11 @@ Squadrons' own API for the page. The procedure names are proposed:
 1. **The page,** a new random id for each decision it is about to send, kept until it has an answer.
 2. Squadrons issues one in an extra call first.
 
-**Pick: 1.** The page knows the key before it sends, so a lost answer leaves it something to ask about (K4), with no extra round trip.
+**Pick: 1. Approved.** The page knows the key before it sends, so a lost answer leaves it something to ask about (K4), with no extra round trip.
 
-**K2. What a key is bound to.** A decision key is one value within its fleet, template identity (repository and template name, as the count is) and the actor's checked person ship. The same value made by another person, or for another template, is a different decision: the unique index is on all four. `decide` and `outcome` both name the template, so both find the same key.
+**K2. What a key is bound to.** Approved. A decision key is one value within its fleet, template identity (repository and template name, as the count is) and the actor's checked person ship. The same value made by another person, or for another template, is a different decision: the unique index is on all four. `decide` and `outcome` both name the template, so both find the same key.
 
-**K3. The decision's transaction.** `decide` runs C1, then O1, then one transaction, in this order:
+**K3. The decision's transaction.** Approved. `decide` runs C1, then O1, then one transaction, in this order:
 1. Lock the template's count row for that fleet and template identity, the same lock as claims (question 6). With no such row, refuse `TEMPLATE_UNKNOWN`, writing nothing.
 2. Look up the key by its four-part index:
    - written with the same content: answer the stored outcome;
@@ -226,21 +231,21 @@ Any refusal writes nothing. The answer is sent only after commit, so "Approved" 
 2. A plain read. "Not written" can turn into "written" if the original request was still on its way, so the page could only say "not yet".
 3. No outcome call. The page only offers to try again with the same key.
 
-**Pick: 1.** It is the only option that lets the page say "not written" truthfully (`return-not-written`). Option 3 would replay a decision the person may no longer want, which question 7 and the screens rule out.
+**Pick: 1. Approved.** It is the only option that lets the page say "not written" truthfully (`return-not-written`). Option 3 would replay a decision the person may no longer want, which question 7 and the screens rule out.
 
 **K5. How long are keys kept?**
 
 1. **With the template's decision history, for as long as squadrons keeps the fleet,** closed keys included. The outcome call stays answerable.
 2. For some days. Afterwards the outcome is "can't be told".
 
-**Pick: 1.** A decision is rare and small, and an answer that changes with time is the ambiguity this design removes. Under this pick, `return-unknown` shows only when the outcome call itself cannot be answered, such as when squadrons does not answer.
+**Pick: 1. Approved.** A decision is rare and small, and an answer that changes with time is the ambiguity this design removes. Under this pick, `return-unknown` shows only when the outcome call itself cannot be answered, such as when squadrons does not answer.
 
 **K6. Who may ask about a key, and what does absence reveal?**
 
 1. **Only the person ship that made it.** The outcome call needs I1 but not A1, so a former template owner can still learn what became of their own decision. It answers only within the caller's own keys. "No such decision" reads the same whether the key was never used, was used by someone else, or names a template squadrons does not serve. A key it closes is the caller's own and invisible to anyone else.
 2. Anyone who may read the page.
 
-**Pick: 1.** A key is the person's own attempt, and the answer reveals nothing about anyone else's.
+**Pick: 1. Approved.** A key is the person's own attempt, and the answer reveals nothing about anyone else's.
 
 ### Retries and the screens
 
@@ -254,7 +259,7 @@ Any refusal writes nothing. The answer is sent only after commit, so "Approved" 
 ## Separate work this needs
 
 Not filed here. Each comes back as its own issue once this design is approved:
-1. **aeolus-fleet core:** the identity call (I1), with its common schema, release and compatibility row. Also the read requirements under A3: account tokens and `Aeolus-On-Behalf-Of` on `fleet/list` and `fleet/ship` for squadrons, `fleet/ship` outside reach, and reading a set of ships by id. And the fix to the missing `console.session` line in squadrons' row. The call's name and schema are core's design to settle.
+1. **aeolus-fleet core:** the identity call (I1), with its common schema, release and compatibility row. Also the read requirements under A3: account tokens and `Aeolus-On-Behalf-Of` on `fleet/list` for squadrons, and its `shipIds` filter for these readers. All of it is set out for its own issue in [core-compatibility-brief.md](core-compatibility-brief.md). And the fix to the missing `console.session` line in squadrons' row. The call's name and schema are core's design to settle.
 2. **pagasae:** squadrons' page as an app of the shared sign-in (I2), and Squadrons in the app list for the switcher (E2, H1).
 3. **aeolus-fleet console:** the link on the template page (E1).
 4. **#41:** how the fleet names and changes a template owner (answer 16), which this design reads.
