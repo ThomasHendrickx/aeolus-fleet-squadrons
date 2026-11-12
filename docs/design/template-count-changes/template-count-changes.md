@@ -189,10 +189,34 @@ They are simulated: invented data, nothing built.
 
 **Pick: 1**, if Thomas grants the exception, and otherwise 2. The template page already shows each version, so a version proposing another count sits beside the version it comes from.
 
-What each option needs, so the choice is concrete:
-- **Who builds the page.** The console's squadrons pages live in aeolus-fleet's console package and call squadrons' API through the web app's server. So option 1 is a console change in aeolus-fleet as well as a squadrons API call in this repository, two pull requests. Option 2 is built in this repository only. Squadrons serves no page of its own today, so option 2 also needs that page's sign-in through `console.session`, as 0017 says.
-- **Knowing the template owner.** Either way squadrons must know whether the person signed in is the template owner. Today a console session tells squadrons its fleet, kind, scopes and an optional account, not the person's ship. Before building, it must be checked whether a call already listed in [docs/compatibility.md](https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/compatibility.md) answers that. If none does, it comes back to Thomas as a core compatibility question. This design invents no call.
-- **Reaching the page.** Today squadrons' API serves reads to sessions holding `fleet:read` and changes to those holding `fleet:manage`. A template owner who holds neither cannot reach either page. This design grants no right: confirming checks only that the person signed in is the template owner. How a template owner without those scopes reaches the page comes back to Thomas with the template-owner design (#41, answer 16).
+What each option needs. These are facts from the audit below, not choices:
+- **Who builds the page.** The console's squadrons pages live in aeolus-fleet's console package and call squadrons' API through the web app's server. So option 1 is a console change in aeolus-fleet as well as a squadrons API call in this repository: two pull requests. Option 2 is built in this repository only. Squadrons serves no page of its own today.
+- **The plugin-page boundary (decision 0043).** "Plugins serve their own pages, apart from the console, and check the actor's scopes ... argo or the viewer with `console.session` (0012), a person by their account token (0058)." 0043 rejects "the console rendering every plugin". Today's console squadrons pages are a precedent, but option 1 adds a person's action there. Option 2 is 0043's shape, and for a person it means authenticating by account token.
+- **Today's gates.** Squadrons' API serves reads to a session holding `fleet:read` and changes to one holding `fleet:manage` (`packages/squadrons/src/adapters/trpc/router.ts`, `managing` and `reading`). A template owner holding neither reaches neither page. Letting a template owner confirm without `fleet:manage` changes squadrons' own rule for this one call to "the signed-in actor is the template owner". That is a change to squadrons' authorisation, for Thomas to approve with S1a. It grants no scope and waives no core check.
+- **Knowing the template owner** is S1a.
+
+Approving the screens approves what the page shows and says. It approves no identity, API or rights change: those are S1 and S1a.
+
+**S1a. How does squadrons know that the signed-in person is the template owner?**
+
+Audit, read only, against aeolus-fleet main at `2e8f61c05d16bf0be5689f10b6f5c95e30e88a00` and this repository:
+- `console.session` answers `fleetId`, `fleetName`, `expiresAt`, `kind` (`operator`, `viewer` or `account`), `accountId` (for kind `account` only), `scopes` and `featureFlags` (aeolus-fleet `packages/common/src/schemas/console.ts`, `consoleSessionOutputSchema`). It answers no person ship. Squadrons calls it today and keeps only `fleetId`, `kind` and `scopes` (`packages/squadrons/src/adapters/fleet/console-sessions.ts`).
+- The calls listed for squadrons in [docs/compatibility.md](https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/compatibility.md), such as `whoami`, `fleet/ship` and `fleet/list`, authenticate squadrons' own crew token and answer for squadrons' ship, not a person.
+- A person's ship is in the account token's `person_ship` claim (decision 0058; common `accountTokenClaimsSchema`, `personShipId`). The compatibility doc lists no account-token use for squadrons, and no call returns a token's checked claims. Squadrons checking pagasae's signatures itself is in neither 0017 nor the compatibility doc.
+- Core names a person ship it commissions `person-<account id>`. That is how it names one, not an identity contract, so it is not used.
+
+So no listed call, with squadrons' existing rights, tells squadrons the signed-in person's ship. It can learn the signed-in account, and only where the fleet signs people in through pagasae.
+
+1. **Keep the template owner a person ship, through a core compatibility addition.** This keeps #41 answer 16 and question 8 as approved, including "the template owner's ship is retired" and the no-owner screen as drawn. It needs a checked way for squadrons to learn the signed-in person's ship. That could be `console.session` answering the person ship for kind `account`, or squadrons listed for presenting an account token and reading its checked claims. It also needs a row change in aeolus-fleet's compatibility doc, a core release and a `MINIMUM_CORE_VERSION` raise in the same squadrons pull request. Which of the two additions is core's design to choose, before any build.
+2. **Change the ownership contract: the template owner is an account.** `console.session`'s `accountId` identifies it with no core change. Squadrons widens its own adapter to keep `accountId`. Consequences that change approved behaviour, so Thomas must change them explicitly:
+   - A fleet without pagasae accounts (argo's own sign-in) can have no template owner, so its count stays as last confirmed.
+   - Question 8's "the template owner's ship is retired" becomes "the template owner's account has left" (decision 0055). The no-owner screen's words change with it.
+   - argo and viewer sessions never confirm, which question 8 already says.
+   - #41 answer 16's template owner, set by the fleet, is named as an account, not a ship.
+
+**Pick: 1.** It keeps answer 16 and question 8 as Thomas approved them. Avoiding a core change is no reason to change an approved contract. Option 2 is there only if Thomas wants to change that contract.
+
+A separate defect, not fixed here: aeolus-fleet's compatibility doc does not list `console.session` in squadrons' row, though decision 0017 names it and squadrons calls it. It belongs in aeolus-fleet as its own change.
 
 **S2. What do the screens call it?**
 
@@ -226,7 +250,7 @@ What each option needs, so the choice is concrete:
 
 - No automatic retirement or crew release, and no retire or release action for the template owner on ships they do not own.
 - No per-version count, and no count taken from the version asked for last.
-- No change to the #41 design, to core's commission approval or to core's rights. No new core call, and no `MINIMUM_CORE_VERSION` change. S1 names the one place a core call might be needed, as a question, not a choice.
+- No change to the #41 design, to core's commission approval or to core's rights. No new core call, and no `MINIMUM_CORE_VERSION` change. S1a names the one place a core addition may be needed, as a decision for Thomas.
 - No choice of what a template's instructions do when the allowed ships exist. That stays the template owner's.
 
 ## Sources

@@ -2,7 +2,7 @@
 
 Screens for approval. Docs only. [Issue #43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). The behaviour they show is the approved picks in [template-count-changes.md](../template-count-changes.md). The choices these screens make are its [Screen questions](../template-count-changes.md#screen-questions).
 
-**Simulated.** Everything here is drawn, not built. The data, people and ships are invented. No squadrons call, count or claim exists yet, and the buttons do nothing. These screens do not decide who may see the page or how the fleet names a template owner.
+**Simulated.** Everything here is drawn, not built. The data, people and ships are invented. No squadrons call, count or claim exists yet, and the buttons do nothing. These screens do not decide who may see the page or how the fleet names a template owner. Approving them approves no identity, API or rights change (S1 and S1a in the design). The no-owner screen's words assume S1a option 1, a template owner that is a person ship.
 
 [screens.html](screens.html) stands alone: it carries aeolus-fleet's `packages/ui/src/tokens.css` and its Geist fonts, from aeolus-fleet main on 12 Nov 2026. To preview it, open the file in a browser, or serve the folder with `python3 -m http.server 8043 --directory docs/design/template-count-changes/mockups` and open `http://localhost:8043/screens.html`. Each PNG is one frame of that file, rendered whole in Chromium at 1x: desktop 1440 wide, phone 375, light and dark.
 
