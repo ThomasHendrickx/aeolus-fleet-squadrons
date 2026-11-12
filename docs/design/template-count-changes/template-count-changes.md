@@ -2,7 +2,7 @@
 
 Issue: [#43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). Builds on [Asking for a ship by what it does](../asking-for-a-ship/asking-for-a-ship.md) ([#41](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/41), [#42](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/pull/42)).
 
-Status: Thomas approved the eight picks below (questions 1 to 8) at commit 334f90b, by answer `msg_01m77aaertnrt09vhrhsbksza9`, option 1, to question `05bacade-47e3-419c-9e36-f35b96206b71`, relayed by the orchestrator ship. That approval covers these picks only. It does not approve the #41 proposals 27 to 29 this design depends on, which stay open. The [screens](#screens) are a proposal for approval. Nothing is built, commissioned, retired or granted by this document.
+Status: Thomas approved the eight picks below (questions 1 to 8) at commit 334f90b, by answer `msg_01m77aaertnrt09vhrhsbksza9`, option 1, to question `05bacade-47e3-419c-9e36-f35b96206b71`, relayed by the orchestrator ship. That approval covers these picks only. It does not approve the #41 proposals 27 to 29 this design depends on, which stay open. The [screens](#screens), revised after Thomas's feedback of 12 Nov, are a proposal for approval. Nothing is built, commissioned, retired or granted by this document.
 
 ## Proposed purpose
 
@@ -158,18 +158,35 @@ These guarantees are to be proven by concurrency, rollback and restart tests whe
 
 ## Screens
 
-Proposed, for Thomas's approval: [the screens](mockups/README.md), 15 states at 1440 and 375, light and dark, with today's template page as the before. They show:
-- the current and proposed counts;
-- the ships that count toward the count, including one being created;
-- the waiting count;
-- lowering below the ships that exist, and raising;
-- a version proposing another count, and the count kept;
-- a one-per-request template;
-- a missing template owner;
-- loading and a count that cannot be read;
-- busy, confirmed, failed, lost-answer and refused outcomes.
+Proposed, for Thomas's approval: [the screens](mockups/README.md), 18 states at 1440 and 375, light and dark, with today's template page as the before.
 
-A failed write and a lost answer are different screens. A failed write is squadrons answering that it wrote nothing, so the old count holds. A lost answer, or a restart mid-confirm, means the change may or may not be written. The page claims neither and reads the count squadrons kept, and confirming the same count again changes nothing twice (question 7).
+Thomas reviewed the first screens on 12 Nov: answer `msg_01m77ed14bjzckyxdfsd03tx40`, option 4, to question `43576c18-277d-488b-b6a3-026291988c63`, relayed by the orchestrator ship. In his feedback, the look was good, but the button text was poor and the change's context unclear. A person arriving from elsewhere saw "Review 1 ship allowed" without knowing what to review or what 1 meant. He asked for a small, clear change indicator; where the proposal came from, what triggered it and why it is proposed now; the consequence as text; then real Approve and Decline actions, with declining's consequence explained. The screens are revised to that.
+
+A proposed change is now a card on the template page:
+- a "Change proposed" badge, and the change as a sentence: "baker@2 proposes 1 ship at a time instead of 4";
+- From: the version, its file, commit, commit date and repository;
+- Found: when squadrons read that version, and that reading a version proposes its count without changing anything;
+- Why now: the version's stated count beside the count in force, with the version it came from and who approved it when;
+- If you approve, and If you decline, as text;
+- then two actions that are a real choice: "Decline, keep 4" and "Approve, allow 1".
+
+Approve is the approved "confirm", and Decline the approved "keep the current count" (questions 1 to 3).
+- Declining keeps the count in force for every version and changes no ship or request.
+- It does not remove the version: that is done in git or by removing the repository.
+- It does not stop later versions from proposing a count (D1 and D4).
+
+The screens show:
+- arriving from a link elsewhere;
+- approving and declining, each with a last check;
+- after approving, below the ships that exist, and after declining;
+- reconsidering a declined proposal, and a newer version proposing after a decline;
+- raising;
+- busy, failed, lost-answer and refused outcomes;
+- someone other than the template owner reading the page, and no template owner;
+- a one-per-request template;
+- loading and a count that cannot be read.
+
+A failed write and a lost answer are different screens. A failed write is squadrons answering that it wrote nothing, so the count in force holds and the proposal still waits. A lost answer, or a restart mid-approve, means the approval may or may not be written. The page claims neither and reads the count squadrons kept. Approving the same count again changes nothing twice (question 7).
 
 They are simulated: invented data, nothing built.
 
@@ -225,16 +242,17 @@ A separate defect, not fixed here: aeolus-fleet's compatibility doc does not lis
 
 **Pick: 1.** "Place" is no console term, and a person reads "ships allowed" without learning one.
 
-**S3. What does the confirm button say and look like?**
+**S3. What do the actions say and look like?**
 
-1. A primary button that names the action and the consequence, such as "Allow 1, keep all 4 ships" or "Allow 3 ships". The dialog title is the question: "Allow 1 baker ship instead of 4?"
-2. A destructive button, "Lower to 1".
+1. Two actions under the explained change: "Decline, keep 4" (outline) and "Approve, allow 1" (primary). Each opens a last check whose title is the question, such as "Approve 1 baker ship at a time instead of 4?" or "Decline baker@2’s change to 1 ship at a time?". The check repeats the source and the consequence and offers "Go back".
+2. The same actions, acting at once without a last check.
+3. A destructive Approve when the count goes down.
 
-**Pick: 1.** Nothing is lost and another confirmation undoes it (question 8). The console keeps destructive for irreversible actions.
+**Pick: 1.** Each button names its action and its result, so a person who arrived from elsewhere is not asked to "review" a bare number. Approving or declining is undone by a later decision (question 8), so neither is destructive. The last check is where a person sees, once more, that no ship is retired.
 
 **S4. Where does a version that proposes another count show?**
 
-1. On the template page only: the Ships allowed callout, "proposes 1" in the version picker, and each version's count in Versions.
+1. On the template page only: the change card, "change proposed" or "declined" in the version picker, and each version's count in Versions.
 2. As 1, plus a badge on the Templates list.
 
 **Pick: 1.** It is drawn and needs nothing new. Option 2 is not drawn. A notice to the template owner is not proposed: squadrons sending one needs reach that is not decided here.
@@ -245,6 +263,39 @@ A separate defect, not fixed here: aeolus-fleet's compatibility doc does not lis
 2. Everyone who sees the page.
 
 **Pick: 1.** Question 3 shows the waiting count to the template owner. Others see the count and the ships, which experience 8 already makes visible: who answers for each ship.
+
+### What a decline means later
+
+The approved picks settle that a decline keeps the count in force. They do not settle what happens to a declined proposal later. These choices do, each with a pick, for Thomas.
+
+**D1. After a decline, when is the template owner asked again?**
+
+1. Only when a newer version states a count other than the one in force. A declined version never asks again by itself.
+2. Each time squadrons reads the repository, the declined version asks again.
+3. Never for a count once declined: a later version stating that same count is treated as declined too.
+
+**Pick: 1.** A decline is an answer to one version. Option 2 turns a decided question into a recurring one. Option 3 lets one old answer overrule a new version, whose author may have had a new reason.
+
+**D2. Can a declined proposal be reconsidered?**
+
+1. Yes: the declined record offers Reconsider, which shows the proposal with the earlier decline. Its choices are "Approve, allow 1" and "Leave declined", and leaving it records nothing again. Once a newer version proposes, Reconsider moves to that proposal.
+2. No: only a newer version proposes again.
+
+**Pick: 1.** The template owner can change their mind without asking someone to tag a new version. Both choices on Reconsider are real: approving changes the count, leaving it changes nothing.
+
+**D3. A newer version arrives while an older proposal waits undecided.**
+
+1. One proposal at a time, from the newest version that states a count other than the one in force. The older one is marked "replaced by baker@3, not decided" in Versions. If the newest version states the count in force, nothing waits.
+2. Each version's proposal waits on its own and is decided on its own.
+
+**Pick: 1.** The template owner decides about the latest statement of the template, not a queue of old ones. Option 2 can ask them to approve a count the template's author has already moved past.
+
+**D4. Can the template owner stop all future proposals for a template?**
+
+1. No. Every newer version stating another count proposes, and declining is the answer.
+2. Yes: a "stop asking" setting per template, until switched off.
+
+**Pick: 1.** A version's count is the template author's statement, and the template owner answers it. Option 2 would let new versions' counts go unseen, which question 1's "sees and confirms" rules out. Stopping a version being used at all is done in git, not here.
 
 ## What this design does not do
 
