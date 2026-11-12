@@ -164,10 +164,16 @@ The count flow on that page is the approved card and decisions below (S0, S2 to 
 - **Shell.** The shared Aeolus header (header design, `AppHeader`): "acme fleet / Squadrons" switcher, a breadcrumb "Templates › baker", search and the avatar menu. Then the template's name, the version picker, the Ships allowed section with the change card, and Versions beside it. Phone uses the app's own bar with the compact switcher (H6).
 - **Entry.** The console's template page links to it, as 0043 has the console link to plugin pages (E1). A shared link opens the same page.
 - **Sign-in.** The one Aeolus account sign-in through pagasae (header design H5). Signed out, the page asks to sign in and returns to the page asked for afterwards. If the sign-in ends mid-decision, there are two cases:
-  - **Known not written:** squadrons answered that the sign-in had ended. It checks that before any write, so nothing was written.
-  - **Outcome unknown:** the approval was sent and no answer came. The page then claims no result and shows no count until the person signs in again. On return it reads the count and the proposal or decline record squadrons kept, and shows what it finds: written, or not written with the proposal still waiting.
+  - **Known not written:** squadrons answered that the sign-in had ended. The screen may say nothing was written only under a proposed server contract: squadrons checks the sign-in before any write, and a test proves it. That is a contract to build and test, not how squadrons works today.
+  - **Outcome unknown:** the approval was sent and no answer came. The page then claims no result and shows no count until the person signs in again. On return it shows one of three screens:
+    - **written,** or **not written** with the proposal still waiting: only when squadrons answers for that one submitted decision, by a durable record tied to it;
+    - **can't be told:** when no such record exists. The page shows the count held now and says the earlier outcome can't be told.
 
-  In both cases, Sign in again returns to the page asked for, and no decision is replayed by itself (question 7). Signed in without the rights to see the page, it shows nothing about the template and points to the account's rights (R1).
+    Rereading the count, or the latest proposal or decline record, proves neither result. A later decision, by the same template owner in another tab or by a newly named template owner, can leave the same count or another one.
+
+  In both cases, Sign in again returns to the page asked for, and no decision is replayed by itself (question 7).
+
+  **Proposed requirement, API unresolved.** Each approve or decline carries a decision key the page makes. Squadrons records the key with the decision, in the same write. The page can ask for that key's outcome: written, or no decision with that key. Squadrons has no such call today. It belongs with R2's authorisation in the API design that S1a and R2 still wait on. Without it, the page shows only "can't be told". Signed in without the rights to see the page, it shows nothing about the template and points to the account's rights (R1).
 - **Built** like every Aeolus web app (header design H3), in this repository. Squadrons serves no page today.
 
 **Assumed only to draw.** The screens show squadrons knowing the signed-in person's ship (S1a option 1). That is not decided, and nothing here is an identity or API contract.
@@ -290,7 +296,7 @@ Whether that is enough is E3.
 2. The switcher lists Squadrons for every signed-in account in the fleet, and the page shows each person only what R1 lets them see.
 3. A notice to the template owner when a version proposes a change, linking to the page.
 
-**Pick: 1**, until Thomas says otherwise. Options 2 and 3 each need something not decided:
+**Pick: 1**, until Thomas says otherwise. It is a proposed way to find the page, not approved reach: who may open the page is still R1. Options 2 and 3 each need something not decided:
 - option 2, a manifest entry no right gates, which shows Squadrons to people it will mostly turn away;
 - option 3, squadrons' reach to send a notice, which S4 left out.
 
