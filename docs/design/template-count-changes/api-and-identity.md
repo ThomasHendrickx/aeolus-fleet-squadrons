@@ -64,12 +64,12 @@ sequenceDiagram
     alt Token ended or refused
         SQ-->>Page: UNAUTHORIZED, nothing written (contract C1)
     else Checked
-        SQ->>SQ: One transaction: lock, key, owner, current proposal, write (K2)
+        SQ->>SQ: Owner ship status (O1), then one transaction: lock, key, owner, current proposal, write (K3)
         SQ-->>Page: Written, or refused with the reason
     end
     opt No answer reached the page
         Person->>Page: Sign in again, or Read the count again
-        Page->>SQ: Outcome of that key (K3)
+        Page->>SQ: Outcome of that key (K4)
         SQ-->>Page: Written, or not written and now closed
     end
 ```
@@ -136,74 +136,119 @@ Squadrons keeps, per fleet and template identity, the template owner as a person
 
 **Pick: 1.** A template owner the fleet replaced a moment ago cannot slip a decision in between the check and the write (the `refused` screen).
 
-**A3. The counted ships, for an owner without `fleet:read`.**
+**A3. Which read gives each reader the ships' details?**
 
-1. **Squadrons shows each counted ship as far as that person may read it, reading on behalf of their person ship (0017).** A ship outside their read reach still counts and shows as "A ship you can't see", with no name or owner.
-2. Squadrons shows every counted ship's name and owner from its own records, read as itself.
+The identity call (I1) answers who the person is and their token's scopes. It is not read reach. A1 uses its scopes only to decide whether the page may open. What each reader then sees of each counted ship comes from core reads, under contracts that exist today:
+- **A reader holding `fleet:read` by account:** squadrons presents their account token, with its own crew token, on `fleet/list` and `fleet/ship`. Core authorises the account by its own scopes and reach (architecture.md, Actors).
+- **An owner without `fleet:read`:** squadrons reads as itself, with `fleet:read` and `fleet:on-behalf` and the `Aeolus-On-Behalf-Of` header naming their person ship. Core answers what that ship's read reach gives (architecture.md, fleet procedures; decision 0034; 0017's "reads on behalf of the person's ship").
+- **argo or the viewer through `console.session`:** squadrons reads as itself. Both read the whole fleet already.
+- **Whether the template owner's ship is retired:** squadrons reads it as itself with `fleet/ship`, for its own check only. The page shows only "No template owner".
 
-**Pick: 1.** 0017 says squadrons serves a person only what that person may read. Option 2 would change that decision. A reader holding `fleet:read` sees what their read reach gives, as today. This adds one screen variant to draw once approved: an owner without `fleet:read` seeing "A ship you can't see" rows.
+1. **Account-token reads for an account that holds `fleet:read`, and reads on behalf of the person ship for an owner without it.**
+2. Reads on behalf of the person ship for everyone.
+
+**Pick: 1.** Each reader sees what core lets that actor see. The person ship's reach can differ from the account's, which also reaches by its token's group values, so option 2 could show a reader less, or more, than core gives them.
+
+What core answers today: `fleet/list` answers a ship outside the caller's read reach by id, name, type and status only (`shipOutsideReadReachSchema`, `@aeolus-fleet/common`). It gives the owner (`ownerShipId`) only for ships within reach.
+
+**A3b. How does the page show a counted ship outside the reader's reach?** Drawn as `owner-redacted`.
+
+1. **"A ship you can't see":** it counts, with no name, owner, version, how it was formed or when. The section says how many are hidden.
+2. The name and status core gives for a ship outside reach, with "Answers for it: not shown to you", and no squadrons detail.
+3. Every name and owner from squadrons' own records. This needs 0017 changed.
+
+**Pick: 1.** It shows the least, and the count is still exact, as approving needs. What it still reveals: how many ships count, and so how many the reader cannot see. That leak comes with showing an exact count to someone with narrower reach, and the template owner needs the count to decide. Option 2 also reveals names, which core does give to an on-behalf reader. Option 3 changes 0017.
+
+This changes what the approved owner view showed: names and owners for every counted ship. It does so only for an owner without `fleet:read`, and only for ships outside their reach. Readers holding `fleet:read` see what their reach gives, as before.
+
+**Compatibility requirements, separate from I1.** Each is a change to aeolus-fleet's `docs/compatibility.md`, with core confirming or adding the behaviour:
+- squadrons presenting an account token on `fleet/list` and `fleet/ship`;
+- squadrons sending `Aeolus-On-Behalf-Of` on `fleet/list` and `fleet/ship`. 0017 states it, but squadrons' row does not list it;
+- whether `fleet/ship` answers a ship outside reach as `fleet/list` does, or refuses. The core design says;
+- reading a given set of ships by id, on behalf, without listing the whole fleet: a fleet of 3,000 ships cannot be paged through on each page view. If no listed call does this, it is a requirement for the core design.
 
 ## Decisions: one write, one answer
 
 Squadrons' own API for the page. The procedure names are proposed:
 - `templateCount.read({ repository, template })`: the page.
 - `templateCount.decide({ repository, template, proposal: { version, commit, statedCount }, decision: 'approve' | 'decline', decisionKey })`: one decision.
-- `templateCount.outcome({ decisionKey })`: what became of one decision.
+- `templateCount.outcome({ repository, template, decisionKey })`: what became of one decision.
 
 "Leave declined" calls nothing and records nothing (D2).
 
-**C1. Proposed server contract: identity before any write.** `decide` calls I1 first and opens no transaction until it answers. A refused or ended token answers `UNAUTHORIZED` with nothing written. A test must prove that a refused token leaves no decision and no key. Only under this contract may the `expired-refused` screen say nothing was written.
+**C1. Proposed server contract: identity before any write.** `decide` calls I1 first and opens no transaction until it answers. A refused or ended token answers `UNAUTHORIZED`, meaning only that this request wrote nothing. It says nothing about an earlier request with the same key, because the key is never looked up before identity. A test must prove that a refused token leaves no decision and no key.
+
+**P1. When the page may send a key again.** Only after a definite "wrote nothing" answer to every earlier send of that key: a squadrons refusal, or `UNAUTHORIZED`. After a send whose outcome is unknown (no answer), the page never sends that key again; it asks `outcome`. So:
+- `UNAUTHORIZED` on a key's first send, or after only definite refusals, shows `expired-refused`: "refused this request before writing anything".
+- `UNAUTHORIZED` after an unknown send of that key shows the outcome-unknown flow (`expired-unknown`), never `expired-refused`.
+
+**O1. Where the owner's ship status is checked.** Squadrons cannot lock core's ships, so no check of `fleet/ship` can be atomic with squadrons' transaction.
+
+1. **Read it within the request, after I1 and before the transaction, and record the status read with the decision.** The guarantee: a decision is accepted only from the person squadrons holds as template owner at commit, checked under the template lock, whose ship core answered as active during that same request. A retirement core commits after that read and before squadrons' commit is not seen by that decision. The window is one request, and the decision records what was read.
+2. Read it inside the transaction, after the lock. That narrows the window, but holds the claims lock across a core call.
+3. Learn retirements from core events. No such event is listed for squadrons.
+
+**Pick: 1.** It names a guarantee squadrons can keep. Option 2 makes every claim on that template wait on core's answer. Retirement changes no claim: the ships stay, and only who may decide changes.
 
 **K1. Who makes the decision key?**
 
 1. **The page,** a new random id for each decision it is about to send, kept until it has an answer.
 2. Squadrons issues one in an extra call first.
 
-**Pick: 1.** The page knows the key before it sends, so a lost answer leaves it something to ask about (K3), with no extra round trip.
+**Pick: 1.** The page knows the key before it sends, so a lost answer leaves it something to ask about (K4), with no extra round trip.
 
-**K2. The decision's transaction.** In one transaction, in this order:
-1. Lock the template's count, the same lock as claims (question 6).
-2. If the key is already written for this actor with the same content, answer the stored outcome. With other content, refuse `KEY_REUSED`. If the key is closed (K3), refuse `KEY_CLOSED`.
-3. Check A2: the actor is the current template owner.
+**K2. What a key is bound to.** A decision key is one value within its fleet, template identity (repository and template name, as the count is) and the actor's checked person ship. The same value made by another person, or for another template, is a different decision: the unique index is on all four. `decide` and `outcome` both name the template, so both find the same key.
+
+**K3. The decision's transaction.** `decide` runs C1, then O1, then one transaction, in this order:
+1. Lock the template's count row for that fleet and template identity, the same lock as claims (question 6). With no such row, refuse `TEMPLATE_UNKNOWN`, writing nothing.
+2. Look up the key by its four-part index:
+   - written with the same content: answer the stored outcome;
+   - written with other content: refuse `KEY_REUSED`;
+   - closed (K4): refuse `KEY_CLOSED`.
+3. Check A2 against squadrons' own template owner record, which only changes under the same lock.
 4. Check the proposal is still the current one (D3, D5): same version, commit and stated count. If not, refuse `PROPOSAL_CHANGED` and answer the current state.
-5. Write the decision with its key, actor, account, proposal, the count before and after, and the time. On approve, write the new count in force. Then commit.
+5. Write the decision with its key, actor, account, proposal, the count before and after, the time, and the owner ship status O1 read. On approve, write the new count in force. Then commit.
 
 Any refusal writes nothing. The answer is sent only after commit, so "Approved" never shows before the write (question 7).
 
-**K3. What does the outcome call answer?**
+**K4. What does the outcome call answer?**
 
-1. **A closing read.** Under the same lock it answers "written", with the stored decision, or "not written". When the answer is "not written", it closes that key in the same transaction, so a decide still on its way with that key is refused `KEY_CLOSED`. "Not written" is then final.
+1. **A closing read, in the same lock order as `decide`.** It runs I1, then locks the template's count row, then looks up the key under the caller's own person ship:
+   - written: it answers "written", with the stored decision;
+   - not written: it writes the key as closed in that transaction and answers "not written". A `decide` still on its way with that key then waits on the same lock and is refused `KEY_CLOSED`, so "not written" is final.
+   - no count row for that template: it answers "no such decision" and writes nothing.
 2. A plain read. "Not written" can turn into "written" if the original request was still on its way, so the page could only say "not yet".
 3. No outcome call. The page only offers to try again with the same key.
 
 **Pick: 1.** It is the only option that lets the page say "not written" truthfully (`return-not-written`). Option 3 would replay a decision the person may no longer want, which question 7 and the screens rule out.
 
-**K4. How long are keys kept?**
+**K5. How long are keys kept?**
 
 1. **With the template's decision history, for as long as squadrons keeps the fleet,** closed keys included. The outcome call stays answerable.
 2. For some days. Afterwards the outcome is "can't be told".
 
 **Pick: 1.** A decision is rare and small, and an answer that changes with time is the ambiguity this design removes. Under this pick, `return-unknown` shows only when the outcome call itself cannot be answered, such as when squadrons does not answer.
 
-**K5. Who may ask about a key?**
+**K6. Who may ask about a key, and what does absence reveal?**
 
-1. **Only the person ship that made it,** in that fleet. Anyone else gets "no such decision", which tells them nothing.
+1. **Only the person ship that made it.** The outcome call needs I1 but not A1, so a former template owner can still learn what became of their own decision. It answers only within the caller's own keys. "No such decision" reads the same whether the key was never used, was used by someone else, or names a template squadrons does not serve. A key it closes is the caller's own and invisible to anyone else.
 2. Anyone who may read the page.
 
-**Pick: 1.** A key is the person's own attempt. A former template owner can still learn what became of their own decision, and nothing else.
+**Pick: 1.** A key is the person's own attempt, and the answer reveals nothing about anyone else's.
 
 ### Retries and the screens
 
-- **Failed write** (`failed`): squadrons answered that it wrote nothing. Try again resends with the same key, which is safe under K2.
+- **Failed write** (`failed`): squadrons answered that it wrote nothing. Try again resends with the same key, which is safe under K3.
 - **Lost answer** (`lost`): "Read the count again" calls `outcome` first. On "not written", a new attempt uses a new key, because the old one is closed.
-- **Sign-in ended, refused** (`expired-refused`): `UNAUTHORIZED` under C1. Sign in again, then decide again with a new key.
+- **Sign-in ended, refused** (`expired-refused`): `UNAUTHORIZED` under C1, on a key with no unknown earlier send (P1). Sign in again, then decide again. The same key is safe, because every send of it so far wrote nothing.
+- **Sign-in ended after an unknown send:** the outcome-unknown flow below, never `expired-refused` (P1).
 - **Sign-in ended, no answer** (`expired-unknown`): after signing in, the page calls `outcome` and shows `return-written` or `return-not-written`. If the outcome call cannot be answered, it shows `return-unknown`.
 - **Nothing is ever resent by itself.** Only the person's own Try again resends.
 
 ## Separate work this needs
 
 Not filed here. Each comes back as its own issue once this design is approved:
-1. **aeolus-fleet core:** the identity call (I1), with its common schema, release and compatibility row, and the fix to the missing `console.session` line in squadrons' row.
+1. **aeolus-fleet core:** the identity call (I1), with its common schema, release and compatibility row. Also the read requirements under A3: account tokens and `Aeolus-On-Behalf-Of` on `fleet/list` and `fleet/ship` for squadrons, `fleet/ship` outside reach, and reading a set of ships by id. And the fix to the missing `console.session` line in squadrons' row. The call's name and schema are core's design to settle.
 2. **pagasae:** squadrons' page as an app of the shared sign-in (I2), and Squadrons in the app list for the switcher (E2, H1).
 3. **aeolus-fleet console:** the link on the template page (E1).
 4. **#41:** how the fleet names and changes a template owner (answer 16), which this design reads.
@@ -218,4 +263,7 @@ Each comes with a test, as CLAUDE.md requires:
 - An outcome read racing a late decide: either "written", or "not written" with the late decide refused `KEY_CLOSED`. Never both.
 - A restart between commit and answer: the outcome call answers "written".
 - The template owner changed mid-decision: `NOT_TEMPLATE_OWNER`, nothing written.
-- An owner without `fleet:read` reads only their own template's page, and only the ships their read reach gives.
+- An owner without `fleet:read` reads only their own template's page, and a counted ship outside their reach shows only as "A ship you can't see" (A3b).
+- `UNAUTHORIZED` writes nothing in that request, even when an earlier request with the same key had written (C1, P1).
+- The same key value from another person or for another template is a separate decision. "No such decision" is the same answer for a key never used and for someone else's (K2, K6).
+- A decision records the owner ship status read in its request (O1).
