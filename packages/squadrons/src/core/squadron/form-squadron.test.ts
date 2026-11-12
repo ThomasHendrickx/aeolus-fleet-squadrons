@@ -265,7 +265,7 @@ const forTechLead = { ...fromHemmaFeature, formingShip: { shipId: FORMING, name:
 
 /** Every role crewed by request: each names a workspace. */
 function crewedByRequest(from: Catalogue = catalogue): Catalogue {
-  const roles = blueprintVersion.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'worktree' as const, repository: 'hemma' } } }));
+  const roles = blueprintVersion.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'repositories' as const, main: { repository: 'hemma' }, subRepositories: [] } } }));
   return { ...from, blueprints: [{ ...blueprintVersion, roles }] };
 }
 
@@ -551,7 +551,7 @@ describe('crew requests at forming (#343)', () => {
     const implementer = { ...templateVersion('implementer', ['done']), crew: { harness: 'claude-code', firstPrompt: 'Report to {{lead}}.', options: { effort: 'high' } }, parameters: [{ name: 'lead', description: 'Whom it reports to' }] };
     const roles = blueprintVersion.roles.map((role) =>
       role.name === 'planner'
-        ? { ...role, crew: { workspace: { kind: 'worktree' as const, repository: 'hemma' }, machineLabels: [{ key: 'os', value: 'macos' }] } }
+        ? { ...role, crew: { workspace: { kind: 'repositories' as const, main: { repository: 'hemma' }, subRepositories: [] }, machineLabels: [{ key: 'os', value: 'macos' }] } }
         : { ...role, model: 'claude-sonnet-5-5', parameters: { lead: 'the planner' } },
     );
     return { ...catalogue, templates: [templateVersion('planner'), implementer], blueprints: [{ ...blueprintVersion, roles }] };
@@ -564,8 +564,22 @@ describe('crew requests at forming (#343)', () => {
     expect([...fleet.state.requests]).toEqual([
       [
         planner?.shipId,
-        { workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'claude-opus-5-5' }, squadron: 'hemma-feature-a1b2c3', machineLabels: ['lbv_01m3tbfspe96yf1rnr4ank9h3a'] },
+        { workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [] }, options: { model: 'claude-opus-5-5' }, squadron: 'hemma-feature-a1b2c3', machineLabels: ['lbv_01m3tbfspe96yf1rnr4ank9h3a'] },
       ],
+    ]);
+  });
+
+  it("writes the template's main repository and sub-repositories into a new member's crew request (#46)", async () => {
+    const base = withCrew();
+    const workspace = { kind: 'repositories' as const, main: { repository: 'hemma', ref: 'next' }, subRepositories: [{ repository: 'skills' }, { repository: 'hemma-docs', ref: 'main' }] };
+    const planner = { ...templateVersion('planner'), crew: { workspace } };
+    const roles = base.blueprints[0]?.roles.map((role) => (role.name === 'planner' ? { ...role, crew: {} } : role));
+    const catalogue = { ...base, templates: [planner, ...base.templates.slice(1)], blueprints: [{ ...blueprintVersion, roles: roles ?? [] }] };
+
+    const formed = unwrapped(await formWith({ catalogue })(fromHemmaFeature));
+
+    expect([...fleet.state.requests]).toEqual([
+      [formed.members[0]?.shipId, expect.objectContaining({ workspace: { kind: 'repositories', main: { repository: 'hemma', ref: 'next' }, subRepositories: [{ repository: 'skills' }, { repository: 'hemma-docs', ref: 'main' }] } })],
     ]);
   });
 

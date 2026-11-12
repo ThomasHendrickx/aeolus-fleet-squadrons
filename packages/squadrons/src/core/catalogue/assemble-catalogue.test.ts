@@ -113,7 +113,7 @@ describe('a ship template', () => {
       parameters: { 'reports-to': 'Whom the tester reports to' },
       crew: {
         harness: 'claude-code',
-        workspace: { kind: 'worktree', repository: 'hemma', ref: 'main' },
+        workspace: { kind: 'repositories', main: { repository: 'hemma', ref: 'main' }, subRepositories: [] },
         firstPrompt: 'Wait for a branch from {{reports-to}}.',
         options: { effort: 'high' },
         machineLabels: ['os=linux', 'arch=arm64'],
@@ -125,7 +125,7 @@ describe('a ship template', () => {
     expect(read).toMatchObject({
       crew: {
         harness: 'claude-code',
-        workspace: { kind: 'worktree', repository: 'hemma', ref: 'main' },
+        workspace: { kind: 'repositories', main: { repository: 'hemma', ref: 'main' }, subRepositories: [] },
         firstPrompt: 'Wait for a branch from {{reports-to}}.',
         options: { effort: 'high' },
         machineLabels: [
@@ -135,6 +135,14 @@ describe('a ship template', () => {
       },
       parameters: [{ name: 'reports-to', description: 'Whom the tester reports to' }],
     });
+  });
+
+  it('reads a workspace of repositories: its main repository and its sub-repositories, each with its ref where it names one (#46)', () => {
+    const workspace = { kind: 'repositories', main: { repository: 'hemma', ref: 'next' }, subRepositories: [{ repository: 'skills' }, { repository: 'hemma-docs', ref: 'main' }] };
+
+    const [read] = catalogueOf([template({ name: 'tester', version: 4 }, { ...tester, crew: { workspace } })]).templates;
+
+    expect(read?.crew.workspace).toEqual({ kind: 'repositories', main: { repository: 'hemma', ref: 'next' }, subRepositories: [{ repository: 'skills' }, { repository: 'hemma-docs', ref: 'main' }] });
   });
 
   it('reads crew.mcpServers as a list of server names, in a template and in a role', () => {
@@ -179,6 +187,10 @@ describe('a ship template', () => {
     { label: 'MCP servers that are no list', content: { ...tester, crew: { mcpServers: 'playwright' } }, field: 'crew.mcpServers' },
     { label: 'a first prompt that starts with -, which reads as a flag', content: { ...tester, crew: { firstPrompt: '--yes' } }, field: 'crew.firstPrompt' },
     { label: 'a workspace that names a path', content: { ...tester, crew: { workspace: { kind: 'folder', name: '/home/thomas/notes' } } }, field: 'crew.workspace' },
+    { label: 'a worktree workspace, which names repositories now (#46)', content: { ...tester, crew: { workspace: { kind: 'worktree', repository: 'hemma' } } }, field: 'crew.workspace' },
+    { label: 'its main repository among its sub-repositories', content: { ...tester, crew: { workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [{ repository: 'hemma' }] } } }, field: 'hemma is the main repository, never a sub-repository' },
+    { label: 'a sub-repository named twice', content: { ...tester, crew: { workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [{ repository: 'skills' }, { repository: 'skills' }] } } }, field: 'skills is named twice' },
+    { label: 'a repositories workspace without its sub-repositories', content: { ...tester, crew: { workspace: { kind: 'repositories', main: { repository: 'hemma' } } } }, field: 'crew.workspace' },
     { label: 'a parameter name that is no handle', content: { ...tester, parameters: { 'Reports To': 'x' } }, field: 'parameters' },
     { label: 'a placeholder in its charter it declares no parameter for', content: { ...tester, charter: 'Report to {{reports-to}}.' }, field: 'charter' },
     { label: 'a scope that is no <namespace>:<action>', content: { ...tester, scopes: ['Squadrons'] }, field: 'scopes' },

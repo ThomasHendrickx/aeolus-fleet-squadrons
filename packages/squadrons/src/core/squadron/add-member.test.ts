@@ -238,7 +238,7 @@ describe('a crew request for an added member (#343)', () => {
       fleetId: FLEET,
       squadronId: 'team-a1b2c3',
       role: 'tester',
-      member: { crew: { workspace: { kind: 'worktree', repository: 'hemma' }, machineLabels: [{ key: 'os', value: 'macos' }] }, parameters: { area: 'the console' } },
+      member: { crew: { workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [] }, machineLabels: [{ key: 'os', value: 'macos' }] }, parameters: { area: 'the console' } },
     });
 
     expect([...requests]).toEqual([
@@ -246,7 +246,7 @@ describe('a crew request for an added member (#343)', () => {
         added.isOk && added.value.shipId,
         {
           harness: 'claude-code',
-          workspace: { kind: 'worktree', repository: 'hemma' },
+          workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [] },
           firstPrompt: 'Test the console.',
           options: { effort: 'high', model: 'claude-opus-5-5' },
           squadron: 'team-a1b2c3',
@@ -254,6 +254,16 @@ describe('a crew request for an added member (#343)', () => {
         },
       ],
     ]);
+  });
+
+  it("writes its template's main repository and sub-repositories into the added member's crew request (#46)", async () => {
+    const squadron = withCrew();
+    const workspace = { kind: 'repositories' as const, main: { repository: 'hemma' }, subRepositories: [{ repository: 'skills', ref: 'v3' }] };
+    held = { ...squadron, templates: squadron.templates.map((template) => ({ ...template, crew: { ...template.crew, workspace } })) };
+
+    await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester' });
+
+    expect([...requests.values()]).toEqual([expect.objectContaining({ workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [{ repository: 'skills', ref: 'v3' }] } })]);
   });
 
   it("keeps the member's parameter values, its role's with the form's over them, for the flagship to fill its charter", async () => {
@@ -340,7 +350,7 @@ describe('adding a member by message to the flagship (decision 0017)', () => {
   /** A squadron a ship formed, its tester crewed by request. */
   function formedByTechLead(): Squadron {
     const squadron = aSquadron('sailing');
-    const roles = squadron.blueprint.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'worktree' as const, repository: 'hemma' } } }));
+    const roles = squadron.blueprint.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'repositories' as const, main: { repository: 'hemma' }, subRepositories: [] } } }));
     return { ...squadron, blueprint: { ...squadron.blueprint, roles }, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } };
   }
 

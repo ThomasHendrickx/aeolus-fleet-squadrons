@@ -47,7 +47,7 @@ beforeEach(async () => {
     tags: tagsAt(
       {
         files: {
-          '.aeolus/squadrons/templates/builder.yaml': 'description: Builds.\ncheckIn: 30m\ncharter: You build.\nscopes:\n  - meetings:open\ncrew:\n  workspace:\n    kind: worktree\n    repository: hemma\n',
+          '.aeolus/squadrons/templates/builder.yaml': 'description: Builds.\ncheckIn: 30m\ncharter: You build.\nscopes:\n  - meetings:open\ncrew:\n  workspace:\n    kind: repositories\n    main:\n      repository: hemma\n    subRepositories: []\n',
           '.aeolus/squadrons/blueprints/delivery.yaml': `description: Delivers one outcome.\nroles:\n  builder:\n    template: ${REPO}#builder@1\n`,
         },
       },

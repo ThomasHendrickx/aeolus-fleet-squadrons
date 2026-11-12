@@ -901,7 +901,7 @@ describe('scaling a squadron by message to its flagship (decision 0017)', () => 
   /** A sailing squadron a ship formed, its roles crewed by request. */
   function sailingFormedByTechLead(): Squadron {
     const formed = squadron();
-    const roles = formed.blueprint.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'worktree' as const, repository: 'hemma' } } }));
+    const roles = formed.blueprint.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'repositories' as const, main: { repository: 'hemma' }, subRepositories: [] } } }));
     return { ...formed, state: 'sailing', sailedAt: NOW, blueprint: { ...formed.blueprint, roles }, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } };
   }
   const addTester = (from: ShipId, key = 'add-1') => delivery(from, { contentType: ADD_MEMBER, payload: { squadron: 'team-a1b2c3', role: 'tester', key } });

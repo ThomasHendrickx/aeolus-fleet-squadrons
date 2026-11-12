@@ -31,7 +31,7 @@ function aTemplate(name: string, overrides: Partial<TemplateVersion> = {}): Temp
 }
 
 const PLANNER = aTemplate('planner', { model: 'claude-opus-5-5', parameters: [{ name: 'area', description: 'The part the features touch' }] });
-const IMPLEMENTER = aTemplate('implementer', { crew: { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'tidewater' } } });
+const IMPLEMENTER = aTemplate('implementer', { crew: { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'tidewater' }, subRepositories: [] } } });
 
 const BLUEPRINT: BlueprintVersion = {
   repository: REPO,
@@ -71,7 +71,7 @@ describe("a blueprint's member crew settings, to prefill the forming form (#343)
           slot: `implementer-${String(index)}`,
           role: 'implementer',
           template: { repository: REPO, name: 'implementer', version: 1 },
-          crew: { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'tidewater' }, options: { effort: 'low' } },
+          crew: { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'tidewater' }, subRepositories: [] }, options: { effort: 'low' } },
           parameters: [],
         })),
       ],

@@ -169,12 +169,12 @@ describe('crew requests at forming (#343)', () => {
     const os = unwrap(await fleetUseCases.defineLabel(argo, { key: 'os', values: ['macos'] }));
 
     const formed = await formTeam('team-crewed', {
-      members: { 'tester-1': { crew: { workspace: { kind: 'worktree', repository: 'hemma' }, machineLabels: [{ key: 'os', value: 'macos' }] } } },
+      members: { 'tester-1': { crew: { workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [{ repository: 'skills', ref: 'v3' }] }, machineLabels: [{ key: 'os', value: 'macos' }] } } },
     });
 
     const [first] = formed.members;
     await expect(fleetDatabase.crewRequest.findMany({ select: { shipId: true, settings: true } })).resolves.toEqual([
-      { shipId: first?.shipId, settings: { workspace: { kind: 'worktree', repository: 'hemma' }, options: {}, squadron: 'team-crewed', machineLabels: [os.values[0]?.id] } },
+      { shipId: first?.shipId, settings: { workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [{ repository: 'skills', ref: 'v3' }] }, options: {}, squadron: 'team-crewed', machineLabels: [os.values[0]?.id] } },
     ]);
   });
 });

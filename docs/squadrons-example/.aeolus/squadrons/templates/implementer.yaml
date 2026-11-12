@@ -15,8 +15,11 @@ crew:
   harness: claude-code
   model: claude-opus-5-5
   workspace:
-    kind: worktree
-    repository: tidewater
+    kind: repositories
+    main:
+      repository: tidewater
+    subRepositories:
+      - repository: tidewater-docs
   options:
     effort: high
   machineLabels:
