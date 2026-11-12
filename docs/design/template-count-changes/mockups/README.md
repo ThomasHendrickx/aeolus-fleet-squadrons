@@ -27,5 +27,3 @@ The page is the console's existing template page (`TemplateView`), drawn as buil
 | No template owner: the template owner's ship is retired | [png](no-owner-1440-light.png) | [png](no-owner-1440-dark.png) | [png](no-owner-375-light.png) | [png](no-owner-375-dark.png) |
 
 After a lost answer, reading the count again shows one of two screens. If the change was written, it is the confirmed screen (`lowered`). If it was not, the proposal is still waiting (`lower`). The page claims neither until it has read the count squadrons kept.
-
-One shortcut in the drawing: the raise screen's source line and charter still show baker@2's file and commit, not baker@3's.
