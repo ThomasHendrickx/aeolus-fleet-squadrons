@@ -2,7 +2,7 @@
 
 Issue: [#43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). Builds on [Asking for a ship by what it does](../asking-for-a-ship/asking-for-a-ship.md) ([#41](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/41), [#42](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/pull/42)).
 
-Everything below is a proposal for Thomas's approval. Nothing here is approved, and nothing is built, commissioned, retired or granted by this document.
+Status: Thomas approved the eight picks below (questions 1 to 8) at commit 334f90b, by answer `msg_01m77aaertnrt09vhrhsbksza9`, option 1, to question `05bacade-47e3-419c-9e36-f35b96206b71`, relayed by the orchestrator ship. That approval covers these picks only. It does not approve the #41 proposals 27 to 29 this design depends on, which stay open. The screen design for the confirmation page follows as its own proposal. Nothing is built, commissioned, retired or granted by this document.
 
 ## Proposed purpose
 
@@ -31,7 +31,7 @@ These are what the recorded answers and today's code already fix. The questions 
 8. **The #41 design still has open proposals.** Its proposals 27 (the `squadrons-requests` case ship), 28 and 29, and its proposed blueprint refusal at a full count, are not approved in this repository just because #42 merged. This design depends on them only where it says so. It does not change the #41 design or core's commission approval.
 9. **Squadrons ids follow decision 0005.** Any new record takes the existing prefixed-id form. Core's prefix list stays core's.
 
-## Questions, options and picks
+## Questions, options and approved picks
 
 ### 1. How does a count change take effect?
 
