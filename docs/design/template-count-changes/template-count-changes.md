@@ -2,7 +2,7 @@
 
 Issue: [#43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). Builds on [Asking for a ship by what it does](../asking-for-a-ship/asking-for-a-ship.md) ([#41](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/41), [#42](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/pull/42)).
 
-Status: Thomas approved the eight picks below (questions 1 to 8) at commit 334f90b, by answer `msg_01m77aaertnrt09vhrhsbksza9`, option 1, to question `05bacade-47e3-419c-9e36-f35b96206b71`, relayed by the orchestrator ship. That approval covers these picks only. It does not approve the #41 proposals 27 to 29 this design depends on, which stay open. Thomas then approved option 1 of S0, S2 to S5 and D1 to D5 at commit d22c3db, by answer `msg_01m77fega4223kz01z22vez4te`, option 1, to question `d581ade6-230c-447a-bc0c-2beb8fa4aa3e`, relayed by the orchestrator ship. That approval covers those picks only. S1 (where the page lives), S1a (how squadrons knows the signed-in template owner) and the API authorisation S1 describes stay unresolved, and nothing about a page, navigation or sign-in follows from the approved picks until they are decided. Nothing is built, commissioned, retired or granted by this document.
+Status: Thomas approved the eight picks below (questions 1 to 8) at commit 334f90b, by answer `msg_01m77aaertnrt09vhrhsbksza9`, option 1, to question `05bacade-47e3-419c-9e36-f35b96206b71`, relayed by the orchestrator ship. That approval covers these picks only. It does not approve the #41 proposals 27 to 29 this design depends on, which stay open. Thomas then approved option 1 of S0, S2 to S5 and D1 to D5 at commit d22c3db, by answer `msg_01m77fega4223kz01z22vez4te`, option 1, to question `d581ade6-230c-447a-bc0c-2beb8fa4aa3e`, relayed by the orchestrator ship. That approval covers those picks only. Thomas then chose S1 option 2, a page Squadrons serves itself, by answer `msg_01m77hn2n2j799h2a2yh2t913v`, option 1, to question `4636b139-8b76-4c84-9fda-61908040bdcf` (request `msg_01m77ffpjg86zjrskgprv1g7ry`), relayed by the orchestrator ship. It keeps the console's read-only rule and decision 0043's plugin-page boundary. S1a (how squadrons knows the signed-in template owner), who may open the page (R1) and how the owner-only call is authorised (R2) stay unresolved, and so do the entry and shell choices E1 and E2. Nothing is built, commissioned, retired or granted by this document.
 
 ## Purpose
 
@@ -158,7 +158,15 @@ These guarantees are to be proven by concurrency, rollback and restart tests whe
 
 ## Screens
 
-Proposed, for Thomas's approval: [the screens](mockups/README.md), 18 states at 1440 and 375, light and dark, with today's template page as the before.
+[The screens](mockups/README.md): 23 states at 1440 and 375, light and dark. Today's console template page is the before. The after is Squadrons' own page (S1), entered from the console.
+
+The count flow on that page is the approved card and decisions below (S0, S2 to S5, D1 to D5), unchanged. The page around it is a proposal:
+- **Shell.** The shared Aeolus header (header design, `AppHeader`): "acme fleet / Squadrons" switcher, a breadcrumb "Templates › baker", search and the avatar menu. Then the template's name, the version picker, the Ships allowed section with the change card, and Versions beside it. Phone uses the app's own bar with the compact switcher (H6).
+- **Entry.** The console's template page links to it, as 0043 has the console link to plugin pages (E1). A shared link opens the same page.
+- **Sign-in.** The one Aeolus account sign-in through pagasae (header design H5). Signed out, the page asks to sign in and returns to the page asked for afterwards. If the sign-in ends mid-decision, nothing is approved, and Sign in again returns to the page; the decision is not replayed by itself. Signed in without the rights to see the page, it shows nothing about the template and points to the account's rights (R1).
+- **Built** like every Aeolus web app (header design H3), in this repository. Squadrons serves no page today.
+
+**Assumed only to draw.** The screens show squadrons knowing the signed-in person's ship (S1a option 1). That is not decided, and nothing here is an identity or API contract.
 
 Thomas reviewed the first screens on 12 Nov: answer `msg_01m77ed14bjzckyxdfsd03tx40`, option 4, to question `43576c18-277d-488b-b6a3-026291988c63`, relayed by the orchestrator ship. In his feedback, the look was good, but the button text was poor and the change's context unclear. A person arriving from elsewhere saw "Review 1 ship allowed" without knowing what to review or what 1 meant. He asked for a small, clear change indicator; where the proposal came from, what triggered it and why it is proposed now; the consequence as text; then real Approve and Decline actions, with declining's consequence explained. The screens are revised to that.
 
@@ -199,12 +207,12 @@ They are simulated: invented data, nothing built.
 
 **Pick: 1. Approved.** The eight approved picks and these screens follow from it.
 
-**S1. Where does the template owner see and confirm the count? A founder choice, unresolved.**
+**S1. Where does the template owner see and confirm the count? Decided: option 2.**
 
 1. A Ships allowed section on the console's existing template page, under the read-only note. Everyone who sees the page sees the count, and only the template owner gets the buttons. This needs Thomas to make an exception to the console's conventions, which say templates are read-only, with "never edit controls". Confirming the count edits no file, so the read-only note stays, but it is still an action on that page. These screens do not assume that exception is granted.
 2. A page that squadrons serves itself, apart from the console, as decision 0017 allows ("its own pages run apart from the console"). The console's read-only rule stays whole.
 
-**Pick: 1**, if Thomas grants the exception, and otherwise 2. The template page already shows each version, so a version proposing another count sits beside the version it comes from.
+**Decided: 2.** Thomas chose a page Squadrons serves itself. The console grants no exception to its read-only rule, and the page sits where decision 0043 puts plugin pages. The facts below still apply to option 2.
 
 What each option needs. These are facts from the audit below, not choices:
 - **Who builds the page.** The console's squadrons pages live in aeolus-fleet's console package and call squadrons' API through the web app's server. So option 1 is a console change in aeolus-fleet as well as a squadrons API call in this repository: two pull requests. Option 2 is built in this repository only. Squadrons serves no page of its own today.
@@ -234,6 +242,36 @@ So no listed call, with squadrons' existing rights, tells squadrons the signed-i
 **Pick: 1.** It keeps answer 16 and question 8 as Thomas approved them. Avoiding a core change is no reason to change an approved contract. Option 2 is there only if Thomas wants to change that contract.
 
 A separate defect, not fixed here: aeolus-fleet's compatibility doc does not list `console.session` in squadrons' row, though decision 0017 names it and squadrons calls it. It belongs in aeolus-fleet as its own change.
+
+**R1. Who may open the Squadrons page for a template? Unresolved.**
+
+1. Anyone whose sign-in carries `fleet:read`, which is today's squadrons read gate, plus the template owner, who may not hold it.
+2. Only those holding `fleet:read`. A template owner without it cannot reach the page.
+3. Anyone with an account in the fleet.
+
+**Pick: 1.** The template owner must reach the page to answer for the template (question 8), and everyone else keeps today's read gate. Option 3 widens who reads squadrons' data beyond today's gate. This depends on S1a: squadrons must know the person to let the template owner in.
+
+**R2. How is approving or declining authorised? Unresolved.**
+
+1. Squadrons checks that the signed-in person is the template owner, by S1a, and nothing else: no `fleet:manage`, no new scope.
+2. The template owner, and also `fleet:manage`.
+3. A scope squadrons declares in its namespace for template owners, granted by the fleet.
+
+**Pick: 1.** Being the template owner is what question 8 makes the right to decide, as a ship's owner answers for their ship. Option 2 shuts out a template owner who manages no ships. Option 3 adds a scope, which only Thomas adds, for what ownership already says. In every option, a check that changes squadrons' own API rule needs Thomas's approval, and core checks stay as they are.
+
+**E1. What does the console show at the entry? Proposed.**
+
+1. A link only: "Ships allowed and changes to them", "Open in Squadrons". No count and no actions.
+2. The link, plus the count in force and a "change proposed" badge.
+
+**Pick: 1.** The console only links (0043) and needs no new read. The Squadrons page explains the rest. This is a change to aeolus-fleet's console, in its own pull request.
+
+**E2. How does a person move to Squadrons besides the console's link? Proposed.**
+
+1. Squadrons joins the app switcher by serving a manifest (header design H4 and H12), so "acme fleet / Squadrons" is reachable from every app.
+2. By links only.
+
+**Pick: 1.** It is the way the header design gives plugins to join, with no header change. Until then the switcher shows Squadrons only as the open app.
 
 **S2. What do the screens call it?**
 
