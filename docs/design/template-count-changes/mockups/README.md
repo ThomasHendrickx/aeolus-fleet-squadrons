@@ -1,6 +1,6 @@
 # Changing a template's ship count: screens
 
-Screens for approval. Docs only. [Issue #43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). The behaviour they show is the approved picks in [template-count-changes.md](../template-count-changes.md). The choices these screens make are its [Screen questions](../template-count-changes.md#screen-questions).
+Docs only. [Issue #43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). Thomas approved S0 (the purpose), the screen decisions S2 to S5 and D1 to D5 at d22c3db ([template-count-changes.md](../template-count-changes.md), status). Where the page lives (S1) and how squadrons knows the template owner (S1a) are not decided, so these screens show the console's template page as a proposal for S1, not a decided location. The behaviour they show is the approved picks.
 
 **Simulated.** Everything here is drawn, not built. The data, people and ships are invented. No squadrons call, count or claim exists yet, and the buttons do nothing. These screens do not decide who may see the page or how the fleet names a template owner. Approving them approves no identity, API or rights change (S1 and S1a in the design). The no-owner screen's words assume S1a option 1, a template owner that is a person ship.
 

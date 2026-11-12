@@ -2,9 +2,9 @@
 
 Issue: [#43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). Builds on [Asking for a ship by what it does](../asking-for-a-ship/asking-for-a-ship.md) ([#41](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/41), [#42](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/pull/42)).
 
-Status: Thomas approved the eight picks below (questions 1 to 8) at commit 334f90b, by answer `msg_01m77aaertnrt09vhrhsbksza9`, option 1, to question `05bacade-47e3-419c-9e36-f35b96206b71`, relayed by the orchestrator ship. That approval covers these picks only. It does not approve the #41 proposals 27 to 29 this design depends on, which stay open. The [screens](#screens), revised after Thomas's feedback of 12 Nov, are a proposal for approval. Nothing is built, commissioned, retired or granted by this document.
+Status: Thomas approved the eight picks below (questions 1 to 8) at commit 334f90b, by answer `msg_01m77aaertnrt09vhrhsbksza9`, option 1, to question `05bacade-47e3-419c-9e36-f35b96206b71`, relayed by the orchestrator ship. That approval covers these picks only. It does not approve the #41 proposals 27 to 29 this design depends on, which stay open. Thomas then approved option 1 of S0, S2 to S5 and D1 to D5 at commit d22c3db, by answer `msg_01m77fega4223kz01z22vez4te`, option 1, to question `d581ade6-230c-447a-bc0c-2beb8fa4aa3e`, relayed by the orchestrator ship. That approval covers those picks only. S1 (where the page lives), S1a (how squadrons knows the signed-in template owner) and the API authorisation S1 describes stay unresolved, and nothing about a page, navigation or sign-in follows from the approved picks until they are decided. Nothing is built, commissioned, retired or granted by this document.
 
-## Proposed purpose
+## Purpose
 
 A template owner can raise or lower how many ships a template allows while ships of it exist. Before confirming, they see what the change does. People keep using the ships they have, and new requests follow the confirmed count.
 
@@ -194,12 +194,12 @@ They are simulated: invented data, nothing built.
 
 **S0. Is the proposed purpose approved?**
 
-1. Yes, as written in [Proposed purpose](#proposed-purpose).
+1. Yes, as written in [Purpose](#purpose).
 2. No: Thomas restates it, and the screens are checked against his words.
 
-**Pick: 1.** The eight approved picks and these screens follow from it. Until Thomas answers, it stays labelled proposed: the approval of questions 1 to 8 did not state it.
+**Pick: 1. Approved.** The eight approved picks and these screens follow from it.
 
-**S1. Where does the template owner see and confirm the count? A founder choice.**
+**S1. Where does the template owner see and confirm the count? A founder choice, unresolved.**
 
 1. A Ships allowed section on the console's existing template page, under the read-only note. Everyone who sees the page sees the count, and only the template owner gets the buttons. This needs Thomas to make an exception to the console's conventions, which say templates are read-only, with "never edit controls". Confirming the count edits no file, so the read-only note stays, but it is still an action on that page. These screens do not assume that exception is granted.
 2. A page that squadrons serves itself, apart from the console, as decision 0017 allows ("its own pages run apart from the console"). The console's read-only rule stays whole.
@@ -214,7 +214,7 @@ What each option needs. These are facts from the audit below, not choices:
 
 Approving the screens approves what the page shows and says. It approves no identity, API or rights change: those are S1 and S1a.
 
-**S1a. How does squadrons know that the signed-in person is the template owner?**
+**S1a. How does squadrons know that the signed-in person is the template owner? Unresolved.**
 
 Audit, read only, against aeolus-fleet main at `2e8f61c05d16bf0be5689f10b6f5c95e30e88a00` and this repository:
 - `console.session` answers `fleetId`, `fleetName`, `expiresAt`, `kind` (`operator`, `viewer` or `account`), `accountId` (for kind `account` only), `scopes` and `featureFlags` (aeolus-fleet `packages/common/src/schemas/console.ts`, `consoleSessionOutputSchema`). It answers no person ship. Squadrons calls it today and keeps only `fleetId`, `kind` and `scopes` (`packages/squadrons/src/adapters/fleet/console-sessions.ts`).
@@ -240,7 +240,7 @@ A separate defect, not fixed here: aeolus-fleet's compatibility doc does not lis
 1. "Ships allowed at a time in this fleet", and "N ships count toward it".
 2. "Places", as this document says.
 
-**Pick: 1.** "Place" is no console term, and a person reads "ships allowed" without learning one.
+**Pick: 1. Approved.** "Place" is no console term, and a person reads "ships allowed" without learning one.
 
 **S3. What do the actions say and look like?**
 
@@ -248,21 +248,21 @@ A separate defect, not fixed here: aeolus-fleet's compatibility doc does not lis
 2. The same actions, acting at once without a last check.
 3. A destructive Approve when the count goes down.
 
-**Pick: 1.** Each button names its action and its result, so a person who arrived from elsewhere is not asked to "review" a bare number. Approving or declining is undone by a later decision (question 8), so neither is destructive. The last check is where a person sees, once more, that no ship is retired.
+**Pick: 1. Approved.** Each button names its action and its result, so a person who arrived from elsewhere is not asked to "review" a bare number. Approving or declining is undone by a later decision (question 8), so neither is destructive. The last check is where a person sees, once more, that no ship is retired.
 
 **S4. Where does a version that proposes another count show?**
 
 1. On the template page only: the change card, "change proposed" or "declined" in the version picker, and each version's count in Versions.
 2. As 1, plus a badge on the Templates list.
 
-**Pick: 1.** It is drawn and needs nothing new. Option 2 is not drawn. A notice to the template owner is not proposed: squadrons sending one needs reach that is not decided here.
+**Pick: 1. Approved.** It is drawn and needs nothing new. This settles where on the template's page a proposal shows, not which page that is: that is S1. Option 2 is not drawn. A notice to the template owner is not proposed: squadrons sending one needs reach that is not decided here.
 
 **S5. Who sees how many requests wait?**
 
 1. The template owner only.
 2. Everyone who sees the page.
 
-**Pick: 1.** Question 3 shows the waiting count to the template owner. Others see the count and the ships, which experience 8 already makes visible: who answers for each ship.
+**Pick: 1. Approved.** Question 3 shows the waiting count to the template owner. Others see the count and the ships, which experience 8 already makes visible: who answers for each ship.
 
 ### What a decline means later
 
@@ -274,7 +274,7 @@ The approved picks settle that a decline keeps the count in force. They do not s
 2. Each time squadrons reads the repository, the declined version asks again.
 3. Never for a count once declined: a later version stating that same count is treated as declined too.
 
-**Pick: 1.** A decline is an answer to one version. Option 2 turns a decided question into a recurring one. Option 3 lets one old answer overrule a new version, whose author may have had a new reason.
+**Pick: 1. Approved.** A decline is an answer to one version. Option 2 turns a decided question into a recurring one. Option 3 lets one old answer overrule a new version, whose author may have had a new reason.
 
 **D2. Can a declined proposal be reconsidered?**
 
@@ -283,7 +283,7 @@ Two different things: reviewing the current proposal, which waits for a first an
 1. Yes, while the declined version is still the one that determines the current proposal (D3). The declined record offers Reconsider, which shows that proposal with the earlier decline. Its choices are "Approve, allow 1" and "Leave declined", and leaving it records nothing again. Once a newer version determines the current proposal, the declined record is history only and offers no Reconsider. The newer proposal is reviewed for the first time, with its own Approve and Decline, and names the earlier decline.
 2. No: a declined proposal stays declined, and only a newer version proposes again.
 
-**Pick: 1.** The template owner can change their mind without asking someone to tag a new version. Both choices on Reconsider are real: approving changes the count, leaving it changes nothing. Ending Reconsider once a newer version speaks keeps one current proposal at a time (D3).
+**Pick: 1. Approved.** The template owner can change their mind without asking someone to tag a new version. Both choices on Reconsider are real: approving changes the count, leaving it changes nothing. Ending Reconsider once a newer version speaks keeps one current proposal at a time (D3).
 
 **D3. Which version determines the current proposal?**
 
@@ -291,7 +291,7 @@ Two different things: reviewing the current proposal, which waits for a first an
 2. The newest version whose count differs from the count in force, looking past newer versions that state the count in force.
 3. Each version's proposal waits on its own and is decided on its own.
 
-**Pick: 1.** The template owner answers the template's latest statement. Under option 2, an old count resurfaces after a newer version has gone back to the count in force. Option 3 can ask them to approve a count the template's author has already moved past.
+**Pick: 1. Approved.** The template owner answers the template's latest statement. Under option 2, an old count resurfaces after a newer version has gone back to the count in force. Option 3 can ask them to approve a count the template's author has already moved past.
 
 **D5. The newest version leaves the catalogue, or its tag moves.**
 
@@ -302,14 +302,14 @@ The approved picks already say the count in force never changes by itself (quest
    - **Moved tag:** squadrons uses the new commit silently ([template bases](../template-bases/template-bases.md), decision 10). An approval or decline answers the version's count as read at that commit. If the moved tag now states another count, it is a new proposal from the same version. If it states the same count, the earlier answer stands.
 2. A removed or moved version keeps its proposal current until the template owner answers it.
 
-**Pick: 1.** The page shows only proposals from versions a ship can be formed from. A count already in force does not depend on the version that proposed it staying (question 2). Option 2 asks the template owner to answer for a version that can no longer be used.
+**Pick: 1. Approved.** The page shows only proposals from versions a ship can be formed from. A count already in force does not depend on the version that proposed it staying (question 2). Option 2 asks the template owner to answer for a version that can no longer be used.
 
 **D4. Can the template owner stop all future proposals for a template?**
 
 1. No. Every newer version stating another count proposes, and declining is the answer.
 2. Yes: a "stop asking" setting per template, until switched off.
 
-**Pick: 1.** A version's count is the template author's statement, and the template owner answers it. Option 2 would let new versions' counts go unseen, which question 1's "sees and confirms" rules out. Stopping a version being used at all is done in git, not here.
+**Pick: 1. Approved.** A version's count is the template author's statement, and the template owner answers it. Option 2 would let new versions' counts go unseen, which question 1's "sees and confirms" rules out. Stopping a version being used at all is done in git, not here.
 
 ## What this design does not do
 
