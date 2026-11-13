@@ -35,7 +35,7 @@ const builder: TemplateVersion = templateOfOne({
   launchNote: null,
   charter: 'You build {{area}}.',
   handoffs: [],
-  crew: { workspace: { kind: 'worktree', repository: 'hemma' } },
+  crew: { workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [] } },
   parameters: [{ name: 'area', description: 'What to build' }],
   scopes: [],
 });

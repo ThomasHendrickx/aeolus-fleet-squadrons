@@ -127,7 +127,7 @@ A template and a blueprint role may each say how members are crewed (#343), in a
 | --- | --- |
 | `harness` | The harness, such as `claude-code` |
 | `model` | The exact model id a member runs (`claude-opus-5-5`), never an alias: lowercase letters, digits, dots and hyphens, with at least one digit, not ending in `-latest`. A template's is shown with the launch note as its pinned model; a member that states another model at check-in is flagged, not stopped |
-| `workspace` | `{ kind: worktree, repository, ref? }` or `{ kind: folder, name }`, each named in the trierarchs' configuration, never a path |
+| `workspace` | `{ kind: repositories, main: { repository, ref? }, subRepositories: [{ repository, ref? }] }`, the main repository the session works from and the sub-repositories beside it, or `{ kind: folder, name }`; each named in the trierarchs' configuration, never a path. No repository is named twice, and the main repository is never among the sub-repositories. A new member's crew request carries them as written |
 | `firstPrompt` | Given on the first start only: at most 8 KB, never starting with `-`. It may use the template's `{{name}}` parameters |
 | `options` | Named settings, such as `effort`. Never `model`: `crew.model` is the one place for it |
 | `machineLabels` | `key=value` names, such as `os=linux`, at most 20: names, not ids, so a file works in any fleet. The machine must carry every one |

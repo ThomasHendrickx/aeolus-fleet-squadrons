@@ -78,7 +78,7 @@ describe('the example squadron files', () => {
 
     expect(memberCrewOf({ template, role }).crew).toEqual({
       harness: 'codex',
-      workspace: { kind: 'worktree', repository: 'tidewater' },
+      workspace: { kind: 'repositories', main: { repository: 'tidewater' }, subRepositories: [{ repository: 'tidewater-docs' }] },
       options: { effort: 'low', model: 'gpt-6-sol' },
       machineLabels: [{ key: 'os', value: 'linux' }],
     });

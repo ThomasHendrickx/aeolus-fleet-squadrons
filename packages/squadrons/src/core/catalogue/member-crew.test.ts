@@ -40,12 +40,12 @@ describe("a member's crew settings, from its template and its blueprint role (#3
   it("are the template's when the role sets none, its model written as options.model", () => {
     const template = aTemplate({
       model: 'claude-opus-5-5',
-      crew: { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'hemma' }, options: { effort: 'high' }, machineLabels: [{ key: 'os', value: 'linux' }] },
+      crew: { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [] }, options: { effort: 'high' }, machineLabels: [{ key: 'os', value: 'linux' }] },
     });
 
     expect(memberCrewOf({ template, role: aRole() }).crew).toEqual({
       harness: 'claude-code',
-      workspace: { kind: 'worktree', repository: 'hemma' },
+      workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [] },
       options: { effort: 'high', model: 'claude-opus-5-5' },
       machineLabels: [{ key: 'os', value: 'linux' }],
     });
@@ -54,7 +54,7 @@ describe("a member's crew settings, from its template and its blueprint role (#3
   it('take the nearest: each field the role sets replaces the template’s whole, its model too', () => {
     const template = aTemplate({
       model: 'claude-opus-5-5',
-      crew: { harness: 'claude-code', workspace: { kind: 'worktree', repository: 'hemma' }, firstPrompt: 'Wait.', machineLabels: [{ key: 'os', value: 'linux' }, { key: 'arch', value: 'arm64' }] },
+      crew: { harness: 'claude-code', workspace: { kind: 'repositories', main: { repository: 'hemma' }, subRepositories: [] }, firstPrompt: 'Wait.', machineLabels: [{ key: 'os', value: 'linux' }, { key: 'arch', value: 'arm64' }] },
     });
     const role = aRole({ model: 'gpt-6-sol', crew: { harness: 'codex', workspace: { kind: 'folder', name: 'notes' }, machineLabels: [{ key: 'os', value: 'macos' }] } });
 
