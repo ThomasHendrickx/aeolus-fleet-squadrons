@@ -29,7 +29,7 @@ const forming: Squadron = {
 const log = Fastify({ logger: false }).log;
 const delivery: ReceivedMessage = { deliveryId: 'dlv_01m3tbfspe96yf1rnr4ank0001', messageId: 'msg_01m3tbfspe96yf1rnr4ank0001', senderShipId: SHIP_ID, senderName: 'lead', contentType: 'text/plain', payload: 'stored while down', inReplyTo: null };
 
-async function aWatcher(receive?: (token: string, signal?: AbortSignal) => Promise<ReceivedMessage[]>, refusal?: number, list?: (fleetId: FleetId, squadrons: Squadron[]) => Promise<Squadron[]>) {
+async function aWatcher(receive?: (token: string, signal?: AbortSignal) => Promise<ReceivedMessage[]>, options: { refusal?: number; list?: (fleetId: FleetId, squadrons: Squadron[]) => Promise<Squadron[]> } = {}) {
   vi.useFakeTimers();
   const management = memoryManagementStore();
   for (const fleetId of [FLEET_ID, OTHER_FLEET_ID]) {
@@ -43,7 +43,7 @@ async function aWatcher(receive?: (token: string, signal?: AbortSignal) => Promi
   const handled: ReceivedMessage[] = [];
   const served = new Set<FleetId>([FLEET_ID, OTHER_FLEET_ID]);
   const make = () => watchFlagships({
-    management, squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), update: () => Promise.resolve(), list: (fleetId) => list?.(fleetId, squadrons.get(fleetId) ?? []) ?? Promise.resolve(squadrons.get(fleetId) ?? []) },
+    management, squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), update: () => Promise.resolve(), list: (fleetId) => options.list?.(fleetId, squadrons.get(fleetId) ?? []) ?? Promise.resolve(squadrons.get(fleetId) ?? []) },
     advanceStandDowns: () => Promise.resolve(), recoverFormations: () => Promise.resolve(), deleteUnusedBuiltTemplates: () => Promise.resolve(0), operator: { tell: () => Promise.resolve() }, reach: { keep: () => Promise.resolve(), withdraw: () => Promise.resolve() }, turns: createFleetTurns(), outages: memoryKeyOutages(), clock: { now: () => AT },
     isServed: (fleetId) => Promise.resolve(served.has(fleetId)), log, rescanMs: 10_000,
     door: { ...fakeManagementFleet().door, receive: async (token, until) => { received.push(token); if (received.length > 10) { throw new Error("unexpected continuous receiving"); } return ok(await receive?.(token, until?.signal) ?? []); } },
@@ -52,7 +52,7 @@ async function aWatcher(receive?: (token: string, signal?: AbortSignal) => Promi
       fleetUrl: 'https://fleet.example', ...events, failed: () => undefined, random: () => 0,
       fetch: (_url, init) => {
         openings += 1;
-        if (refusal !== undefined && openings === 1) { return Promise.resolve(new Response(JSON.stringify({ code: refusal === 401 ? 'UNAUTHORIZED' : 'FLEET_BUSY', message: 'retry' }), { status: refusal })); }
+        if (options.refusal !== undefined && openings === 1) { return Promise.resolve(new Response(JSON.stringify({ code: options.refusal === 401 ? 'UNAUTHORIZED' : 'FLEET_BUSY', message: 'retry' }), { status: options.refusal })); }
         if (init?.signal) { signals.push(init.signal); }
         return Promise.resolve(new Response(new ReadableStream<Uint8Array>({ start(controller) { streams.set(token, controller); } })));
       },
@@ -230,15 +230,15 @@ it('reopens a flagship stream after a network error and receives its open wake',
   } finally { await w.stop(); }
 });
 it('reopens a flagship stream after a non-LEASE_ENDED 401', async () => {
-  const r = await aWatcher(undefined, 401); const w = r.make();
+  const r = await aWatcher(undefined, { refusal: 401 }); const w = r.make();
   try { await w.rescan(); await vi.advanceTimersByTimeAsync(1_000); r.wake(); await vi.advanceTimersByTimeAsync(0); expect(r.received).toEqual([FLEET_ID]); } finally { await w.stop(); }
 });
 it('FLEET_BUSY refuses an opening until the flagship stream backoff expires', async () => {
-  const r = await aWatcher(undefined, 429); const w = r.make();
+  const r = await aWatcher(undefined, { refusal: 429 }); const w = r.make();
   try { await w.rescan(); await vi.advanceTimersByTimeAsync(999); expect(r.streams.has(FLEET_ID)).toBe(false); } finally { await w.stop(); }
 });
 it('FLEET_BUSY reopens the flagship stream after backoff', async () => {
-  const r = await aWatcher(undefined, 429); const w = r.make();
+  const r = await aWatcher(undefined, { refusal: 429 }); const w = r.make();
   try { await w.rescan(); await vi.advanceTimersByTimeAsync(1_000); expect(r.streams.has(FLEET_ID)).toBe(true); } finally { await w.stop(); }
 });
 it('sixty seconds of silence aborts a flagship stream', async () => {
@@ -316,16 +316,16 @@ it('a wake resets the flagship safety timer', async () => {
 
 it('an older rescan finishing last leaves the new lease stream open', async () => {
   const olderSnapshot = Promise.withResolvers<Squadron[]>();
-  const snapshotTaken = Promise.withResolvers<void>();
+  const snapshotTaken = Promise.withResolvers<undefined>();
   let isOlderScan = false;
-  const running = await aWatcher(undefined, undefined, (fleetId, squadrons) => {
+  const running = await aWatcher(undefined, { list: (fleetId, squadrons) => {
     if (fleetId === FLEET_ID && isOlderScan) {
       isOlderScan = false;
-      snapshotTaken.resolve();
+      snapshotTaken.resolve(undefined);
       return olderSnapshot.promise;
     }
     return Promise.resolve(squadrons);
-  });
+  } });
   const watcher = running.make();
   try {
     await watcher.rescan();

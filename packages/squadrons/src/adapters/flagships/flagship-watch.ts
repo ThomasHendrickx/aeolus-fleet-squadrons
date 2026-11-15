@@ -191,13 +191,15 @@ export function watchFlagships(deps: {
   };
 
   const hasStopped = () => stopping.signal.aborted;
+  let latestRescan = 0;
   const rescan = async (): Promise<void> => {
+    const rescanNumber = ++latestRescan;
     const connected = await deps.management.connected();
     const leases = (await Promise.all(connected.map(async ({ fleetId }) => {
       if (!(await deps.isServed(fleetId))) { return []; }
       return (await deps.squadrons.list(fleetId)).filter((squadron) => isReceiving(squadron) && !endedLeases.has(squadron.flagship.crewToken)).map((squadron) => ({ key: keyOf(fleetId, squadron.id), crewToken: squadron.flagship.crewToken, fleetId, squadronId: squadron.id }));
     }))).flat();
-    if (hasStopped()) { return; }
+    if (hasStopped() || rescanNumber !== latestRescan) { return; }
     reconcileLeaseStreams({ watched, leases, start: (key, crewToken) => {
       const lease = leases.find((each) => each.key === key);
       if (!lease) { throw new Error('missing flagship lease'); }
