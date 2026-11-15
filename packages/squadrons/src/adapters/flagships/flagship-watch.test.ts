@@ -68,6 +68,7 @@ describe('stopping the flagship watch', () => {
     });
     let isHandlingStarted = false;
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door,
       management: store,
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
@@ -115,6 +116,7 @@ describe('the flagships of every connected fleet', () => {
     const receivedAs = new Set<string>();
     const advanced: string[] = [];
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: {
         ...fakeManagementFleet().door,
         receive: (crewToken, until) => {
@@ -161,6 +163,7 @@ describe('the flagships of a fleet squadrons does not serve', () => {
     let receives = 0;
     const advanced: string[] = [];
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: {
         ...fakeManagementFleet().door,
         receive: () => {
@@ -202,6 +205,7 @@ describe('a released flagship', () => {
     let receives = 0;
     const told: { headline: string; body: string; key: string }[] = [];
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: {
         ...fakeManagementFleet().door,
         receive: () => {
@@ -248,6 +252,7 @@ describe('a released flagship', () => {
     const keys: string[] = [];
     for (let start = 0; start < 2; start += 1) {
       const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
         door: { ...fakeManagementFleet().door, receive: () => Promise.resolve(err({ code: 'LEASE_ENDED', message: 'released' })) },
         management: store,
         squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
@@ -291,6 +296,7 @@ describe('the flagship of a squadron standing down', () => {
     let isReceived = false;
     const handled: string[] = [];
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: {
         ...fakeManagementFleet().door,
         receive: () => {
@@ -332,6 +338,7 @@ describe('the flagship of a squadron standing down', () => {
     let lists = 0;
     const told: string[] = [];
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: { ...fakeManagementFleet().door, receive: () => Promise.resolve(err({ code: 'LEASE_ENDED', message: 'retired' })) },
       management: await connectedStore(),
       squadrons: {
@@ -371,6 +378,7 @@ describe('the flagship of a squadron standing down', () => {
   it('advances every stand-down at each rescan', async () => {
     let advances = 0;
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: fakeManagementFleet().door,
       management: await connectedStore(),
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
@@ -407,6 +415,7 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
     const kept: string[] = [];
     const withdrawn: string[] = [];
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: fakeManagementFleet().door,
       management: store,
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
@@ -445,6 +454,7 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
     await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
     const withdrawn: string[] = [];
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: fakeManagementFleet().door,
       management: store,
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
@@ -481,6 +491,7 @@ describe("each fleet's squadron labels and declared rules (#573)", () => {
     await store.save({ fleetId: OTHER_FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_other', crewedAt: AT });
     const kept: string[] = [];
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: fakeManagementFleet().door,
       management: store,
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
@@ -535,6 +546,7 @@ describe("each fleet's formations a forming gave up (#738)", () => {
     await store.save({ fleetId: OTHER_FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_other', crewedAt: AT });
     const recovered: string[] = [];
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: fakeManagementFleet().door,
       management: store,
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
@@ -577,6 +589,7 @@ describe("a fleet's rescans (#626)", () => {
       inFlight -= 1;
     };
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: fakeManagementFleet().door,
       management: store,
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
@@ -610,6 +623,7 @@ describe("a fleet's rescans (#626)", () => {
     const gate = aGate();
     let advances = 0;
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: fakeManagementFleet().door,
       management: store,
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
@@ -648,6 +662,7 @@ describe("a fleet's rescans (#626)", () => {
     const done: string[] = [];
     let isKeeping = false;
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: fakeManagementFleet().door,
       management: store,
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
@@ -694,6 +709,7 @@ describe("each fleet's built templates", () => {
     await store.save({ fleetId: OTHER_FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_other', crewedAt: AT });
     const deleted: string[] = [];
     const watch = watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: fakeManagementFleet().door,
       management: store,
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([]), update: () => Promise.resolve() },
@@ -741,6 +757,7 @@ describe('a flagship whose fleet’s key is out of reach', () => {
     const store = memoryManagementStore();
     await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT });
     return watchFlagships({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: { ...fakeManagementFleet().door, receive: options.receive },
       management: store,
       squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), list: () => Promise.resolve([forming]), update: () => Promise.resolve() },
@@ -804,7 +821,7 @@ describe('a flagship whose fleet’s key is out of reach', () => {
     });
 
     await watch.rescan();
-    await expect.poll(() => receives).toBe(4);
+    await expect.poll(() => receives).toBe(3);
     await watch.stop();
 
     expect(outages.held.get(FLEET_ID)).toEqual([{ since: AT, until: AT }]);
@@ -868,4 +885,14 @@ describe('a flagship whose fleet’s key is out of reach', () => {
 
     expect(receives).toBe(2);
   });
+  it('receives the unacked delivery again after an answer is refused for the key', async () => {
+    let handles = 0;
+    const watch = await watchedWith({
+      receive: () => Promise.resolve(ok([{ deliveryId: 'dlv_01m3tbfspe96yf1rnr4ank0001', messageId: 'msg_01m3tbfspe96yf1rnr4ank0001', senderShipId: SHIP_ID, senderName: 'a-member', contentType: 'text/plain', payload: 'hello', inReplyTo: null }])),
+      outages: memoryKeyOutages(), log: silentLog,
+      handle: () => { handles += 1; return Promise.resolve(handles === 1 ? err(KEY_UNAVAILABLE) : ok('kept')); },
+    });
+    try { await watch.rescan(); await expect.poll(() => handles).toBe(2); } finally { await watch.stop(); }
+  });
+
 });
