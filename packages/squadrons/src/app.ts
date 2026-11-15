@@ -359,6 +359,7 @@ export function createSquadronsApp(options: {
     },
     startFlagships: (rescanMs) => {
       flagships = watchFlagships({
+        start: (token, events) => createShipWakeups({ fleetUrl: options.fleetUrl, ...events, failed: (error) => { server.log.error({ err: error }, "flagship wake stream failed"); } })(token),
         door,
         management: store,
         squadrons,

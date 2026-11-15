@@ -6,6 +6,8 @@ import type { IsServed } from '../../core/installation/served.js';
 import type { FleetDoor, ManagementCrewStore } from '../../core/management/ports.js';
 import type { HandleManagementDelivery } from '../../core/squadron/handle-management-delivery.js';
 
+import { reconcileLeaseStreams } from './reconcile-lease-streams.js';
+
 const RETRY_MS = 1_000;
 const RECEIVE_PAGE_SIZE = 10;
 
@@ -34,7 +36,7 @@ export function watchManagementShips(deps: {
     void work.then(() => running.delete(work), () => running.delete(work));
     return work;
   };
-  const start = (fleetId: FleetId, crewToken: string): void => {
+  const start = (fleetId: FleetId, crewToken: string) => {
     const stopping = new AbortController();
     const isStopping = () => stopping.signal.aborted;
     const pause = () => new Promise<void>((resolve) => {
@@ -77,7 +79,7 @@ export function watchManagementShips(deps: {
       }
     };
     const stopStream = deps.start(crewToken, { look: () => track(look()), ended: () => track(ended()) });
-    watched.set(fleetId, { crewToken, stop: () => { stopping.abort(); stopStream(); } });
+    return { crewToken, stop: () => { stopping.abort(); stopStream(); } };
   };
 
   const reconcile = async (): Promise<void> => {
@@ -85,15 +87,7 @@ export function watchManagementShips(deps: {
     if (hasStopped()) { return; }
     const served = await Promise.all(connected.map(async (crew) => ({ crew, isServed: await deps.isServed(crew.fleetId) })));
     if (hasStopped()) { return; }
-    for (const [fleetId, stream] of watched) {
-      if (!served.some(({ crew, isServed }) => isServed && crew.fleetId === fleetId && crew.crewToken === stream.crewToken)) {
-        stream.stop();
-        watched.delete(fleetId);
-      }
-    }
-    for (const { crew, isServed } of served) {
-      if (isServed && !watched.has(crew.fleetId)) { start(crew.fleetId, crew.crewToken); }
-    }
+    reconcileLeaseStreams({ watched, leases: served.filter((each) => each.isServed).map(({ crew }) => ({ key: crew.fleetId, crewToken: crew.crewToken })), start });
   };
   let scanning: Promise<void> | undefined;
   const rescan = (): Promise<void> => {
