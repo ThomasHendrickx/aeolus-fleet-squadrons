@@ -28,6 +28,7 @@ let fleetDatabase: PrismaClient;
 let fleet: FastifyInstance;
 let fleetUrl: string;
 let proxy: Server;
+const forwardedPaths: string[] = [];
 let squadronsDatabaseUrl: string;
 let managementShip: { operatorFleetId: FleetId; shipId: ShipId; secret: string };
 let killed: SquadronsApp;
@@ -60,8 +61,10 @@ async function bodyOf(request: IncomingMessage): Promise<Buffer> {
  */
 function startCrashingProxy(onHang: () => void, behaviour: 'hang' | 'drop' = 'hang'): Promise<string> {
   let commissions = 0;
+  forwardedPaths.length = 0;
   proxy = createServer((request: IncomingMessage, response: ServerResponse) => {
     void (async () => {
+      forwardedPaths.push(request.url ?? "");
       const body = await bodyOf(request);
       const headers = Object.fromEntries(Object.entries(request.headers).filter(([name]) => !['host', 'connection', 'content-length'].includes(name)).map(([name, value]) => [name, String(value)]));
       const answered = await fetch(`${fleetUrl}${request.url ?? ''}`, { method: request.method, headers, ...(body.length > 0 ? { body } : {}) });
@@ -158,6 +161,13 @@ afterEach(async () => {
 async function shipsOtherThanArgoAndSquadrons() {
   return fleetDatabase.ship.findMany({ where: { name: { notIn: ['argo', 'squadrons'] } }, select: { name: true, retiredAt: true } });
 }
+
+it('the app starts one management wake stream for its connected fleet', async () => {
+  killed = squadronsApp(await startCrashingProxy(() => undefined));
+  unwrap(await killed.connect(managementShip));
+  killed.startFlagships(60_000);
+  await expect.poll(() => forwardedPaths.filter((path) => path === '/api/v1/ship/wakeups').length).toBe(1);
+});
 
 it('the fleet proxy forwards an open wake before the stream closes', async () => {
   const through = await startCrashingProxy(() => undefined);

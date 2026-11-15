@@ -244,3 +244,17 @@ it('a stopped reader ignores an end event delivered with its final bytes', async
   await vi.advanceTimersByTimeAsync(0);
   expect(endings).toBe(0);
 });
+
+it('a wake resets the reopening delay after earlier refused openings', async () => {
+  const running = await started([new Response(null, { status: 503 }), new Response(null, { status: 503 })]);
+  try {
+    await vi.advanceTimersByTimeAsync(3000);
+    running.streams[1]?.write('event: wake\n\n');
+    await vi.advanceTimersByTimeAsync(0);
+    running.streams[1]?.close();
+    await vi.advanceTimersByTimeAsync(999);
+    expect(running.opened()).toBe(3);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(running.opened()).toBe(4);
+  } finally { running.stop(); }
+});
