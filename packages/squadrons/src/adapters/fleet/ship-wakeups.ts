@@ -58,6 +58,7 @@ export function createShipWakeups(options: WakeupsOptions): (crewToken: string) 
           headers: { authorization: `Bearer ${crewToken}`, accept: 'text/event-stream' },
           signal: controller.signal,
         });
+        if (!isReading()) { await response.body?.cancel(); return; }
         if (response.status === 401) {
           const refusal: unknown = await response.json();
           if (typeof refusal === 'object' && refusal !== null && 'code' in refusal && refusal.code === 'LEASE_ENDED') {
@@ -70,14 +71,13 @@ export function createShipWakeups(options: WakeupsOptions): (crewToken: string) 
           return;
         }
         reader = response.body.getReader();
-        if (controller.signal.aborted) { return; }
         const decoder = new TextDecoder();
         let pending = '';
         let event = '';
         let data = '';
         while (isReading()) {
           const read = await reader.read();
-          if (read.done) { break; }
+          if (read.done || !isReading()) { break; }
           clearTimeout(silence);
           silence = setTimeout(() => { controller.abort(); }, SILENCE_MS);
           pending += decoder.decode(read.value, { stream: true });
