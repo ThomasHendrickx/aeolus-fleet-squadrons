@@ -115,3 +115,33 @@ it('a stream lease end drops only its own fleet connection', async () => {
     expect((await running.management.connected()).map((crew) => crew.fleetId)).toEqual([OTHER_FLEET_ID]);
   } finally { await watcher.stop(); }
 });
+
+it('overlapping reconciliations open just one stream per lease', async () => {
+  const running = await aWatcher();
+  const watcher = running.make();
+  try {
+    await Promise.all([watcher.rescan(), watcher.rescan(), watcher.rescan()]);
+    expect(running.signals).toHaveLength(2);
+  } finally { await watcher.stop(); }
+});
+
+it('reconciling after shutdown opens nothing', async () => {
+  const running = await aWatcher();
+  const watcher = running.make();
+  await watcher.stop();
+  await watcher.rescan();
+  expect(running.signals).toEqual([]);
+});
+
+it('a replaced crew token aborts its old stream and opens the new lease', async () => {
+  const running = await aWatcher();
+  const watcher = running.make();
+  try {
+    await watcher.rescan();
+    const crew = await running.management.find(FLEET_ID);
+    if (!crew) { throw new Error('missing test crew'); }
+    await running.management.save({ ...crew, crewToken: 'replacement' });
+    await watcher.rescan();
+    expect(running.signals.map((signal) => signal.aborted)).toEqual([true, false, false]);
+  } finally { await watcher.stop(); }
+});

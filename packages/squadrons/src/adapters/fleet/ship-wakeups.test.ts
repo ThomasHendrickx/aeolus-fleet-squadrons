@@ -14,7 +14,7 @@ function aStream() {
   };
 }
 
-async function started(responses: (Response | Error)[] = [], look?: () => Promise<void>) {
+async function started(responses: (Response | Error)[] = [], options: { look?: () => Promise<void>; random?: () => number } = {}) {
   vi.useFakeTimers();
   const streams = [aStream(), aStream()];
   let opened = 0;
@@ -30,8 +30,8 @@ async function started(responses: (Response | Error)[] = [], look?: () => Promis
       if (response instanceof Error) { return Promise.reject(response); }
       return Promise.resolve(response ?? new Response(null, { status: 503 }));
     },
-    random: () => 0,
-    look: () => { looks += 1; return look?.() ?? Promise.resolve(); },
+    random: options.random ?? (() => 0),
+    look: () => { looks += 1; return options.look?.() ?? Promise.resolve(); },
     ended: () => Promise.resolve(),
     failed: () => undefined,
   });
@@ -120,19 +120,14 @@ describe('ship wake stream', () => {
 
 
 describe('wake delivery guarantees', () => {
-  it('serializes looks and coalesces wakes during a look into exactly one more look', async () => {
+  it('a wake during an in-flight look causes exactly one more look', async () => {
     const first = Promise.withResolvers<undefined>();
     const second = Promise.withResolvers<undefined>();
     let calls = 0;
-    let active = 0;
-    let maximum = 0;
-    const running = await started([], async () => {
+    const running = await started([], { look: async () => {
       calls += 1;
-      active += 1;
-      maximum = Math.max(maximum, active);
       await (calls === 1 ? first.promise : second.promise);
-      active -= 1;
-    });
+    } });
     try {
       running.streams[0]?.write('event: wake\ndata: {}\n\n');
       await vi.advanceTimersByTimeAsync(0);
@@ -144,7 +139,7 @@ describe('wake delivery guarantees', () => {
       expect(calls).toBe(2);
       second.resolve(undefined);
       await vi.advanceTimersByTimeAsync(0);
-      expect({ calls, maximum }).toEqual({ calls: 2, maximum: 1 });
+      expect(calls).toBe(2);
     } finally { first.resolve(undefined); second.resolve(undefined); running.stop(); }
   });
 
@@ -175,3 +170,48 @@ describe('wake delivery guarantees', () => {
 });
 
 
+
+it('spreads a refused FLEET_BUSY opening up to five seconds', async () => {
+  const running = await started([Response.json({ code: 'FLEET_BUSY' }, { status: 503 })], { random: () => 1 });
+  try {
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(running.opened()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(running.opened()).toBe(2);
+  } finally { running.stop(); }
+});
+
+it('keep-alive bytes reset the sixty second silence deadline', async () => {
+  const running = await started();
+  try {
+    await vi.advanceTimersByTimeAsync(59_999);
+    running.streams[0]?.write(': keep-alive\n\n');
+    await vi.advanceTimersByTimeAsync(59_999);
+    expect(running.opened()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(running.opened()).toBe(2);
+  } finally { running.stop(); }
+});
+
+it('stopping during a look discards the pending wake', async () => {
+  const held = Promise.withResolvers<undefined>();
+  const running = await started([], { look: () => held.promise });
+  running.streams[0]?.write('event: wake\n\nevent: wake\n\n');
+  await vi.advanceTimersByTimeAsync(0);
+  running.stop();
+  held.resolve(undefined);
+  await vi.advanceTimersByTimeAsync(600_000);
+  expect(running.looks()).toBe(1);
+});
+
+it('looks remain serialized while the first receive waits', async () => {
+  const held = Promise.withResolvers<undefined>();
+  let active = 0;
+  let maximum = 0;
+  const running = await started([], { look: async () => { active += 1; maximum = Math.max(active, maximum); await held.promise; active -= 1; } });
+  try {
+    running.streams[0]?.write('event: wake\n\nevent: wake\n\n');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(maximum).toBe(1);
+  } finally { held.resolve(undefined); running.stop(); }
+});
