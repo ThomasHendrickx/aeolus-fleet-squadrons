@@ -7,6 +7,7 @@ import type { FleetDoor, ManagementCrewStore } from '../../core/management/ports
 import type { HandleManagementDelivery } from '../../core/squadron/handle-management-delivery.js';
 
 const RETRY_MS = 1_000;
+const RECEIVE_PAGE_SIZE = 10;
 
 export interface ManagementWatch {
   /** Reconciles streams with the connected fleets squadrons serves. */
@@ -67,7 +68,7 @@ export function watchManagementShips(deps: {
               deps.log.error({ fleet: fleetId, refusal: handled.error }, "squadrons' ship could not handle a delivery");
             }
           }
-          return;
+          if (received.value.length < RECEIVE_PAGE_SIZE) { return; }
         } catch (error) {
           if (isStopping()) { return; }
           deps.log.error({ err: error, fleet: fleetId }, "squadrons' ship failed to receive");
