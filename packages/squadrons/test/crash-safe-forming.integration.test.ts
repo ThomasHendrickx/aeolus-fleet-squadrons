@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
 
+import { createRestFleetDoor } from '../src/adapters/fleet/rest-fleet-door.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from '../src/testing/database.js';
 import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
@@ -137,6 +138,25 @@ afterEach(async () => {
 async function shipsOtherThanArgoAndSquadrons() {
   return fleetDatabase.ship.findMany({ where: { name: { notIn: ['argo', 'squadrons'] } }, select: { name: true, retiredAt: true } });
 }
+
+it('the fleet proxy forwards an open wake before the stream closes', async () => {
+  const through = await startCrashingProxy(() => undefined);
+  killed = squadronsApp(through);
+  const registered = unwrap(await createRestFleetDoor(fleetUrl).register(managementShip));
+  const stopping = new AbortController();
+  const timeout = setTimeout(() => { stopping.abort(); }, 2000);
+  try {
+    const response = await fetch(`${through}/api/v1/ship/wakeups`, {
+      headers: { authorization: `Bearer ${registered.crewToken}`, accept: 'text/event-stream' },
+      signal: stopping.signal,
+    });
+    const first = await response.body?.getReader().read();
+    expect(new TextDecoder().decode(first?.value)).toContain('event: wake');
+  } finally {
+    clearTimeout(timeout);
+    stopping.abort();
+  }
+});
 
 describe('forming that a crash kills midway', () => {
   it('refuses a second connect while a forming is in flight and leaves its ships active', async () => {
