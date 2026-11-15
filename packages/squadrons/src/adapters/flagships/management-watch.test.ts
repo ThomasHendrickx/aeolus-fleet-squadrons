@@ -194,11 +194,11 @@ it('shutdown during connected lookup skips served lookups', async () => {
 it('shutdown during served lookup opens no stream', async () => {
   const store = await connectedTo([FLEET_ID]);
   const served = Promise.withResolvers<boolean>();
-  const entered = Promise.withResolvers<void>();
+  const entered = Promise.withResolvers<undefined>();
   let streams = 0;
   const watch = watchManagementShips({
     management: store, door: fakeManagementFleet().door, handle: () => Promise.resolve(ok('formed')),
-    isServed: () => { entered.resolve(); return served.promise; },
+    isServed: () => { entered.resolve(undefined); return served.promise; },
     log: silentLog, rescanMs: 60_000, start: () => { streams += 1; return () => undefined; },
   });
   const scanning = watch.rescan();
@@ -228,7 +228,7 @@ it('an old lease end preserves a replacement crew token', async () => {
 it('shutdown during a look served lookup prevents receiving', async () => {
   const store = await connectedTo([FLEET_ID]);
   const served = Promise.withResolvers<boolean>();
-  const entered = Promise.withResolvers<void>();
+  const entered = Promise.withResolvers<undefined>();
   let isLooking = false;
   let look = () => Promise.resolve();
   let receives = 0;
@@ -236,7 +236,7 @@ it('shutdown during a look served lookup prevents receiving', async () => {
     management: store,
     door: { ...fakeManagementFleet().door, receive: () => { receives += 1; return Promise.resolve(ok([])); } },
     handle: () => Promise.resolve(ok('formed')),
-    isServed: () => { if (isLooking) { entered.resolve(); return served.promise; } return Promise.resolve(true); },
+    isServed: () => { if (isLooking) { entered.resolve(undefined); return served.promise; } return Promise.resolve(true); },
     log: silentLog, rescanMs: 60_000,
     start: (_token, events) => { look = events.look; return () => undefined; },
   });

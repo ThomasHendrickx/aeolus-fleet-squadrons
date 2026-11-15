@@ -110,7 +110,7 @@ it('a stream lease end drops only its own fleet connection', async () => {
   const watcher = running.make();
   try {
     await watcher.rescan();
-    running.streams.get(FLEET_ID)?.enqueue(new TextEncoder().encode('event: end\ndata: {"code":"LEASE_ENDED"}\n\n'));
+    running.streams.get(FLEET_ID)?.enqueue(new TextEncoder().encode('event: end\ndata: {"code":"LEASE_ENDED","message":"ended"}\n\n'));
     await vi.advanceTimersByTimeAsync(0);
     expect((await running.management.connected()).map((crew) => crew.fleetId)).toEqual([OTHER_FLEET_ID]);
   } finally { await watcher.stop(); }

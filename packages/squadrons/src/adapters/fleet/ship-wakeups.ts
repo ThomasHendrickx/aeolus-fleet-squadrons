@@ -1,4 +1,11 @@
 /** REST wake hints drive serialized looks; bytes, including comments, keep the connection alive. */
+import { refusalSchema } from './refusal-schema.js';
+
+const INITIAL_BACKOFF_MS = 1_000;
+const BACKOFF_SPREAD_MS = 4_000;
+const EVENT_PREFIX = 'event:';
+const DATA_PREFIX = 'data:';
+
 const SILENCE_MS = 60_000;
 const SAFETY_MS = 5 * 60_000;
 const MAX_BACKOFF_MS = 60_000;
@@ -22,7 +29,8 @@ export function createShipWakeups(options: WakeupsOptions): (crewToken: string) 
     let safety: ReturnType<typeof setTimeout> | undefined;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let abort: AbortController | undefined;
-    let backoffMs = 1000 + (options.random ?? Math.random)() * 4000;
+    const initialBackoff = () => INITIAL_BACKOFF_MS + (options.random ?? Math.random)() * BACKOFF_SPREAD_MS;
+    let backoffMs = initialBackoff();
     const stop = () => {
       state.isStopped = true;
       clearTimeout(safety);
@@ -60,8 +68,8 @@ export function createShipWakeups(options: WakeupsOptions): (crewToken: string) 
         });
         if (!isReading()) { await response.body?.cancel(); return; }
         if (response.status === 401) {
-          const refusal: unknown = await response.json();
-          if (typeof refusal === 'object' && refusal !== null && 'code' in refusal && refusal.code === 'LEASE_ENDED') {
+          const refusal = refusalSchema.safeParse(await response.json());
+          if (refusal.success && refusal.data.code === 'LEASE_ENDED') {
             ended();
             return;
           }
@@ -87,17 +95,18 @@ export function createShipWakeups(options: WakeupsOptions): (crewToken: string) 
             pending = pending.slice(newline + 1);
             if (line === '') {
               if (event === 'wake') {
-                backoffMs = 1000 + (options.random ?? Math.random)() * 4000;
+                backoffMs = initialBackoff();
                 void look();
-              } else if (event === 'end' && data.includes('LEASE_ENDED')) {
-                ended();
+              } else if (event === 'end') {
+                const refusal = refusalSchema.safeParse(JSON.parse(data));
+                if (refusal.success && refusal.data.code === 'LEASE_ENDED') { ended(); }
               }
               event = '';
               data = '';
-            } else if (line.startsWith('event:')) {
-              event = line.slice(6).trim();
-            } else if (line.startsWith('data:')) {
-              data += line.slice(5).trim();
+            } else if (line.startsWith(EVENT_PREFIX)) {
+              event = line.slice(EVENT_PREFIX.length).trim();
+            } else if (line.startsWith(DATA_PREFIX)) {
+              data += line.slice(DATA_PREFIX.length).trim();
             }
           }
         }
