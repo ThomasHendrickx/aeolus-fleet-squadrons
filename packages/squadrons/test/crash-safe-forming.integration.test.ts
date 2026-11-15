@@ -73,7 +73,27 @@ function startCrashingProxy(onHang: () => void, behaviour: 'hang' | 'drop' = 'ha
         return;
       }
       response.writeHead(answered.status, { 'content-type': answered.headers.get('content-type') ?? 'application/json' });
-      response.end(Buffer.from(await answered.arrayBuffer()));
+      if (answered.headers.get('content-type')?.startsWith('text/event-stream')) {
+        const reader = answered.body?.getReader();
+        const cancel = () => { void reader?.cancel(); };
+        response.on('close', cancel);
+        response.flushHeaders();
+        try {
+          if (reader) {
+            for (;;) {
+              const chunk = await reader.read();
+              if (chunk.done) { break; }
+              response.write(chunk.value);
+            }
+          }
+          response.end();
+        } finally {
+          response.off('close', cancel);
+          await reader?.cancel();
+        }
+      } else {
+        response.end(Buffer.from(await answered.arrayBuffer()));
+      }
     })();
   });
   return new Promise((resolve) => {
@@ -151,7 +171,7 @@ it('the fleet proxy forwards an open wake before the stream closes', async () =>
       signal: stopping.signal,
     });
     const first = await response.body?.getReader().read();
-    expect(new TextDecoder().decode(first?.value)).toContain('event: wake');
+    expect(new TextDecoder().decode(z.instanceof(Uint8Array).parse(first?.value))).toContain('event: wake');
   } finally {
     clearTimeout(timeout);
     stopping.abort();
