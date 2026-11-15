@@ -169,6 +169,22 @@ it('the app starts one management wake stream for its connected fleet', async ()
   await expect.poll(() => forwardedPaths.filter((path) => path === '/api/v1/ship/wakeups').length).toBe(1);
 });
 
+it('the app starts one wake stream for each flagship lease through the fleet proxy', async () => {
+  const repository = github.repositories.get('acme/templates');
+  if (!repository) { throw new Error('missing fixture repository'); }
+  github.repositories.set('acme/templates', { ...repository, tags: tagsAt({ files: {
+    '.aeolus/squadrons/templates/tester.yaml': 'description: Tests.\ncheckIn: 30m\ncharter: You test.\n',
+    '.aeolus/squadrons/blueprints/team.yaml': `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n    count: 1\n`,
+  } }, 'tester@1', 'team@1') });
+  killed = squadronsApp(await startCrashingProxy(() => undefined));
+  unwrap(await killed.connect(managementShip));
+  await killed.refreshCatalogue();
+  const formed = await killed.server.inject({ method: 'POST', url: '/trpc/squadrons.form', headers: { cookie }, payload: { blueprint: { repository: REPO, name: 'team', version: 1 }, squadronId: 'team-stream' } });
+  if (formed.statusCode !== 200) { throw new Error(`forming fixture failed with status ${formed.statusCode}`); }
+  killed.startFlagships(60_000);
+  await expect.poll(() => forwardedPaths.filter((path) => path === '/api/v1/ship/wakeups').length).toBe(2);
+});
+
 it('the fleet proxy forwards an open wake before the stream closes', async () => {
   const through = await startCrashingProxy(() => undefined);
   killed = squadronsApp(through);

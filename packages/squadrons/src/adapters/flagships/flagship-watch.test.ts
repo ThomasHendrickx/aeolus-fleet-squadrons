@@ -885,4 +885,14 @@ describe('a flagship whose fleet’s key is out of reach', () => {
 
     expect(receives).toBe(2);
   });
+  it('receives the unacked delivery again after an answer is refused for the key', async () => {
+    let handles = 0;
+    const watch = await watchedWith({
+      receive: () => Promise.resolve(ok([{ deliveryId: 'dlv_01m3tbfspe96yf1rnr4ank0001', messageId: 'msg_01m3tbfspe96yf1rnr4ank0001', senderShipId: SHIP_ID, senderName: 'a-member', contentType: 'text/plain', payload: 'hello', inReplyTo: null }])),
+      outages: memoryKeyOutages(), log: silentLog,
+      handle: () => { handles += 1; return Promise.resolve(handles === 1 ? err(KEY_UNAVAILABLE) : ok('kept')); },
+    });
+    try { await watch.rescan(); await expect.poll(() => handles).toBe(2); } finally { await watch.stop(); }
+  });
+
 });
