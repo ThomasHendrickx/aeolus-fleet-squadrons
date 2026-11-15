@@ -41,16 +41,37 @@ async function aWatcher(receive?: (token: string) => Promise<ReceivedMessage[]>)
 
 afterEach(() => vi.useRealTimers());
 
-it('receives once on the open wake and waits for another wake after an empty receive', async () => {
+it('does not receive before the open wake', async () => {
   const running = await aWatcher();
   const watcher = running.make();
   try {
     await watcher.rescan();
     await vi.advanceTimersByTimeAsync(0);
     expect(running.received).toEqual([]);
+  } finally { await watcher.stop(); }
+});
+
+it('receives once on the open wake', async () => {
+  const running = await aWatcher();
+  const watcher = running.make();
+  try {
+    await watcher.rescan();
     running.wake();
-    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(0);
     expect(running.received).toEqual([FLEET_ID]);
+  } finally { await watcher.stop(); }
+});
+
+it('waits for another wake after an empty receive', async () => {
+  const running = await aWatcher();
+  const watcher = running.make();
+  try {
+    await watcher.rescan();
+    running.wake();
+    await vi.advanceTimersByTimeAsync(0);
+    running.received.length = 0;
+    await vi.advanceTimersByTimeAsync(100);
+    expect(running.received).toEqual([]);
   } finally { await watcher.stop(); }
 });
 

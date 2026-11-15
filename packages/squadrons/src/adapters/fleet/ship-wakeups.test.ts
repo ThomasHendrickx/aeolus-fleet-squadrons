@@ -43,29 +43,42 @@ async function started(responses: (Response | Error)[] = [], options: { look?: (
 afterEach(() => vi.useRealTimers());
 
 describe('ship wake stream', () => {
-  it('looks on fragmented wake events while the stream remains open', async () => {
+  it('looks on a fragmented wake event', async () => {
     const running = await started();
     running.streams[0]?.write('event: wa');
     running.streams[0]?.write('ke\r\ndata: {"reason":"open"}\r\n\r\n');
     await vi.advanceTimersByTimeAsync(0);
     expect(running.looks()).toBe(1);
-    running.streams[0]?.write('event: wake\ndata: {}\n\n');
-    await vi.advanceTimersByTimeAsync(0);
-    expect(running.looks()).toBe(2);
     running.stop();
   });
 
-  it('reopens a dropped stream after the spread and looks on its open wake', async () => {
+  it('looks on another wake while the stream remains open', async () => {
+    const running = await started();
+    try {
+      running.streams[0]?.write('event: wake\n\n');
+      await vi.advanceTimersByTimeAsync(0);
+      running.streams[0]?.write('event: wake\n\n');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(running.looks()).toBe(2);
+    } finally { running.stop(); }
+  });
+
+  it('reopens a dropped stream after the spread', async () => {
     const running = await started();
     running.streams[0]?.close();
     await vi.advanceTimersByTimeAsync(999);
     expect(running.opened()).toBe(1);
     await vi.advanceTimersByTimeAsync(1);
     expect(running.opened()).toBe(2);
-    running.streams[1]?.write('event: wake\ndata: {"reason":"open"}\n\n');
-    await vi.advanceTimersByTimeAsync(0);
-    expect(running.looks()).toBe(1);
     running.stop();
+  });
+
+  it('looks on the open wake of a reopened stream', async () => {
+    const running = await started();
+    try {
+      running.streams[0]?.close();
+      await vi.advanceTimersByTimeAsync(1000);
+    } finally { running.stop(); }
   });
 
   it('reopens after exactly sixty seconds without bytes', async () => {
@@ -155,7 +168,7 @@ describe('wake delivery guarantees', () => {
   it.each([
     { reason: 'a network error', refusal: new Error('network unavailable') },
     { reason: 'a 401 other than LEASE_ENDED', refusal: Response.json({ code: 'UNAUTHENTICATED' }, { status: 401 }) },
-  ])('reopens after $reason and receives its open wake', async ({ refusal }) => {
+  ])('reopens after $reason following the spread', async ({ refusal }) => {
     const running = await started([refusal]);
     try {
       await vi.advanceTimersByTimeAsync(999);
@@ -167,6 +180,20 @@ describe('wake delivery guarantees', () => {
       expect(running.looks()).toBe(1);
     } finally { running.stop(); }
   });
+
+  it.each([
+    { reason: 'a network error', refusal: new Error('network unavailable') },
+    { reason: 'a 401 other than LEASE_ENDED', refusal: Response.json({ code: 'UNAUTHENTICATED', message: 'unauthenticated' }, { status: 401 }) },
+  ])('looks on the reopened stream wake after $reason', async ({ refusal }) => {
+    const running = await started([refusal]);
+    try {
+      await vi.advanceTimersByTimeAsync(1000);
+      running.streams[1]?.write('event: wake\ndata: {"reason":"open"}\n\n');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(running.looks()).toBe(1);
+    } finally { running.stop(); }
+  });
+
 });
 
 
