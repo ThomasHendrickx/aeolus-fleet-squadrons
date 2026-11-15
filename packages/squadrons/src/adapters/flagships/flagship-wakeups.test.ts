@@ -180,122 +180,141 @@ it('one wake receives all eleven stored deliveries across full pages', async () 
 
 it('a wake during a flagship look causes exactly one more look', async () => {
   const slow = Promise.withResolvers<ReceivedMessage[]>();
-  const r = await aWatcher(() => slow.promise); const w = r.make();
-  try { await w.rescan(); r.wake(); await vi.advanceTimersByTimeAsync(0); r.wake(); r.wake(); await vi.advanceTimersByTimeAsync(0); slow.resolve([]); await vi.advanceTimersByTimeAsync(0); expect(r.received).toEqual([FLEET_ID, FLEET_ID]); } finally { slow.resolve([]); await w.stop(); }
+  const running = await aWatcher(() => slow.promise);
+  const watcher = running.make();
+  try { await watcher.rescan(); running.wake(); await vi.advanceTimersByTimeAsync(0); running.wake(); running.wake(); await vi.advanceTimersByTimeAsync(0); slow.resolve([]); await vi.advanceTimersByTimeAsync(0); expect(running.received).toEqual([FLEET_ID, FLEET_ID]); } finally { slow.resolve([]); await watcher.stop(); }
 });
 it('flagship looks remain serialized while receive waits', async () => {
   const slow = Promise.withResolvers<ReceivedMessage[]>();
-  const r = await aWatcher(() => slow.promise); const w = r.make();
-  try { await w.rescan(); r.wake(); await vi.advanceTimersByTimeAsync(0); r.wake(); await vi.advanceTimersByTimeAsync(0); expect(r.received).toEqual([FLEET_ID]); } finally { slow.resolve([]); await w.stop(); }
+  const running = await aWatcher(() => slow.promise);
+  const watcher = running.make();
+  try { await watcher.rescan(); running.wake(); await vi.advanceTimersByTimeAsync(0); running.wake(); await vi.advanceTimersByTimeAsync(0); expect(running.received).toEqual([FLEET_ID]); } finally { slow.resolve([]); await watcher.stop(); }
 });
 
 
 it('replacing a flagship lease aborts the old stream and opens its new lease', async () => {
-  const r = await aWatcher(); const w = r.make();
+  const running = await aWatcher();
+  const watcher = running.make();
   try {
-    await w.rescan();
-    r.squadrons.set(FLEET_ID, [{ ...forming, flagship: { ...forming.flagship, crewToken: 'replacement' } }]);
-    await w.rescan();
-    expect(r.signals.map((signal) => signal.aborted)).toEqual([true, false, false]);
-  } finally { await w.stop(); }
+    await watcher.rescan();
+    running.squadrons.set(FLEET_ID, [{ ...forming, flagship: { ...forming.flagship, crewToken: 'replacement' } }]);
+    await watcher.rescan();
+    expect(running.signals.map((signal) => signal.aborted)).toEqual([true, false, false]);
+  } finally { await watcher.stop(); }
 });
 it('disbanding a squadron aborts its flagship stream', async () => {
-  const r = await aWatcher(); const w = r.make();
+  const running = await aWatcher();
+  const watcher = running.make();
   try {
-    await w.rescan(); r.squadrons.set(FLEET_ID, [{ ...forming, state: 'disbanded' }]); await w.rescan();
-    expect(r.signals.map((signal) => signal.aborted)).toEqual([true, false]);
-  } finally { await w.stop(); }
+    await watcher.rescan(); running.squadrons.set(FLEET_ID, [{ ...forming, state: 'disbanded' }]); await watcher.rescan();
+    expect(running.signals.map((signal) => signal.aborted)).toEqual([true, false]);
+  } finally { await watcher.stop(); }
 });
 it('a released flagship stream is never reopened by reconciliation', async () => {
-  const r = await aWatcher(); const w = r.make();
+  const running = await aWatcher();
+  const watcher = running.make();
   try {
-    await w.rescan();
-    r.streams.get(FLEET_ID)?.enqueue(new TextEncoder().encode('event: end\ndata: {"code":"LEASE_ENDED","message":"released"}\n\n'));
+    await watcher.rescan();
+    running.streams.get(FLEET_ID)?.enqueue(new TextEncoder().encode('event: end\ndata: {"code":"LEASE_ENDED","message":"released"}\n\n'));
     await vi.advanceTimersByTimeAsync(0);
-    r.served.delete(FLEET_ID); await w.rescan(); r.served.add(FLEET_ID); await w.rescan();
-    expect(r.signals.map((signal) => signal.aborted)).toEqual([true, false]);
-  } finally { await w.stop(); }
+    running.served.delete(FLEET_ID); await watcher.rescan(); running.served.add(FLEET_ID); await watcher.rescan();
+    expect(running.signals.map((signal) => signal.aborted)).toEqual([true, false]);
+  } finally { await watcher.stop(); }
 });
 it('one slow flagship does not block another in the same fleet', async () => {
   const slow = Promise.withResolvers<ReceivedMessage[]>();
-  const r = await aWatcher((token) => token === 'second' ? Promise.resolve([delivery]) : slow.promise); const w = r.make();
-  r.squadrons.set(FLEET_ID, [ { ...forming, flagship: { ...forming.flagship, crewToken: FLEET_ID } }, { ...forming, id: 'second', flagship: { ...forming.flagship, crewToken: 'second' } } ]);
-  try { await w.rescan(); r.wake(); r.streams.get('second')?.enqueue(new TextEncoder().encode('event: wake\ndata: {}\n\n')); await vi.advanceTimersByTimeAsync(0); expect(r.handled).toEqual([delivery]); } finally { slow.resolve([]); await w.stop(); }
+  const running = await aWatcher((token) => token === 'second' ? Promise.resolve([delivery]) : slow.promise);
+  const watcher = running.make();
+  running.squadrons.set(FLEET_ID, [ { ...forming, flagship: { ...forming.flagship, crewToken: FLEET_ID } }, { ...forming, id: 'second', flagship: { ...forming.flagship, crewToken: 'second' } } ]);
+  try { await watcher.rescan(); running.wake(); running.streams.get('second')?.enqueue(new TextEncoder().encode('event: wake\ndata: {}\n\n')); await vi.advanceTimersByTimeAsync(0); expect(running.handled).toEqual([delivery]); } finally { slow.resolve([]); await watcher.stop(); }
 });
 it('reopens a flagship stream after a network error and receives its open wake', async () => {
-  const r = await aWatcher(); const w = r.make();
+  const running = await aWatcher();
+  const watcher = running.make();
   try {
-    await w.rescan(); r.streams.get(FLEET_ID)?.error(new Error('network failed')); await vi.advanceTimersByTimeAsync(1_000); r.wake(); await vi.advanceTimersByTimeAsync(0);
-    expect(r.received).toEqual([FLEET_ID]);
-  } finally { await w.stop(); }
+    await watcher.rescan(); running.streams.get(FLEET_ID)?.error(new Error('network failed')); await vi.advanceTimersByTimeAsync(1_000); running.wake(); await vi.advanceTimersByTimeAsync(0);
+    expect(running.received).toEqual([FLEET_ID]);
+  } finally { await watcher.stop(); }
 });
 it('reopens a flagship stream after a non-LEASE_ENDED 401', async () => {
-  const r = await aWatcher(undefined, { refusal: 401 }); const w = r.make();
-  try { await w.rescan(); await vi.advanceTimersByTimeAsync(1_000); r.wake(); await vi.advanceTimersByTimeAsync(0); expect(r.received).toEqual([FLEET_ID]); } finally { await w.stop(); }
+  const running = await aWatcher(undefined, { refusal: 401 });
+  const watcher = running.make();
+  try { await watcher.rescan(); await vi.advanceTimersByTimeAsync(1_000); running.wake(); await vi.advanceTimersByTimeAsync(0); expect(running.received).toEqual([FLEET_ID]); } finally { await watcher.stop(); }
 });
 it('FLEET_BUSY refuses an opening until the flagship stream backoff expires', async () => {
-  const r = await aWatcher(undefined, { refusal: 429 }); const w = r.make();
-  try { await w.rescan(); await vi.advanceTimersByTimeAsync(999); expect(r.streams.has(FLEET_ID)).toBe(false); } finally { await w.stop(); }
+  const running = await aWatcher(undefined, { refusal: 429 });
+  const watcher = running.make();
+  try { await watcher.rescan(); await vi.advanceTimersByTimeAsync(999); expect(running.streams.has(FLEET_ID)).toBe(false); } finally { await watcher.stop(); }
 });
 it('FLEET_BUSY reopens the flagship stream after backoff', async () => {
-  const r = await aWatcher(undefined, { refusal: 429 }); const w = r.make();
-  try { await w.rescan(); await vi.advanceTimersByTimeAsync(1_000); expect(r.streams.has(FLEET_ID)).toBe(true); } finally { await w.stop(); }
+  const running = await aWatcher(undefined, { refusal: 429 });
+  const watcher = running.make();
+  try { await watcher.rescan(); await vi.advanceTimersByTimeAsync(1_000); expect(running.streams.has(FLEET_ID)).toBe(true); } finally { await watcher.stop(); }
 });
 it('sixty seconds of silence aborts a flagship stream', async () => {
-  const r = await aWatcher(); const w = r.make();
-  try { await w.rescan(); await vi.advanceTimersByTimeAsync(60_000); expect(r.signals.slice(0, 2).map((signal) => signal.aborted)).toEqual([true, true]); } finally { await w.stop(); }
+  const running = await aWatcher();
+  const watcher = running.make();
+  try { await watcher.rescan(); await vi.advanceTimersByTimeAsync(60_000); expect(running.signals.slice(0, 2).map((signal) => signal.aborted)).toEqual([true, true]); } finally { await watcher.stop(); }
 });
 it('a flagship safety look receives after five minutes without a wake', async () => {
-  const r = await aWatcher(); const w = r.make();
+  const running = await aWatcher();
+  const watcher = running.make();
   try {
-    await w.rescan();
+    await watcher.rescan();
     for (let interval = 0; interval < 6; interval += 1) {
-      for (const stream of r.streams.values()) { stream.enqueue(new TextEncoder().encode(': alive\n\n')); }
+      for (const stream of running.streams.values()) { stream.enqueue(new TextEncoder().encode(': alive\n\n')); }
       await vi.advanceTimersByTimeAsync(50_000);
     }
-    expect(r.received).toEqual([FLEET_ID, OTHER_FLEET_ID]);
-  } finally { await w.stop(); }
+    expect(running.received).toEqual([FLEET_ID, OTHER_FLEET_ID]);
+  } finally { await watcher.stop(); }
 });
 
 it('shutdown aborts a flagship receive already waiting in core', async () => {
   let signal: AbortSignal | undefined;
-  const r = await aWatcher((_token, until) => { signal = until; return new Promise((resolve) => { until?.addEventListener('abort', () => { resolve([]); }, { once: true }); }); });
-  const w = r.make(); await w.rescan(); r.wake(); await vi.advanceTimersByTimeAsync(0); await w.stop();
+  const running = await aWatcher((_token, until) => { signal = until; return new Promise((resolve) => { until?.addEventListener('abort', () => { resolve([]); }, { once: true }); }); });
+  const watcher = running.make(); await watcher.rescan(); running.wake(); await vi.advanceTimersByTimeAsync(0); await watcher.stop();
   expect(signal?.aborted).toBe(true);
 });
 it('shutdown ignores a late flagship receive answer', async () => {
-  const slow = Promise.withResolvers<ReceivedMessage[]>(); const r = await aWatcher(() => slow.promise); const w = r.make();
-  await w.rescan(); r.wake(); await vi.advanceTimersByTimeAsync(0); const stopped = w.stop(); slow.resolve([delivery]); await stopped;
-  expect(r.handled).toEqual([]);
+  const slow = Promise.withResolvers<ReceivedMessage[]>(); const running = await aWatcher(() => slow.promise);
+  const watcher = running.make();
+  await watcher.rescan(); running.wake(); await vi.advanceTimersByTimeAsync(0); const stopped = watcher.stop(); slow.resolve([delivery]); await stopped;
+  expect(running.handled).toEqual([]);
 });
 it('shutdown during reconciliation opens no flagship streams', async () => {
-  const r = await aWatcher(); const w = r.make(); const scan = w.rescan(); await w.stop(); await scan;
-  expect(r.signals).toEqual([]);
+  const running = await aWatcher();
+  const watcher = running.make(); const scan = watcher.rescan(); await watcher.stop(); await scan;
+  expect(running.signals).toEqual([]);
 });
 it('shutdown discards pending flagship wakes', async () => {
-  const slow = Promise.withResolvers<ReceivedMessage[]>(); const r = await aWatcher(() => slow.promise); const w = r.make();
-  await w.rescan(); r.wake(); await vi.advanceTimersByTimeAsync(0); r.wake(); await vi.advanceTimersByTimeAsync(0); const stopped = w.stop(); slow.resolve([]); await stopped;
-  expect(r.received).toEqual([FLEET_ID]);
+  const slow = Promise.withResolvers<ReceivedMessage[]>(); const running = await aWatcher(() => slow.promise);
+  const watcher = running.make();
+  await watcher.rescan(); running.wake(); await vi.advanceTimersByTimeAsync(0); running.wake(); await vi.advanceTimersByTimeAsync(0); const stopped = watcher.stop(); slow.resolve([]); await stopped;
+  expect(running.received).toEqual([FLEET_ID]);
 });
 
 it('a replaced flagship lease cannot receive from an old wake', async () => {
-  const r = await aWatcher(); const w = r.make();
+  const running = await aWatcher();
+  const watcher = running.make();
   try {
-    await w.rescan(); r.squadrons.set(FLEET_ID, [{ ...forming, flagship: { ...forming.flagship, crewToken: 'replacement' } }]);
-    r.wake(); await vi.advanceTimersByTimeAsync(0); expect(r.received).toEqual([]);
-  } finally { await w.stop(); }
+    await watcher.rescan(); running.squadrons.set(FLEET_ID, [{ ...forming, flagship: { ...forming.flagship, crewToken: 'replacement' } }]);
+    running.wake(); await vi.advanceTimersByTimeAsync(0); expect(running.received).toEqual([]);
+  } finally { await watcher.stop(); }
 });
 it('a switched off flagship cannot receive from a late wake', async () => {
-  const r = await aWatcher(); const w = r.make();
-  try { await w.rescan(); r.served.delete(FLEET_ID); r.wake(); await vi.advanceTimersByTimeAsync(0); expect(r.received).toEqual([]); } finally { await w.stop(); }
+  const running = await aWatcher();
+  const watcher = running.make();
+  try { await watcher.rescan(); running.served.delete(FLEET_ID); running.wake(); await vi.advanceTimersByTimeAsync(0); expect(running.received).toEqual([]); } finally { await watcher.stop(); }
 });
 it('a disbanded flagship cannot receive from a late wake', async () => {
-  const r = await aWatcher(); const w = r.make();
-  try { await w.rescan(); r.squadrons.set(FLEET_ID, [{ ...forming, state: 'disbanded' }]); r.wake(); await vi.advanceTimersByTimeAsync(0); expect(r.received).toEqual([]); } finally { await w.stop(); }
+  const running = await aWatcher();
+  const watcher = running.make();
+  try { await watcher.rescan(); running.squadrons.set(FLEET_ID, [{ ...forming, state: 'disbanded' }]); running.wake(); await vi.advanceTimersByTimeAsync(0); expect(running.received).toEqual([]); } finally { await watcher.stop(); }
 });
 it('forgetting a fleet closes its flagship streams', async () => {
-  const r = await aWatcher(); const w = r.make();
-  try { await w.rescan(); await r.management.drop(FLEET_ID); await w.rescan(); expect(r.signals.map((signal) => signal.aborted)).toEqual([true, false]); } finally { await w.stop(); }
+  const running = await aWatcher();
+  const watcher = running.make();
+  try { await watcher.rescan(); await running.management.drop(FLEET_ID); await watcher.rescan(); expect(running.signals.map((signal) => signal.aborted)).toEqual([true, false]); } finally { await watcher.stop(); }
 });
 
 it('a wake resets the flagship safety timer', async () => {
