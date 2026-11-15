@@ -51,6 +51,7 @@ describe("squadrons' own ship in every connected fleet (decision 0017)", () => {
       },
     };
     const watch = watchManagementShips({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door,
       management: store,
       handle: (crew, delivery): Promise<Result<ManagementOutcome, never>> => {
@@ -78,6 +79,7 @@ describe("squadrons' own ship in every connected fleet (decision 0017)", () => {
     const store = await connectedTo([FLEET_ID, OTHER_FLEET_ID]);
     const receivedAs = new Set<string>();
     const watch = watchManagementShips({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: {
         ...fakeManagementFleet().door,
         receive: (crewToken, until) => {
@@ -104,6 +106,7 @@ describe("squadrons' own ship in every connected fleet (decision 0017)", () => {
     const store = await connectedTo([FLEET_ID]);
     let receives = 0;
     const watch = watchManagementShips({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: {
         ...fakeManagementFleet().door,
         receive: async () => {
@@ -138,6 +141,7 @@ describe("squadrons' own ship in every connected fleet (decision 0017)", () => {
     let isHandlingDone = false;
     let isHandlingStarted = false;
     const watch = watchManagementShips({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: {
         ...fakeManagementFleet().door,
         receive: (_crewToken, until) => {
