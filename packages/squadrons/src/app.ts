@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 
 import { createFleetConsoleSessions } from './adapters/fleet/console-sessions.js';
 import { watchManagementLease, watchNetworkLease, watchScopeLease } from './adapters/fleet/lease-watching-door.js';
+import { createShipWakeups } from './adapters/fleet/ship-wakeups.js';
 import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
 import { createRestScopeDoor } from './adapters/fleet/rest-scope-door.js';
 import { createRestNetworkDoor } from './adapters/fleet/rest-network-door.js';
@@ -384,6 +385,7 @@ export function createSquadronsApp(options: {
       });
       void flagships.rescan();
       managementShips = watchManagementShips({
+        start: (token, events) => createShipWakeups({ fleetUrl: options.fleetUrl, ...events, failed: (error) => { server.log.error({ err: error }, "management wake stream failed"); } })(token),
         door,
         management: store,
         handle: createHandleManagementDelivery({ door, squadrons, refusals: createPrismaFormRefusals(prisma, clock), form: formAndWatch, operator }),

@@ -51,6 +51,7 @@ describe("squadrons' own ship in every connected fleet (decision 0017)", () => {
       },
     };
     const watch = watchManagementShips({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door,
       management: store,
       handle: (crew, delivery): Promise<Result<ManagementOutcome, never>> => {
@@ -78,6 +79,7 @@ describe("squadrons' own ship in every connected fleet (decision 0017)", () => {
     const store = await connectedTo([FLEET_ID, OTHER_FLEET_ID]);
     const receivedAs = new Set<string>();
     const watch = watchManagementShips({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: {
         ...fakeManagementFleet().door,
         receive: (crewToken, until) => {
@@ -104,6 +106,7 @@ describe("squadrons' own ship in every connected fleet (decision 0017)", () => {
     const store = await connectedTo([FLEET_ID]);
     let receives = 0;
     const watch = watchManagementShips({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: {
         ...fakeManagementFleet().door,
         receive: async () => {
@@ -138,6 +141,7 @@ describe("squadrons' own ship in every connected fleet (decision 0017)", () => {
     let isHandlingDone = false;
     let isHandlingStarted = false;
     const watch = watchManagementShips({
+      start: (_token, events) => { void events.look(); return () => undefined; },
       door: {
         ...fakeManagementFleet().door,
         receive: (_crewToken, until) => {
@@ -168,4 +172,80 @@ describe("squadrons' own ship in every connected fleet (decision 0017)", () => {
 
     expect(isHandlingDone).toBe(true);
   });
+});
+
+it('shutdown during connected lookup skips served lookups', async () => {
+  const store = await connectedTo([FLEET_ID]);
+  const connected = Promise.withResolvers<Awaited<ReturnType<typeof store.connected>>>();
+  let servedLookups = 0;
+  const watch = watchManagementShips({
+    management: { ...store, connected: () => connected.promise },
+    door: fakeManagementFleet().door, handle: () => Promise.resolve(ok('formed')),
+    isServed: () => { servedLookups += 1; return Promise.resolve(true); },
+    log: silentLog, rescanMs: 60_000, start: () => () => undefined,
+  });
+  const scanning = watch.rescan();
+  const stopping = watch.stop();
+  connected.resolve(await store.connected());
+  await Promise.all([scanning, stopping]);
+  expect(servedLookups).toBe(0);
+});
+
+it('shutdown during served lookup opens no stream', async () => {
+  const store = await connectedTo([FLEET_ID]);
+  const served = Promise.withResolvers<boolean>();
+  const entered = Promise.withResolvers<undefined>();
+  let streams = 0;
+  const watch = watchManagementShips({
+    management: store, door: fakeManagementFleet().door, handle: () => Promise.resolve(ok('formed')),
+    isServed: () => { entered.resolve(undefined); return served.promise; },
+    log: silentLog, rescanMs: 60_000, start: () => { streams += 1; return () => undefined; },
+  });
+  const scanning = watch.rescan();
+  await entered.promise;
+  const stopping = watch.stop();
+  served.resolve(true);
+  await Promise.all([scanning, stopping]);
+  expect(streams).toBe(0);
+});
+
+it('an old lease end preserves a replacement crew token', async () => {
+  const store = await connectedTo([FLEET_ID]);
+  let end = () => Promise.resolve();
+  const watch = watchManagementShips({
+    management: store, door: fakeManagementFleet().door, handle: () => Promise.resolve(ok('formed')),
+    isServed: () => Promise.resolve(true), log: silentLog, rescanMs: 60_000,
+    start: (_token, events) => { end = events.ended; return () => undefined; },
+  });
+  try {
+    await watch.rescan();
+    await store.save({ fleetId: FLEET_ID, shipId: SHIP_ID, name: 'squadrons', crewToken: 'replacement', crewedAt: AT });
+    await end();
+    expect((await store.find(FLEET_ID))?.crewToken).toBe('replacement');
+  } finally { await watch.stop(); }
+});
+
+it('shutdown during a look served lookup prevents receiving', async () => {
+  const store = await connectedTo([FLEET_ID]);
+  const served = Promise.withResolvers<boolean>();
+  const entered = Promise.withResolvers<undefined>();
+  let isLooking = false;
+  let look = () => Promise.resolve();
+  let receives = 0;
+  const watch = watchManagementShips({
+    management: store,
+    door: { ...fakeManagementFleet().door, receive: () => { receives += 1; return Promise.resolve(ok([])); } },
+    handle: () => Promise.resolve(ok('formed')),
+    isServed: () => { if (isLooking) { entered.resolve(undefined); return served.promise; } return Promise.resolve(true); },
+    log: silentLog, rescanMs: 60_000,
+    start: (_token, events) => { look = events.look; return () => undefined; },
+  });
+  await watch.rescan();
+  isLooking = true;
+  const looking = look();
+  await entered.promise;
+  const stopping = watch.stop();
+  served.resolve(true);
+  await Promise.all([looking, stopping]);
+  expect(receives).toBe(0);
 });

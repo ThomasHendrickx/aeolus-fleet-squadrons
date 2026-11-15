@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
 
+import { createRestFleetDoor } from '../src/adapters/fleet/rest-fleet-door.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from '../src/testing/database.js';
 import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
@@ -27,6 +28,7 @@ let fleetDatabase: PrismaClient;
 let fleet: FastifyInstance;
 let fleetUrl: string;
 let proxy: Server;
+const forwardedPaths: string[] = [];
 let squadronsDatabaseUrl: string;
 let managementShip: { operatorFleetId: FleetId; shipId: ShipId; secret: string };
 let killed: SquadronsApp;
@@ -59,8 +61,10 @@ async function bodyOf(request: IncomingMessage): Promise<Buffer> {
  */
 function startCrashingProxy(onHang: () => void, behaviour: 'hang' | 'drop' = 'hang'): Promise<string> {
   let commissions = 0;
+  forwardedPaths.length = 0;
   proxy = createServer((request: IncomingMessage, response: ServerResponse) => {
     void (async () => {
+      forwardedPaths.push(request.url ?? "");
       const body = await bodyOf(request);
       const headers = Object.fromEntries(Object.entries(request.headers).filter(([name]) => !['host', 'connection', 'content-length'].includes(name)).map(([name, value]) => [name, String(value)]));
       const answered = await fetch(`${fleetUrl}${request.url ?? ''}`, { method: request.method, headers, ...(body.length > 0 ? { body } : {}) });
@@ -72,7 +76,27 @@ function startCrashingProxy(onHang: () => void, behaviour: 'hang' | 'drop' = 'ha
         return;
       }
       response.writeHead(answered.status, { 'content-type': answered.headers.get('content-type') ?? 'application/json' });
-      response.end(Buffer.from(await answered.arrayBuffer()));
+      if (answered.headers.get('content-type')?.startsWith('text/event-stream')) {
+        const reader = answered.body?.getReader();
+        const cancel = () => { void reader?.cancel(); };
+        response.on('close', cancel);
+        response.flushHeaders();
+        try {
+          if (reader) {
+            for (;;) {
+              const chunk = await reader.read();
+              if (chunk.done) { break; }
+              response.write(chunk.value);
+            }
+          }
+          response.end();
+        } finally {
+          response.off('close', cancel);
+          await reader?.cancel();
+        }
+      } else {
+        response.end(Buffer.from(await answered.arrayBuffer()));
+      }
     })();
   });
   return new Promise((resolve) => {
@@ -137,6 +161,32 @@ afterEach(async () => {
 async function shipsOtherThanArgoAndSquadrons() {
   return fleetDatabase.ship.findMany({ where: { name: { notIn: ['argo', 'squadrons'] } }, select: { name: true, retiredAt: true } });
 }
+
+it('the app starts one management wake stream for its connected fleet', async () => {
+  killed = squadronsApp(await startCrashingProxy(() => undefined));
+  unwrap(await killed.connect(managementShip));
+  killed.startFlagships(60_000);
+  await expect.poll(() => forwardedPaths.filter((path) => path === '/api/v1/ship/wakeups').length).toBe(1);
+});
+
+it('the fleet proxy forwards an open wake before the stream closes', async () => {
+  const through = await startCrashingProxy(() => undefined);
+  killed = squadronsApp(through);
+  const registered = unwrap(await createRestFleetDoor(fleetUrl).register(managementShip));
+  const stopping = new AbortController();
+  const timeout = setTimeout(() => { stopping.abort(); }, 2000);
+  try {
+    const response = await fetch(`${through}/api/v1/ship/wakeups`, {
+      headers: { authorization: `Bearer ${registered.crewToken}`, accept: 'text/event-stream' },
+      signal: stopping.signal,
+    });
+    const first = await response.body?.getReader().read();
+    expect(new TextDecoder().decode(z.instanceof(Uint8Array).parse(first?.value))).toContain('event: wake');
+  } finally {
+    clearTimeout(timeout);
+    stopping.abort();
+  }
+});
 
 describe('forming that a crash kills midway', () => {
   it('refuses a second connect while a forming is in flight and leaves its ships active', async () => {
