@@ -145,3 +145,16 @@ it('a replaced crew token aborts its old stream and opens the new lease', async 
     expect(running.signals.map((signal) => signal.aborted)).toEqual([true, false, false]);
   } finally { await watcher.stop(); }
 });
+
+
+it('one wake receives all eleven stored deliveries across full pages', async () => {
+  const stored = Array.from({ length: 11 }, () => delivery);
+  const running = await aWatcher(() => Promise.resolve(stored.splice(0, 10)));
+  const watcher = running.make();
+  try {
+    await watcher.rescan();
+    running.wake();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(running.handled).toHaveLength(11);
+  } finally { await watcher.stop(); }
+});
