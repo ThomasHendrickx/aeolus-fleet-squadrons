@@ -29,7 +29,7 @@ const forming: Squadron = {
 const log = Fastify({ logger: false }).log;
 const delivery: ReceivedMessage = { deliveryId: 'dlv_01m3tbfspe96yf1rnr4ank0001', messageId: 'msg_01m3tbfspe96yf1rnr4ank0001', senderShipId: SHIP_ID, senderName: 'lead', contentType: 'text/plain', payload: 'stored while down', inReplyTo: null };
 
-async function aWatcher(receive?: (token: string, signal?: AbortSignal) => Promise<ReceivedMessage[]>, refusal?: number) {
+async function aWatcher(receive?: (token: string, signal?: AbortSignal) => Promise<ReceivedMessage[]>, refusal?: number, list?: (fleetId: FleetId, squadrons: Squadron[]) => Promise<Squadron[]>) {
   vi.useFakeTimers();
   const management = memoryManagementStore();
   for (const fleetId of [FLEET_ID, OTHER_FLEET_ID]) {
@@ -43,7 +43,7 @@ async function aWatcher(receive?: (token: string, signal?: AbortSignal) => Promi
   const handled: ReceivedMessage[] = [];
   const served = new Set<FleetId>([FLEET_ID, OTHER_FLEET_ID]);
   const make = () => watchFlagships({
-    management, squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), update: () => Promise.resolve(), list: (fleetId) => Promise.resolve(squadrons.get(fleetId) ?? []) },
+    management, squadrons: { exists: () => Promise.resolve(true), create: () => Promise.resolve(), update: () => Promise.resolve(), list: (fleetId) => list?.(fleetId, squadrons.get(fleetId) ?? []) ?? Promise.resolve(squadrons.get(fleetId) ?? []) },
     advanceStandDowns: () => Promise.resolve(), recoverFormations: () => Promise.resolve(), deleteUnusedBuiltTemplates: () => Promise.resolve(0), operator: { tell: () => Promise.resolve() }, reach: { keep: () => Promise.resolve(), withdraw: () => Promise.resolve() }, turns: createFleetTurns(), outages: memoryKeyOutages(), clock: { now: () => AT },
     isServed: (fleetId) => Promise.resolve(served.has(fleetId)), log, rescanMs: 10_000,
     door: { ...fakeManagementFleet().door, receive: async (token, until) => { received.push(token); if (received.length > 10) { throw new Error("unexpected continuous receiving"); } return ok(await receive?.(token, until?.signal) ?? []); } },
@@ -296,4 +296,50 @@ it('a disbanded flagship cannot receive from a late wake', async () => {
 it('forgetting a fleet closes its flagship streams', async () => {
   const r = await aWatcher(); const w = r.make();
   try { await w.rescan(); await r.management.drop(FLEET_ID); await w.rescan(); expect(r.signals.map((signal) => signal.aborted)).toEqual([true, false]); } finally { await w.stop(); }
+});
+
+it('a wake resets the flagship safety timer', async () => {
+  const running = await aWatcher();
+  const watcher = running.make();
+  try {
+    await watcher.rescan();
+    await vi.advanceTimersByTimeAsync(1_000);
+    running.wake();
+    await vi.advanceTimersByTimeAsync(0);
+    for (let interval = 0; interval < 6; interval += 1) {
+      for (const stream of running.streams.values()) { stream.enqueue(new TextEncoder().encode(': alive\n\n')); }
+      await vi.advanceTimersByTimeAsync(50_000);
+    }
+    expect(running.received.filter((token) => token === FLEET_ID)).toHaveLength(2);
+  } finally { await watcher.stop(); }
+});
+
+it('an older rescan finishing last leaves the new lease stream open', async () => {
+  const olderSnapshot = Promise.withResolvers<Squadron[]>();
+  const snapshotTaken = Promise.withResolvers<void>();
+  let isOlderScan = false;
+  const running = await aWatcher(undefined, undefined, (fleetId, squadrons) => {
+    if (fleetId === FLEET_ID && isOlderScan) {
+      isOlderScan = false;
+      snapshotTaken.resolve();
+      return olderSnapshot.promise;
+    }
+    return Promise.resolve(squadrons);
+  });
+  const watcher = running.make();
+  try {
+    await watcher.rescan();
+    const oldSquadrons = running.squadrons.get(FLEET_ID) ?? [];
+    isOlderScan = true;
+    const older = watcher.rescan();
+    await snapshotTaken.promise;
+    running.squadrons.set(FLEET_ID, [{ ...forming, flagship: { ...forming.flagship, crewToken: 'replacement' } }]);
+    await watcher.rescan();
+    olderSnapshot.resolve(oldSquadrons);
+    await older;
+    expect(running.signals.map((signal) => signal.aborted)).toEqual([true, false, false]);
+    running.streams.get('replacement')?.enqueue(new TextEncoder().encode('event: wake\ndata: {}\n\n'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(running.received).toEqual(['replacement']);
+  } finally { olderSnapshot.resolve([]); await watcher.stop(); }
 });
