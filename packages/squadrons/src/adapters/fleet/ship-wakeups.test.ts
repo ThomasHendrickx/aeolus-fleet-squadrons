@@ -90,7 +90,7 @@ describe('ship wake stream', () => {
 
   it('stops after an end event without reopening or looking again', async () => {
     const running = await started();
-    running.streams[0]?.write('event: end\ndata: {"code":"LEASE_ENDED"}\n\n');
+    running.streams[0]?.write('event: end\ndata: {"code":"LEASE_ENDED","message":"ended"}\n\n');
     await vi.advanceTimersByTimeAsync(600_000);
     expect(running.opened()).toBe(1);
     expect(running.looks()).toBe(0);
@@ -239,7 +239,7 @@ it('a stopped reader ignores an end event delivered with its final bytes', async
     look: () => Promise.resolve(), ended: () => { endings += 1; return Promise.resolve(); }, failed: () => undefined,
   })('crew');
   await vi.advanceTimersByTimeAsync(0);
-  stream.write('event: end\ndata: {"code":"LEASE_ENDED"}\n\n');
+  stream.write('event: end\ndata: {"code":"LEASE_ENDED","message":"ended"}\n\n');
   stop();
   await vi.advanceTimersByTimeAsync(0);
   expect(endings).toBe(0);
@@ -256,5 +256,67 @@ it('a wake resets the reopening delay after earlier refused openings', async () 
     expect(running.opened()).toBe(3);
     await vi.advanceTimersByTimeAsync(1);
     expect(running.opened()).toBe(4);
+  } finally { running.stop(); }
+});
+
+
+it('a wake restarts the five minute safety deadline', async () => {
+  const running = await started();
+  try {
+    await vi.advanceTimersByTimeAsync(1000);
+    running.streams[0]?.write('event: wake\n\n');
+    await vi.advanceTimersByTimeAsync(299_000);
+    expect(running.looks()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(running.looks()).toBe(2);
+  } finally { running.stop(); }
+});
+
+it('a left-behind safety callback cannot look after stopping', async () => {
+  const running = await started();
+  const timers = vi.spyOn(globalThis, 'setTimeout');
+  running.streams[0]?.write('event: wake\n\n');
+  await vi.advanceTimersByTimeAsync(0);
+  const callback = timers.mock.calls.find((call) => call[1] === 300_000)?.[0];
+  running.stop();
+  if (typeof callback !== 'function') { throw new Error('missing safety timer'); }
+  callback();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(running.looks()).toBe(1);
+  timers.mockRestore();
+});
+
+it('an end event with another refusal code keeps accepting wakes', async () => {
+  const running = await started();
+  try {
+    running.streams[0]?.write('event: end\ndata: {"code":"UNAUTHENTICATED","message":"other"}\n\nevent: wake\n\n');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(running.looks()).toBe(1);
+  } finally { running.stop(); }
+});
+
+it('an aborted opening does not report its rejection as a failure', async () => {
+  vi.useFakeTimers();
+  const opening = Promise.withResolvers<Response>();
+  const failures: unknown[] = [];
+  const stop = createShipWakeups({
+    fleetUrl: 'https://fleet.example', fetch: () => opening.promise,
+    look: () => Promise.resolve(), ended: () => Promise.resolve(), failed: (error) => { failures.push(error); },
+  })('crew');
+  stop();
+  opening.reject(new Error('aborted'));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(failures).toEqual([]);
+});
+
+it.each([
+  { data: '{"code":"OTHER","message":"LEASE_ENDED"}', reason: 'a message mentioning LEASE_ENDED' },
+  { data: '{"code":"LEASE_ENDED"}', reason: 'a refusal missing its message' },
+])('ignores an end event with $reason', async ({ data }) => {
+  const running = await started();
+  try {
+    running.streams[0]?.write(`event: end\ndata: ${data}\n\nevent: wake\n\n`);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(running.looks()).toBe(1);
   } finally { running.stop(); }
 });
