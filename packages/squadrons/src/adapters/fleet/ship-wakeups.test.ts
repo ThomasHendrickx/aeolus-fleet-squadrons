@@ -215,3 +215,32 @@ it('looks remain serialized while the first receive waits', async () => {
     expect(maximum).toBe(1);
   } finally { held.resolve(undefined); running.stop(); }
 });
+
+it('a stopped opening ignores a late lease-ended answer', async () => {
+  vi.useFakeTimers();
+  const opening = Promise.withResolvers<Response>();
+  let endings = 0;
+  const stop = createShipWakeups({
+    fleetUrl: 'https://fleet.example', fetch: () => opening.promise,
+    look: () => Promise.resolve(), ended: () => { endings += 1; return Promise.resolve(); }, failed: () => undefined,
+  })('crew');
+  stop();
+  opening.resolve(Response.json({ code: 'LEASE_ENDED' }, { status: 401 }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(endings).toBe(0);
+});
+
+it('a stopped reader ignores an end event delivered with its final bytes', async () => {
+  vi.useFakeTimers();
+  const stream = aStream();
+  let endings = 0;
+  const stop = createShipWakeups({
+    fleetUrl: 'https://fleet.example', fetch: () => Promise.resolve(stream.response),
+    look: () => Promise.resolve(), ended: () => { endings += 1; return Promise.resolve(); }, failed: () => undefined,
+  })('crew');
+  await vi.advanceTimersByTimeAsync(0);
+  stream.write('event: end\ndata: {"code":"LEASE_ENDED"}\n\n');
+  stop();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(endings).toBe(0);
+});
