@@ -53,10 +53,12 @@ describe('setVersion', () => {
   });
 
   it("keeps the range of another train's package: common and core have versions of their own", () => {
+    const real = manifestSchema.parse(JSON.parse(readFileSync(join(repositoryRoot, 'packages', 'squadrons', 'package.json'), 'utf8')));
+
     setVersion(copy, '0.28.0');
 
-    expect(manifest('squadrons').dependencies?.['@aeolus-fleet/common']).toBe('^0.39.0');
-    expect(manifest('squadrons').devDependencies?.['@aeolus-fleet/core']).toBe('^0.39.0');
+    expect(manifest('squadrons').dependencies?.['@aeolus-fleet/common']).toBe(real.dependencies?.['@aeolus-fleet/common']);
+    expect(manifest('squadrons').devDependencies?.['@aeolus-fleet/core']).toBe(real.devDependencies?.['@aeolus-fleet/core']);
   });
 
   it("pins a dependency on this repository's own package to that version", () => {
