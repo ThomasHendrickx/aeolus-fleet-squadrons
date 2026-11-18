@@ -379,7 +379,7 @@ The approved picks already say the count in force never changes by itself (quest
 
 1. The current proposal is worked out again from the newest version still available, by D3. A version leaves when its tag is gone or its repository is removed.
    - **Removed:** a decision already made stays in the history. A proposal from the removed version stops being current, and the page says "baker@3 is no longer in the catalogue". An older version's earlier answer, approved or declined, is not reopened by the removal.
-   - **Moved tag:** squadrons uses the new commit silently ([template bases](../template-bases/template-bases.md), decision 10). An approval or decline answers the version's count as read at that commit. If the moved tag now states another count, it is a new proposal from the same version. If it states the same count, the earlier answer stands.
+   - **Moved tag:** squadrons uses the new commit silently ([template bases](../../squadrons.md#built-once)). An approval or decline answers the version's count as read at that commit. If the moved tag now states another count, it is a new proposal from the same version. If it states the same count, the earlier answer stands.
 2. A removed or moved version keeps its proposal current until the template owner answers it.
 
 **Pick: 1. Approved.** The page shows only proposals from versions a ship can be formed from. A count already in force does not depend on the version that proposed it staying (question 2). Option 2 asks the template owner to answer for a version that can no longer be used.
