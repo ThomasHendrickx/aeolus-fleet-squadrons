@@ -53,7 +53,7 @@ async function expectOk(response: Promise<Response>): Promise<unknown> {
 /** squadrons switched on for the fleet, connected, a squadron formed, and its flagships watched. */
 async function aFormedSquadron(): Promise<{ flagship: ShipId; member: ShipId }> {
   await expectOk(installation('installation.setEnabled', { requestId: newKey(), fleetId, enabled: true }));
-  await expectOk(asOperator('connection.connect', { shipId: management.shipId, secret: management.secret }));
+  await expectOk(installation('installation.connect', { requestId: newKey(), fleetId, shipId: management.shipId, secret: management.secret }));
   const formed = z
     .object({ flagship: z.object({ shipId: z.string() }), members: z.array(z.object({ shipId: z.string() })) })
     .parse(await expectOk(asOperator('squadrons.form', { blueprint: { repository: REPO, name: 'team', version: 1 }, squadronId: 'team-one' })));

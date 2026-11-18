@@ -14,9 +14,9 @@ it('records only successful hand-overs and replays their receipt without checkin
   const input = { requestId: 'connect', fleetId: FLEET_ID, shipId: SHIP_ID, secret: 'refused' };
   expect(await createConnectFleet(deps)(input)).toMatchObject({ isOk: false, error: { kind: 'SECRET_REFUSED' } });
   expect(requests.held).toEqual([]);
-  expect(await createConnectFleet(deps)({ ...input, secret: 'aeolus_sk_v1_good' })).toEqual({ isOk: true, value: { enabled: true, connected: true } });
+  expect(await createConnectFleet(deps)({ ...input, secret: 'aeolus_sk_v1_good' })).toEqual({ isOk: true, value: { isEnabled: true, isConnected: true } });
   await store.drop(FLEET_ID);
-  expect(await createConnectFleet(deps)(input)).toEqual({ isOk: true, value: { enabled: true, connected: true } });
+  expect(await createConnectFleet(deps)(input)).toEqual({ isOk: true, value: { isEnabled: true, isConnected: true } });
   expect(requests.held).toHaveLength(1);
   expect(JSON.stringify(requests.held)).not.toContain('aeolus_sk');
 });

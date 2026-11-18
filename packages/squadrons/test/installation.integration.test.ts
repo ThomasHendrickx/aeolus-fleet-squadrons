@@ -223,7 +223,7 @@ describe('an enabled installation, with an installation token', () => {
     expect(response.status).toBe(400);
     expect(await response.text()).toContain('fleet:read, fleet:commission and fleet:manage');
     expect(await dataOf(await installation({ procedure: 'installation.get', body: { fleetId } }))).toEqual({ enabled: true, connected: false });
-    expect(await fleetDatabase.crew.count({ where: { shipId: ship.shipId } })).toBe(0);
+    expect(await fleetDatabase.lease.count({ where: { fleetId, shipId: ship.shipId, endedAt: null } })).toBe(0);
   });
 
   it('refuses a ship from another fleet and deregisters the acquired crew', async () => {
@@ -232,7 +232,7 @@ describe('an enabled installation, with an installation token', () => {
     const response = await installation({ procedure: 'installation.connect', body: { requestId: 'connect', fleetId: otherFleetId, ...management } });
     expect(response.status).toBe(400);
     expect(await response.text()).toContain('another fleet');
-    expect(await fleetDatabase.crew.count({ where: { shipId: management.shipId } })).toBe(0);
+    expect(await fleetDatabase.lease.count({ where: { fleetId, shipId: management.shipId, endedAt: null } })).toBe(0);
   });
 
   it('retains one connection under concurrent hand-overs and replays concurrent success', async () => {

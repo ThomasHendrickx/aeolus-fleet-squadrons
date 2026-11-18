@@ -263,6 +263,12 @@ A hosting service can switch squadrons on or off per fleet (decision 0021). With
 - **Off:** squadrons does nothing for the fleet. Its console shows nothing of squadrons; the squadrons API answers only `connection.status` (with `enabled: false`) and refuses the rest, Connect included; its flagships stop receiving and its stand-downs wait. Everything is kept: on again, it resumes as it was.
 - **Delete:** squadrons withdraws its declared network rules from the fleet, then forgets everything it holds of the fleet: its repositories and their tokens, its catalogue, its squadrons and what their flagships kept, its formation attempts, its connection and its switch. While the fleet does not answer, the delete is refused (502) and forgets nothing, for the hosting service to retry. Its ships and the labels it assigned stay there.
 
+The hosting service calls `installation.connect` with `x-aeolus-installation-token` and the strict input `{ requestId, fleetId, shipId, secret }` (non-empty secret). It answers `{ enabled: true, connected: true }`. No configured token gives `NOT_FOUND`; a missing or wrong token gives `UNAUTHORIZED`. A fleet that is off gives `FORBIDDEN`, checked before replay.
+
+A successful request keeps a receipt hashed from the operation, fleet and ship, excluding the secret. The same request id replays its first success, including after restart, without registering again. Reusing it for another operation, fleet or ship gives `REQUEST_ID_USED` (`CONFLICT`). Refusals keep no receipt: retry the same id with a fresh secret. Connect preserves `ALREADY_CONNECTED` (`CONFLICT`), and `SECRET_REFUSED`, `OTHER_FLEET`, `MISSING_SCOPES` (`BAD_REQUEST`), plus the existing recovery, catalogue refresh and rescans. Concurrent hand-overs retain one connection per fleet.
+
+A receipt records success, not current health. Read `installation.get` after an ambiguous outcome or `ALREADY_CONNECTED`: connection may have been saved before the receipt. Off/on keeps it; delete follows the withdrawal behavior above. The endpoint adds no core calls or minimum core version requirement.
+
 ## Template repositories
 
 The repositories squadrons reads are runtime configuration: the operator adds them in the console, under Settings, never in a file. Each has:

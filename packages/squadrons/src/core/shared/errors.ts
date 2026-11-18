@@ -2,6 +2,7 @@ import { err, type Err } from './result.js';
 
 /** Every reason squadrons' core refuses a request. */
 export type DomainErrorKind =
+  | 'OFF'
   | 'ALREADY_CONNECTED'
   | 'SECRET_REFUSED'
   | 'OTHER_FLEET'

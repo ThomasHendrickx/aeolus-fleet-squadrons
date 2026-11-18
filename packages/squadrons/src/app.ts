@@ -38,6 +38,7 @@ import { createListRepositories } from './core/catalogue/list-repositories.js';
 import { createRefreshCatalogue, type RefreshScope } from './core/catalogue/refresh-catalogue.js';
 import { createRemoveRepository } from './core/catalogue/remove-repository.js';
 import type { Catalogue } from './core/catalogue/catalogue.js';
+import { createConnectFleet, type ConnectFleet } from './core/installation/connect-fleet.js';
 import { createConnect, type Connect } from './core/management/connect.js';
 import { createReadConnection, type ReadConnection } from './core/management/read-connection.js';
 import { createAuthenticateOperator } from './core/operator/authenticate-operator.js';
@@ -264,9 +265,10 @@ export function createSquadronsApp(options: {
     },
   };
   const connectOnly = createConnect({ door, store, clock });
+  const handovers = createFleetTurns();
   // Once connected, what waited for it: formations a crash left unfinished, the catalogue (every repository fetched once), then the flagships.
   const connect: Connect = async (input) => {
-    const connected = await connectOnly(input);
+    const connected = await handovers.take(input.operatorFleetId, () => connectOnly(input));
     if (connected.isOk) {
       const recovered = await recoverFormations(input.operatorFleetId, 'all');
       if (!recovered.isOk) {
@@ -278,6 +280,11 @@ export function createSquadronsApp(options: {
     }
     return connected;
   };
+
+  // Receipts and hand-overs take turns per fleet; post-save work retains its existing fleet turns.
+  const installationHandovers = createFleetTurns();
+  const connectFleetOutsideTurns = createConnectFleet({ requests, hasher: sha256RequestHasher, clock, isServed, connect });
+  const connectFleet: ConnectFleet = (input) => installationHandovers.take(input.fleetId, () => connectFleetOutsideTurns(input));
 
   const trpc: FastifyTRPCPluginOptions<SquadronsRouter> = {
     prefix: '/trpc',
@@ -296,6 +303,7 @@ export function createSquadronsApp(options: {
         heldConnection,
         installationTokenSent: typeof req.headers['x-aeolus-installation-token'] === 'string' ? req.headers['x-aeolus-installation-token'] : undefined,
         installation: { mode: installation, token: options.installationToken },
+        connectFleet,
         setFleetEnabled,
         readFleet,
         deleteFleet,
