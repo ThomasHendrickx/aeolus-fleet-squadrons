@@ -33,7 +33,7 @@ With a `base`, only `description` is required: `checkIn` and `charter` come from
 
 ## Template bases
 
-A template may build on one other template version, as a Dockerfile builds `FROM` one image: it names its base and states only what differs, what it adds, what it replaces and which of its base's parameters it fills (design: [template-bases.md](design/template-bases/template-bases.md)). The result is a template version like any other: a blueprint role runs it, and another template names it as its base. Every template is complete and formable, a base too.
+A template may build on one other template version, as a Dockerfile builds `FROM` one image: it names its base and states only what differs, what it adds, what it replaces and which of its base's parameters it fills. The result is a template version like any other: a blueprint role runs it, and another template names it as its base. Every template is complete and formable, a base too.
 
 ```yaml
 # templates/typescript-implementer.yaml
