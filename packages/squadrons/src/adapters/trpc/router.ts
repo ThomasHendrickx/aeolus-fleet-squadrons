@@ -19,6 +19,7 @@ import type { Catalogue } from '../../core/catalogue/catalogue.js';
 import type { ListRepositories } from '../../core/catalogue/list-repositories.js';
 import type { RemoveRepository } from '../../core/catalogue/remove-repository.js';
 import type { ListedRepository } from '../../core/catalogue/template-repository.js';
+import type { ConnectFleet } from '../../core/installation/connect-fleet.js';
 import type { DeleteFleet } from '../../core/installation/delete-fleet.js';
 import type { InstallationMode } from '../../core/installation/ports.js';
 import type { ReadFleet } from '../../core/installation/read-fleet.js';
@@ -51,6 +52,7 @@ export interface Context {
   /** The installation token header the caller sent, if any. */
   installationTokenSent: string | undefined;
   installation: { mode: InstallationMode; token: string | undefined };
+  connectFleet: ConnectFleet;
   setFleetEnabled: SetFleetEnabled;
   readFleet: ReadFleet;
   deleteFleet: DeleteFleet;
@@ -628,6 +630,18 @@ export const squadronsRouter = t.router({
     }),
   }),
   installation: t.router({
+    /** Server-to-server hand-over with a durable success receipt; secrets are never recorded. */
+    connect: installationProcedure
+      .input(z.strictObject({ requestId: idempotencyKeySchema, fleetId: idSchema('fleet'), shipId: idSchema('ship'), secret: z.string().min(1) }))
+      .output(z.strictObject({ enabled: z.literal(true), connected: z.literal(true) }))
+      .mutation(async ({ ctx, input }) => {
+        const connected = await ctx.connectFleet(input);
+        if (!connected.isOk) {
+          const codes = { ...CONNECT_CODES, REQUEST_ID_USED: 'CONFLICT', OFF: 'FORBIDDEN' } as const;
+          throw new TRPCError({ code: codes[connected.error.kind], message: connected.error.message });
+        }
+        return { enabled: connected.value.isEnabled, connected: connected.value.isConnected };
+      }),
     /** Switches squadrons on or off for a fleet; off keeps everything of it. A replayed request id answers its first answer. */
     setEnabled: installationProcedure
       .input(z.strictObject({ requestId: idempotencyKeySchema, fleetId: idSchema('fleet'), enabled: z.boolean() }))
