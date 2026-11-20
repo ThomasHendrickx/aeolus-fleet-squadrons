@@ -29,7 +29,7 @@ The existing purpose and approvals in [PR #44](https://github.com/ThomasHendrick
 2. **Scope of the next stage.** Check the approved #44 design against #33's direct starts and close the outstanding dependencies on #41 proposals 27 to 29 and core #1771, without new behavior. The integration design states exactly which part is settled and which approval or core contract is still required; a dependency is not declared approved by this answer.
 3. **Before implementation.** Show how direct starts, forming a squadron, waiting requests and confirming a count all respect one count, preserve existing ships and handle unclear outcomes.
 
-These decisions approve the integration design work, not the pending #41 proposals, core contracts, implementation or rollout. #33's separate ownership answer means the resulting ship belongs to the requesting ship, including an agent or app. The template owner remains the appointed person ship under #43's existing approved decision.
+These decisions approved the integration design work. Thomas separately approved the four #41 dependencies on 20 November, recorded in the integration design. Core contracts, implementation and rollout remain separate. #33's separate ownership answer means the resulting ship belongs to the requesting ship, including an agent or app. The template owner remains the appointed person ship under #43's existing approved decision.
 
 ## Dependency on #33
 
