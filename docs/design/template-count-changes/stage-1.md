@@ -1,6 +1,6 @@
 # Changing a template's ship count while ships exist
 
-Issue: [#43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). Stage 1 purpose and dependency check for Thomas. The [existing approved design](template-count-changes.md) remains the source of truth; this document proposes no replacement decisions or implementation approval.
+Issue: [#43](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/43). Purpose retained and three integration decisions approved by Thomas on 20 November 2026, option 1 on each separate answer card, as relayed by orchestrator-1. The [existing approved design](template-count-changes.md) remains the source of truth; the [integration design](direct-starts.md) checks it against #33 without replacing those decisions or approving implementation.
 
 ## Purpose
 
@@ -21,12 +21,15 @@ Thomas, 20 Nov, verbatim: "this one is a true enabler of standardising the ships
 7. **Explain a real choice before asking for approval.** The existing screen audit required the version's file, commit and repository, when it was found, why it proposes a different count, and both approval and decline consequences. A known failed write and a lost answer are different facts; the latter must read the kept result before claiming success or failure. Source: [approved screen design and questions S3, D1 to D5](template-count-changes.md). These are recorded screen findings, not a completed production walk.
 8. **Walk the candidate that will be released.** The release correction prevents publishing a rebuilt package after walking another candidate. Future evidence must demonstrate lowering, raising and recovery on the exact candidate, without claiming this document exercised those flows. Sources: [#57](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/issues/57), [fix #58](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/pull/58).
 
-## Questions
+## Approved integration decisions
 
-1. **Is the approved purpose still the purpose for this work?** Options: (1) retain the purpose above and the approvals in #44; (2) Thomas names a changed purpose before more design. **Pick: 1**, because #43 already has approved behaviour and screens. This asks about the new brief's scope, not for routine reapproval of those decisions.
-2. **Must ships started through #33 be included?** Options: (1) include direct starts in the same template count and in the owner's explanation of existing ships; (2) give them an independent count. **Pick: 1**, because the already approved count covers every forming path. This confirms that #33 must fit that decision, rather than reopening it.
-3. **What should the next design stage address?** Options: (1) check the approved experience with #33's direct starts and close the outstanding #41 and core-contract dependencies; (2) redraw the already approved page and choose count-change behaviour again. **Pick: 1**, because the open work is the connection between forming paths and approved contracts. #41 proposals 27 to 29 and core #1771 do not become approved through this document.
-4. **What should happen before implementation is proposed?** Options: (1) show how a direct start, blueprint forming, waiting requests and count confirmation respect one count, while retaining existing ships and resolving uncertain outcomes; (2) implement direct starts first with an exemption and join them to the count later. **Pick: 1**, because option 2 would ship a bypass of an approved guarantee. Exact contracts, storage and rollout remain later design, not choices made here.
+The existing purpose and approvals in [PR #44](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/pull/44) stand. Thomas answered the three integration questions on 20 November, one card each, option 1 each, as relayed by orchestrator-1:
+
+1. **Direct starts count.** Ships started through #33 count in the same template count and show in the template owner's explanation of existing ships, subject to the approved reader-reach redaction.
+2. **Scope of the next stage.** Check the approved #44 design against #33's direct starts and close the outstanding dependencies on #41 proposals 27 to 29 and core #1771, without new behavior. The integration design states exactly which part is settled and which approval or core contract is still required; a dependency is not declared approved by this answer.
+3. **Before implementation.** Show how direct starts, forming a squadron, waiting requests and confirming a count all respect one count, preserve existing ships and handle unclear outcomes.
+
+These decisions approve the integration design work, not the pending #41 proposals, core contracts, implementation or rollout. #33's separate ownership answer means the resulting ship belongs to the requesting ship, including an agent or app. The template owner remains the appointed person ship under #43's existing approved decision.
 
 ## Dependency on #33
 
