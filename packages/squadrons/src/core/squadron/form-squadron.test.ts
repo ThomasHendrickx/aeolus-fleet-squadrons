@@ -77,6 +77,8 @@ interface FleetShip {
   scopes: string[];
   /** The ship whose owner it was commissioned with, if squadrons named one. */
   ownerOf: ShipId | null;
+  ownership?: unknown;
+  valueIds?: unknown;
 }
 
 function fakeFleet() {
@@ -122,7 +124,8 @@ function fakeFleet() {
             : err({ code: 'NOT_FOUND', message: 'not used' }),
       ),
     deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
-    commission: (crewToken, { name, type, idempotencyKey, scopes, ownerOf }): Promise<Result<{ shipId: ShipId; prompt: string | null; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
+    commission: (crewToken, input): Promise<Result<{ shipId: ShipId; prompt: string | null; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
+      const { name, type, idempotencyKey, scopes, ownerOf } = input;
       if (crewToken !== 'aeolus_ct_v1_management') {
         return Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' }));
       }
@@ -139,7 +142,7 @@ function fakeFleet() {
       next += 1;
       const shipId: ShipId = `shp_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`;
       const secret = `aeolus_sk_v1_${name}`;
-      state.ships.push({ shipId, name, type, secret, isRetired: false, isCrewed: false, scopes: [...scopes], ownerOf: ownerOf ?? null });
+      state.ships.push({ shipId, name, type, secret, isRetired: false, isCrewed: false, scopes: [...scopes], ownerOf: ownerOf ?? null, ownership: 'ownership' in input ? input.ownership : undefined, valueIds: 'valueIds' in input ? input.valueIds : undefined });
       state.keys.set(idempotencyKey, shipId);
       if (state.answersLost.delete(name)) {
         return Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
@@ -235,6 +238,7 @@ let labelledShips: LabelledShip[];
 function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogue; limits?: SquadronLimits } = {}): FormSquadron {
   return createFormSquadron({
     door: fleet.door,
+    prepareFormation: () => Promise.resolve(ok('lbv_01m3tbfspe96yf1rnr4ank9f02' as const)),
     management: overrides.store ?? managementStore,
     squadrons,
     attempts,
@@ -908,4 +912,14 @@ describe('forming from a template on a base', () => {
     });
     expect(fleet.state.ships).toEqual([]);
   });
+});
+
+it('commissions every squadron ship with the requesting ship itself as owner', async () => {
+  await form({ fleetId: FLEET, blueprint: blueprintVersion });
+  expect(fleet.state.ships.map(({ ownership }) => ownership)).toEqual(['requester', 'requester', 'requester', 'requester']);
+});
+
+it('assigns the formed value in every commission transaction', async () => {
+  await form({ fleetId: FLEET, blueprint: blueprintVersion });
+  expect(fleet.state.ships.map(({ valueIds }) => valueIds)).toEqual(Array.from({ length: 4 }, () => ['lbv_01m3tbfspe96yf1rnr4ank9f02']));
 });

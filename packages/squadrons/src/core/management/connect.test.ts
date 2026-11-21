@@ -67,6 +67,13 @@ describe('connecting squadrons', () => {
     expect(fleet.state.deregistered).toEqual(['aeolus_ct_v1_1']);
   });
 
+  it.each(['labels:define', 'labels:assign'])('refuses a management ship without %s before keeping its connection', async (scope) => {
+    fleet.state.scopes = ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign'].filter((held) => held !== scope);
+    await expect(connect({ secret: 'aeolus_sk_v1_good' })).resolves.toMatchObject({ isOk: false, error: { kind: 'MISSING_SCOPES' } });
+    expect(store.held.size).toBe(0);
+    expect(fleet.state.deregistered).toEqual(['aeolus_ct_v1_1']);
+  });
+
   it('connects again after the crew token was dropped, as the same or another ship', async () => {
     await connect({ secret: 'aeolus_sk_v1_good' });
     await store.drop(FLEET_ID);

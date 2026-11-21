@@ -1,3 +1,4 @@
+import type { PrepareFormation } from '../network/prepare-formation.js';
 import type { CrewLine, FleetId, ShipId } from '@aeolus-fleet/common';
 
 import type { FleetDoor, ManagementCrewStore } from '../management/ports.js';
@@ -47,11 +48,12 @@ export type AddMember = (input: {
  * start and a crash after it keeps the member. Asked by message, the role
  * must be crewed by request, as no crew line travels in a message, and the
  * member keeps the request's sender and key. A member of a squadron a ship formed gets
- * that ship's owner (decision 0045). squadrons' limit of members
+ * that ship as owner (decision 0045). squadrons' limit of members
  * per squadron (question 9) is checked before anything is commissioned.
  */
 export function createAddMember(deps: {
   door: FleetDoor;
+  prepareFormation: PrepareFormation;
   management: ManagementCrewStore;
   squadrons: SquadronRepository;
   attempts: FormationAttempts;

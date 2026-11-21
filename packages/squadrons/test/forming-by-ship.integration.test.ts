@@ -82,7 +82,7 @@ beforeEach(async () => {
       scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'fleet:on-behalf', 'scopes:declare'],
     }),
   );
-  fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
+  fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
 
   const squadronsDatabaseUrl = await createSquadronsDatabase();
@@ -145,12 +145,17 @@ async function crewed(ship: { shipId: string; secret: string }) {
     }
     return found;
   };
-  return { call, awaitDelivery };
+  const readShip = async (ship: { shipId: string }) => {
+    const response = await fetch(`${fleetUrl}/api/v1/fleet/ship`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${crewToken}` }, body: JSON.stringify(ship) });
+    expect(response.status).toBe(200);
+    return z.object({ owner: z.object({ id: z.string() }).nullable() }).parse(await response.json());
+  };
+  return { call, awaitDelivery, readShip };
 }
 
 async function squadronOf(squadronId: string) {
   const listed = z
-    .object({ result: z.object({ data: z.array(z.object({ id: z.string(), state: z.string(), members: z.array(z.object({ shipId: z.string(), name: z.string() })) })) }) })
+    .object({ result: z.object({ data: z.array(z.object({ id: z.string(), state: z.string(), flagship: z.object({ shipId: z.string() }), members: z.array(z.object({ shipId: z.string(), name: z.string() })) })) }) })
     .parse(await (await fetch(`${address}/trpc/squadrons.list`, { headers: { cookie } })).json());
   return listed.result.data.find((squadron) => squadron.id === squadronId);
 }
@@ -195,7 +200,7 @@ describe('a ship holding squadrons:form (decision 0017)', () => {
     expect((await squadronOf('login-flow'))?.state).toBe('standing-down');
   });
 
-  it("gives the squadron's ships the forming ship's owner, so an owner=# rule in force lets the flagship and the forming ship reach each other with open send off (decisions 0045, 0034)", async () => {
+  it("makes the requesting ship the owner, preserving direct owner reach with open send off", async () => {
     const thomas = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
     const lead = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tech-lead', type: 'lead', scopes: ['squadrons:form'] }));
     unwrap(await fleetUseCases.setOwner(argo, { shipId: lead.shipId, ownerShipId: thomas.shipId }));
@@ -218,7 +223,7 @@ describe('a ship holding squadrons:form (decision 0017)', () => {
     const { savedAgainstVersion } = unwrap(await fleetUseCases.saveNetworkRulesDraft(networking, { rules }));
     unwrap(await fleetUseCases.applyNetworkRules(networking, { version: savedAgainstVersion }));
 
-    expect(flagship.ownerShipId).toBe(thomas.shipId);
+    expect(flagship.ownerShipId).toBe(lead.shipId);
     const toFlagship = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: lead.shipId, toShipId: flagshipId }));
     const toLead = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: flagshipId, toShipId: lead.shipId }));
     const fromOutsider = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: outsider.shipId, toShipId: flagshipId }));
@@ -285,4 +290,16 @@ describe('a ship holding squadrons:form (decision 0017)', () => {
 
     expect(JSON.parse(asked.payload)).toMatchObject({ squadron: 'login-flow', member: { role: 'builder' }, payload: 'Which branch?' });
   });
+});
+
+it.each(['person', 'agent', 'app'] as const)('a %s requester owns the squadron ships through public calls', async (kind) => {
+  await expect.poll(async () => (await fleetUseCases.listScopes(argo)).some(({ namespace }) => namespace === 'squadrons'), { timeout: LIVE_TIMEOUT_MS }).toBe(true);
+  const requester = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'requester', type: 'requester', kind, scopes: ['squadrons:form', 'fleet:read'] }));
+  const crew = await crewed({ shipId: requester.shipId, secret: secretOf(requester.secret) });
+  await crew.call('send', { model: kind === 'agent' ? 'claude-opus-5-5' : undefined, selector: { kind: 'ship', name: 'squadrons' }, contentType: FORM, payload: JSON.stringify({ blueprint: `${REPO}#delivery@1`, squadronId: 'requester-team', members: { 'builder-1': { parameters: { area: 'the public contract' } } }, key: 'requester-form' }), idempotencyKey: 'requester-form' });
+  await crew.awaitDelivery(FORMED);
+  const formed = await squadronOf('requester-team');
+  expect((await crew.readShip({ shipId: z.string().parse(formed?.flagship.shipId) })).owner?.id).toBe(requester.shipId);
+  const member = formed?.members[0];
+  expect((await crew.readShip({ shipId: z.string().parse(member?.shipId) })).owner?.id).toBe(requester.shipId);
 });

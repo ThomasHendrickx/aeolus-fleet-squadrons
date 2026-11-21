@@ -1,3 +1,5 @@
+import { createPrepareFormationInTurn } from './adapters/flagships/prepare-formation-in-turn.js';
+import { createPrepareFormation } from './core/network/prepare-formation.js';
 import type { FleetId } from '@aeolus-fleet/common';
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
@@ -143,7 +145,7 @@ export function createSquadronsApp(options: {
   const catalogueOf = (fleetId: FleetId): Catalogue => catalogues.get(fleetId) ?? { templates: [], blueprints: [], problems: [] };
   const builtTemplates = createPrismaBuiltTemplateStore(prisma);
   const network = watchNetworkLease(createRestNetworkDoor(options.fleetUrl), store);
-  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, built: builtTemplates, labels: network, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
+  const formSquadron = createFormSquadron({ prepareFormation: (fleetId) => prepareFormation(fleetId), door, management: store, squadrons, attempts, catalogue: catalogueOf, built: builtTemplates, labels: network, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
   // A new squadron's flagship starts receiving at once, not at the next rescan.
   const formAndWatch: FormSquadron = async (input) => {
     const formed = await formSquadron(input);
@@ -186,7 +188,7 @@ export function createSquadronsApp(options: {
   const forceStandDown = createForceStandDown({ door, management: store, squadrons, clock });
   const removeMember = createRemoveMember({ door, management: store, squadrons, clock });
   const newCrewLine = createNewCrewLine({ door, management: store, squadrons });
-  const addMember = createAddMember({ door, management: store, squadrons, attempts, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
+  const addMember = createAddMember({ prepareFormation: (fleetId) => prepareFormation(fleetId), door, management: store, squadrons, attempts, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
   // Each member gets its stand-down at once, not at the next rescan.
   const standDown: StandDown = async (input) => {
     const stood = await standDownOnly(input);
@@ -230,6 +232,7 @@ export function createSquadronsApp(options: {
   const deleteFleet: DeleteFleet = (input) => turns.take(input.fleetId, () => deleteFleetOutsideTurns(input));
   const labelSquadrons = createLabelSquadrons({ door: network, fleetDoor: door, management: store, squadrons, operator });
   const declareNetworkRules = createDeclareNetworkRules({ door: network, management: store, declarations });
+  const prepareFormation = createPrepareFormationInTurn({ turns, isServed, prepare: createPrepareFormation({ management: store, door: network, label: labelSquadrons, declare: declareNetworkRules }) });
   const declareNamespace = createDeclareNamespace({ door: watchScopeLease(createRestScopeDoor(options.fleetUrl), store), management: store, operator });
   // Each rescan declares squadrons' namespace while its ship does not hold it, labels the fleet's squadrons, then declares their reach once the labels exist (#573); refusals are logged and the next rescan tries again.
   const reach: FleetReach = {

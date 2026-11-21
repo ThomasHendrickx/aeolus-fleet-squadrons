@@ -1,4 +1,4 @@
-import { PAYLOAD_MAX_BYTES, PING_CONTENT_TYPE, type DeliveryId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { PAYLOAD_MAX_BYTES, PING_CONTENT_TYPE, type DeliveryId, type LeaseId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { FleetDoor, ManagementCrewStore, OutgoingMessage } from '../management/ports.js';
@@ -84,6 +84,9 @@ function squadron(): Squadron {
 let held: Squadron;
 const MANAGEMENT_CREW_TOKEN = 'aeolus_ct_v1_management';
 /** The scopes the forming ship holds now, as the fleet answers squadrons' own ship. */
+let memberLease: LeaseId | null | undefined;
+let isMemberReadUnavailable: boolean;
+const SENDING_LEASE = 'lse_01m3tbfspe96yf1rnr4ank0001';
 let formingShipScopes: string[];
 /** Whether the forming ship is retired, and its owner, as the fleet answers squadrons' own ship. */
 let formingShipStatus: 'crewed' | 'retired';
@@ -105,6 +108,9 @@ const door: FleetDoor = {
   whoami: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   getShip: (crewToken, { shipId }) => {
     const ship = { lastSeenAt: NOW, crewedSince: NOW, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false };
+    if (crewToken === MANAGEMENT_CREW_TOKEN && (shipId === TESTER || shipId === PLANNER)) {
+      return Promise.resolve(isMemberReadUnavailable ? err({ code: 'UNAVAILABLE', message: 'no answer' }) : ok({ ...ship, status: 'crewed' as const, scopes: [], ownerShipId: null, currentLease: memberLease === undefined ? undefined : memberLease === null ? null : { id: memberLease, startedAt: NOW } }));
+    }
     if (crewToken === MANAGEMENT_CREW_TOKEN && shipId === FORMING) {
       return Promise.resolve(ok({ ...ship, status: formingShipStatus, scopes: formingShipScopes, ownerShipId: formingShipOwner }));
     }
@@ -209,7 +215,7 @@ const handle = createHandleFlagshipDelivery({
   relays,
   management,
   standDown: createStandDown({ squadrons }),
-  addMember: createAddMember({ door, management, squadrons, attempts: memoryAttempts(), random: { suffix: () => 'q8r2' }, clock, limits: NO_LIMITS }),
+  addMember: createAddMember({ prepareFormation: () => Promise.resolve(ok('lbv_01m3tbfspe96yf1rnr4ank9f02' as const)), door, management, squadrons, attempts: memoryAttempts(), random: { suffix: () => 'q8r2' }, clock, limits: NO_LIMITS }),
   removeMember: createRemoveMember({ door, management, squadrons, clock }),
   advanceStandDowns: () => {
     advances.push(acked.length);
@@ -225,6 +231,7 @@ function delivery(from: ShipId, message: { contentType: string; payload: unknown
     deliveryId: `dlv_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`,
     messageId: `msg_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`,
     senderShipId: from,
+    senderLeaseId: SENDING_LEASE,
     senderName: from === STRANGER ? 'reviewer-01' : from === FORMING ? 'tech-lead' : from === ARGO ? 'argo' : from === OWNER ? 'thomas' : 'a-member',
     contentType: message.contentType,
     payload: typeof message.payload === 'string' ? message.payload : JSON.stringify(message.payload),
@@ -233,6 +240,8 @@ function delivery(from: ShipId, message: { contentType: string; payload: unknown
 }
 
 beforeEach(() => {
+  memberLease = SENDING_LEASE;
+  isMemberReadUnavailable = false;
   held = squadron();
   acked.length = 0;
   ponged.length = 0;
@@ -1039,4 +1048,52 @@ describe('scaling a squadron by message to its flagship (decision 0017)', () => 
     expect(held.members.find((each) => each.shipId === PLANNER)?.retiredAt).toBeNull();
     expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ code: 'NEEDS_SCOPE' });
   });
+});
+
+describe('current crew evidence for on station', () => {
+  it.each<LeaseId | null | undefined>([null, undefined, 'lse_01m3tbfspe96yf1rnr4ank0002'])('does not accept a confirmation when the current lease is %s', async (lease) => {
+    memberLease = lease;
+    const confirmation = delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'tester' } });
+    await handle(held, confirmation);
+    expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toBeNull();
+  });
+
+  it.each<null | undefined>([null, undefined])('retries without acknowledging when the current lease is %s', async (lease) => {
+    memberLease = lease;
+    const confirmation = delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'tester' } });
+    await expect(handle(held, confirmation)).resolves.toMatchObject({ isOk: false, error: { code: 'UNAVAILABLE' } });
+    expect(acked).toEqual([]);
+    expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toBeNull();
+    memberLease = confirmation.senderLeaseId;
+    await expect(handle(held, confirmation)).resolves.toEqual({ isOk: true, value: 'on-station' });
+  });
+
+  it('does not accept a confirmation with no sending lease', async () => {
+    const confirmation = Object.assign(delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'tester' } }), { senderLeaseId: null });
+    await handle(held, confirmation);
+    expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toBeNull();
+  });
+
+  it('leaves the confirmation unacknowledged when the current lease read fails', async () => {
+    isMemberReadUnavailable = true;
+    await expect(handle(held, delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'tester' } }))).resolves.toMatchObject({ isOk: false, error: { code: 'UNAVAILABLE' } });
+    expect(acked).toEqual([]);
+    expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toBeNull();
+  });
+
+  it('does not accept a confirmation for another role', async () => {
+    await handle(held, delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'planner' } }));
+    expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toBeNull();
+  });
+});
+
+it('accepts a replacement crew only through a fresh confirmation carrying its own lease', async () => {
+  const old = delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'tester' } });
+  memberLease = 'lse_01m3tbfspe96yf1rnr4ank0002';
+  await handle(held, old);
+  await handle(held, old);
+  expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toBeNull();
+  const fresh = Object.assign(delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'tester' } }), { senderLeaseId: memberLease });
+  await expect(handle(held, fresh)).resolves.toEqual({ isOk: true, value: 'on-station' });
+  expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toEqual(NOW);
 });

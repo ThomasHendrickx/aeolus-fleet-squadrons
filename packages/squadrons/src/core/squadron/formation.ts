@@ -1,4 +1,5 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import type { PrepareFormation } from '../network/prepare-formation.js';
+import type { LabelValueId, ShipId } from '@aeolus-fleet/common';
 
 import type { FleetDoor, FleetRefusal, IssuedPrompt, ManagementCrew } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
@@ -33,10 +34,10 @@ export interface Formation {
  * first, so that a start after a crash retires what an unfinished attempt
  * commissioned (recover-formations). The caller finishes the attempt together
  * with storing what it formed. A squadron a ship formed names that ship on
- * each commission, so its ships get the forming ship's owner (decision 0045).
+ * each commission, so the forming ship owns its ships (decision 0045).
  */
 export async function beginFormation(
-  deps: { door: FleetDoor; attempts: FormationAttempts; random: RandomNames; clock: Clock },
+  deps: { prepareFormation: PrepareFormation; door: FleetDoor; attempts: FormationAttempts; random: RandomNames; clock: Clock },
   of: { crew: ManagementCrew; squadronId: string; ownerOf?: ShipId },
 ): Promise<Formation> {
   const { crew, squadronId, ownerOf } = of;
@@ -46,10 +47,11 @@ export async function beginFormation(
   const attemptId = `${squadronId}@${startedAt.toISOString()}-${deps.random.suffix(ATTEMPT_SUFFIX_LENGTH)}`;
   await deps.attempts.begin({ id: attemptId, fleetId: crew.fleetId, squadronId, startedAt });
   const commissioned: ShipId[] = [];
+  const prepared = await deps.prepareFormation(crew.fleetId);
 
   // A lost answer is asked again under the same key, so the fleet commissions
   // no second ship; its repeat holds no secret, so the ship gets a new starting prompt.
-  const commissionOnce = async (ship: { name: string; type: string; scopes: readonly string[]; ownerOf: ShipId | undefined; idempotencyKey: string }): Promise<Result<{ shipId: ShipId } & IssuedPrompt, FleetRefusal>> => {
+  const commissionOnce = async (ship: { name: string; type: string; scopes: readonly string[]; ownerOf: ShipId | undefined; valueIds: readonly LabelValueId[]; idempotencyKey: string }): Promise<Result<{ shipId: ShipId } & IssuedPrompt, FleetRefusal>> => {
     let made = await deps.door.commission(crew.crewToken, ship);
     if (!made.isOk && made.error.code === 'UNAVAILABLE') {
       made = await deps.door.commission(crew.crewToken, ship);
@@ -70,11 +72,14 @@ export async function beginFormation(
   return {
     attemptId,
     commission: async (slot, ship) => {
+      if (!prepared.isOk) {
+        return prepared;
+      }
       let refusal: FleetRefusal = { code: 'CONFLICT', message: 'no free name' };
       for (let attempt = 0; attempt < NAME_ATTEMPTS; attempt += 1) {
         const shipName = ship.names();
         await deps.attempts.plan(crew.fleetId, { attemptId, name: shipName });
-        const made = await commissionOnce({ name: shipName, type: ship.type, scopes: ship.scopes, ownerOf, idempotencyKey: `${attemptId}:${slot}:${shipName}` });
+        const made = await commissionOnce({ name: shipName, type: ship.type, scopes: ship.scopes, valueIds: [prepared.value], ownerOf, ...(ownerOf === undefined ? {} : { ownership: 'requester' as const }), idempotencyKey: `${attemptId}:${slot}:${shipName}` });
         if (made.isOk) {
           return ok({ ...made.value, name: shipName });
         }

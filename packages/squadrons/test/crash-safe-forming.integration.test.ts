@@ -136,7 +136,7 @@ beforeEach(async () => {
   const argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet' })));
   await giveOperatorLogin(fleetDatabase, argo.fleetId);
   const { shipId, secret } = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'fleet:on-behalf'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'fleet:on-behalf', 'labels:define', 'labels:assign', 'scopes:declare'] }),
   );
   managementShip = { operatorFleetId: argo.fleetId, shipId, secret: secretOf(secret) };
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });

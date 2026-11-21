@@ -134,3 +134,9 @@ describe('squadrons declaring the network rules its squadrons need (#573)', () =
     await expect(declare(FLEET_ID)).resolves.toEqual({ isOk: true, value: { isDeclared: true } });
   });
 });
+
+it('declares manage from its formed controller to formed ships without changing squadron send rules', async () => {
+  fleet.state.labels.push({ labelId: 'lbl_01m3tbfspe96yf1rnr4ank9f00', key: 'squadrons-formed', ownerShipId: SHIP_ID, values: [{ valueId: 'lbv_01m3tbfspe96yf1rnr4ank9f01', value: 'controller' }, { valueId: 'lbv_01m3tbfspe96yf1rnr4ank9f02', value: 'formed' }] });
+  await declare(FLEET_ID);
+  expect(fleet.state.declarations).toEqual([[{ verb: 'manage', from: ['lbv_01m3tbfspe96yf1rnr4ank9f01'], to: ['lbv_01m3tbfspe96yf1rnr4ank9f02'] }]]);
+});

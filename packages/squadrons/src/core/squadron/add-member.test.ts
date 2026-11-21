@@ -124,7 +124,7 @@ const squadrons: SquadronRepository = {
   },
 };
 
-const addMember = createAddMember({ door, management, squadrons, attempts, random: { suffix: () => 'q8r2' }, clock: { now: () => NOW }, limits: NO_LIMITS });
+const addMember = createAddMember({ prepareFormation: () => Promise.resolve(ok('lbv_01m3tbfspe96yf1rnr4ank9f02' as const)), door, management, squadrons, attempts, random: { suffix: () => 'q8r2' }, clock: { now: () => NOW }, limits: NO_LIMITS });
 
 beforeEach(() => {
   held = aSquadron('sailing');
@@ -325,7 +325,7 @@ describe('a crew request for an added member (#343)', () => {
 
 describe("squadrons' limit of members per squadron (question 9)", () => {
   const addWithin = (membersPerSquadron: number) =>
-    createAddMember({ door, management, squadrons, attempts, random: { suffix: () => 'q8r2' }, clock: { now: () => NOW }, limits: { ...NO_LIMITS, membersPerSquadron } });
+    createAddMember({ prepareFormation: () => Promise.resolve(ok('lbv_01m3tbfspe96yf1rnr4ank9f02' as const)), door, management, squadrons, attempts, random: { suffix: () => 'q8r2' }, clock: { now: () => NOW }, limits: { ...NO_LIMITS, membersPerSquadron } });
 
   it('refuses a member over the limit, naming it, and commissions nothing', async () => {
     const refused = await addWithin(1)({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester' });

@@ -386,7 +386,7 @@ describe('the hash of a built template', () => {
       `{"repository":"${OWN}","name":"plain","version":1,"commit":"plain-1","file":"sha(plain text)"}`,
     ];
 
-    expect(hashOf([{ ...aeolusShip, text: 'base text' }, { ...plain, text: 'plain text' }])).toBe(`sha({"buildRules":1,"chain":[${chainText.join(',')}]})`);
+    expect(hashOf([{ ...aeolusShip, text: 'base text' }, { ...plain, text: 'plain text' }])).toBe(`sha({"buildRules":2,"chain":[${chainText.join(',')}]})`);
   });
 
   it('builds one chain to the same hash and the same full template whenever it is read', () => {
@@ -405,7 +405,7 @@ describe('the hash of a built template', () => {
   });
 
   it('builds anew to another hash under a raised build rules number', () => {
-    expect(hashOf([aeolusShip, plain], { buildRules: 2 })).not.toBe(hashOf([aeolusShip, plain]));
+    expect(hashOf([aeolusShip, plain], { buildRules: 3 })).not.toBe(hashOf([aeolusShip, plain]));
   });
 
   it('keeps the hash of a version on its base when a new version of the base is tagged', () => {
@@ -443,6 +443,7 @@ describe('labels on a template', () => {
   });
 
   it('refuse squadron and squadron-role: squadrons puts them on its ships itself', () => {
+    expect(reasonOf([labelled(['squadrons-formed=controller'])], 'labelled')).toBe('labels.0 uses squadrons-formed, a label squadrons puts on its ships itself');
     expect(reasonOf([labelled(['squadron=mine'])], 'labelled')).toBe('labels.0 uses squadron, a label squadrons puts on its ships itself');
     expect(reasonOf([labelled(['squadron-role=member'])], 'labelled')).toBe('labels.0 uses squadron-role, a label squadrons puts on its ships itself');
   });
@@ -462,12 +463,12 @@ describe('labels on a template', () => {
     expect(reasonOf([aeolusShip, labelled(['company=tidewater'], true)], 'labelled')).toBe('labels.company is company=aeolus in its base: a template adds labels, and never changes one');
   });
 
-  it('leave out a template with more labels than a member carries beside its squadron, 19 once built', () => {
+  it('leave out a template with more labels than a member carries beside its squadron and formed selection, 18 once built', () => {
     const labels = (from: number, count: number) => Array.from({ length: count }, (_, index) => `key-${String(from + index)}=value`);
     const base = layer({ name: 'base', version: 1 }, { description: 'Base.', checkIn: '1h', charter: 'Go.', labels: labels(1, 10) });
     const more = (count: number) => layer({ repository: OWN, name: 'more', version: 1 }, { base: { template: `${SKILLS}#base@1` }, description: 'More.', labels: labels(11, count) });
 
-    expect(builtOf([base, more(9)], 'more')?.labels).toHaveLength(19);
-    expect(reasonOf([base, more(10)], 'more')).toBe('labels are 20 once built, over 19: a member carries at most 20 labels, squadron among them');
+    expect(builtOf([base, more(8)], 'more')?.labels).toHaveLength(18);
+    expect(reasonOf([base, more(9)], 'more')).toBe('labels are 19 once built, over 18: a member carries at most 20 labels, squadron and squadrons-formed among them');
   });
 });

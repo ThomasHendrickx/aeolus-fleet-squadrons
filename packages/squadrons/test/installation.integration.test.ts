@@ -92,10 +92,10 @@ beforeEach(async () => {
   fleetId = founded.fleetId;
   caller = operatorCaller(founded);
   const commissioned = unwrap(
-    await useCases.commissionShip(operatorCaller(founded), { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'fleet:on-behalf'] }),
+    await useCases.commissionShip(operatorCaller(founded), { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'fleet:on-behalf', 'labels:define', 'labels:assign', 'scopes:declare'] }),
   );
   management = { shipId: commissioned.shipId, secret: secretOf(commissioned.secret) };
-  fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
+  fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
   squadronsDatabaseUrl = await createSquadronsDatabase();
   await seedRepository(squadronsDatabaseUrl, { fleetId, name: REPO, url: 'https://github.com/acme/templates' });
@@ -215,13 +215,13 @@ describe('an enabled installation, with an installation token', () => {
     expect((await installation({ procedure: 'installation.connect', body: { ...body, requestId: 'another' } })).status).toBe(409);
   });
 
-  it.each(['fleet:read', 'fleet:commission', 'fleet:manage'])('refuses a hand-over missing %s and deregisters the acquired crew', async (missing) => {
+  it.each(['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign'])('refuses a hand-over missing %s and deregisters the acquired crew', async (missing) => {
     const useCases = createUseCases({ prisma: fleetDatabase });
-    const ship = unwrap(await useCases.commissionShip(caller, { idempotencyKey: newKey(), name: 'deficient', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'].filter((scope) => scope !== missing) }));
+    const ship = unwrap(await useCases.commissionShip(caller, { idempotencyKey: newKey(), name: 'deficient', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign'].filter((scope) => scope !== missing) }));
     await dataOf(await installation({ procedure: 'installation.setEnabled', body: { requestId: 'on', fleetId, enabled: true } }));
     const response = await installation({ procedure: 'installation.connect', body: { requestId: 'connect', fleetId, shipId: ship.shipId, secret: secretOf(ship.secret) } });
     expect(response.status).toBe(400);
-    expect(await response.text()).toContain('fleet:read, fleet:commission and fleet:manage');
+    expect(await response.text()).toContain('fleet:read, fleet:commission, fleet:manage, labels:define and labels:assign');
     expect(await dataOf(await installation({ procedure: 'installation.get', body: { fleetId } }))).toEqual({ enabled: true, connected: false });
     expect(await fleetDatabase.lease.count({ where: { fleetId, shipId: ship.shipId, endedAt: null } })).toBe(0);
   });
