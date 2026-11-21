@@ -33,7 +33,7 @@ export interface Formation {
  * first, so that a start after a crash retires what an unfinished attempt
  * commissioned (recover-formations). The caller finishes the attempt together
  * with storing what it formed. A squadron a ship formed names that ship on
- * each commission, so its ships get the forming ship's owner (decision 0045).
+ * each commission, so the forming ship owns its ships (decision 0045).
  */
 export async function beginFormation(
   deps: { door: FleetDoor; attempts: FormationAttempts; random: RandomNames; clock: Clock },
@@ -74,7 +74,7 @@ export async function beginFormation(
       for (let attempt = 0; attempt < NAME_ATTEMPTS; attempt += 1) {
         const shipName = ship.names();
         await deps.attempts.plan(crew.fleetId, { attemptId, name: shipName });
-        const made = await commissionOnce({ name: shipName, type: ship.type, scopes: ship.scopes, ownerOf, idempotencyKey: `${attemptId}:${slot}:${shipName}` });
+        const made = await commissionOnce({ name: shipName, type: ship.type, scopes: ship.scopes, ownerOf, ...(ownerOf === undefined ? {} : { ownership: 'requester' as const }), idempotencyKey: `${attemptId}:${slot}:${shipName}` });
         if (made.isOk) {
           return ok({ ...made.value, name: shipName });
         }

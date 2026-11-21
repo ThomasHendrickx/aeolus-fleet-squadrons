@@ -195,7 +195,7 @@ describe('a ship holding squadrons:form (decision 0017)', () => {
     expect((await squadronOf('login-flow'))?.state).toBe('standing-down');
   });
 
-  it("gives the squadron's ships the forming ship's owner, so an owner=# rule in force lets the flagship and the forming ship reach each other with open send off (decisions 0045, 0034)", async () => {
+  it("makes the requesting ship the owner, preserving direct owner reach with open send off", async () => {
     const thomas = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
     const lead = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tech-lead', type: 'lead', scopes: ['squadrons:form'] }));
     unwrap(await fleetUseCases.setOwner(argo, { shipId: lead.shipId, ownerShipId: thomas.shipId }));
@@ -218,7 +218,7 @@ describe('a ship holding squadrons:form (decision 0017)', () => {
     const { savedAgainstVersion } = unwrap(await fleetUseCases.saveNetworkRulesDraft(networking, { rules }));
     unwrap(await fleetUseCases.applyNetworkRules(networking, { version: savedAgainstVersion }));
 
-    expect(flagship.ownerShipId).toBe(thomas.shipId);
+    expect(flagship.ownerShipId).toBe(lead.shipId);
     const toFlagship = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: lead.shipId, toShipId: flagshipId }));
     const toLead = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: flagshipId, toShipId: lead.shipId }));
     const fromOutsider = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: outsider.shipId, toShipId: flagshipId }));

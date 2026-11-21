@@ -77,7 +77,7 @@ interface FleetShip {
   scopes: string[];
   /** The ship whose owner it was commissioned with, if squadrons named one. */
   ownerOf: ShipId | null;
-  ownership: unknown;
+  ownership?: unknown;
 }
 
 function fakeFleet() {
