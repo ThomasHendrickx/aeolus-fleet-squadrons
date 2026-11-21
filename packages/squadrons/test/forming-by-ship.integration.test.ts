@@ -296,7 +296,7 @@ it.each(['person', 'agent', 'app'] as const)('a %s requester owns the squadron s
   await expect.poll(async () => (await fleetUseCases.listScopes(argo)).some(({ namespace }) => namespace === 'squadrons'), { timeout: LIVE_TIMEOUT_MS }).toBe(true);
   const requester = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'requester', type: 'requester', kind, scopes: ['squadrons:form', 'fleet:read'] }));
   const crew = await crewed({ shipId: requester.shipId, secret: secretOf(requester.secret) });
-  await crew.call('send', { selector: { kind: 'ship', name: 'squadrons' }, contentType: FORM, payload: JSON.stringify({ blueprint: `${REPO}#delivery@1`, squadronId: 'requester-team', members: { 'builder-1': { parameters: { area: 'the public contract' } } }, key: 'requester-form' }), idempotencyKey: 'requester-form' });
+  await crew.call('send', { model: kind === 'agent' ? 'claude-opus-5-5' : undefined, selector: { kind: 'ship', name: 'squadrons' }, contentType: FORM, payload: JSON.stringify({ blueprint: `${REPO}#delivery@1`, squadronId: 'requester-team', members: { 'builder-1': { parameters: { area: 'the public contract' } } }, key: 'requester-form' }), idempotencyKey: 'requester-form' });
   await crew.awaitDelivery(FORMED);
   const formed = await squadronOf('requester-team');
   expect((await crew.readShip({ shipId: z.string().parse(formed?.flagship.shipId) })).owner?.id).toBe(requester.shipId);
