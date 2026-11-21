@@ -1058,6 +1058,16 @@ describe('current crew evidence for on station', () => {
     expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toBeNull();
   });
 
+  it.each<null | undefined>([null, undefined])('retries without acknowledging when the current lease is %s', async (lease) => {
+    memberLease = lease;
+    const confirmation = delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'tester' } });
+    await expect(handle(held, confirmation)).resolves.toMatchObject({ isOk: false, error: { code: 'UNAVAILABLE' } });
+    expect(acked).toEqual([]);
+    expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toBeNull();
+    memberLease = confirmation.senderLeaseId;
+    await expect(handle(held, confirmation)).resolves.toEqual({ isOk: true, value: 'on-station' });
+  });
+
   it('does not accept a confirmation with no sending lease', async () => {
     const confirmation = Object.assign(delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'tester' } }), { senderLeaseId: null });
     await handle(held, confirmation);
