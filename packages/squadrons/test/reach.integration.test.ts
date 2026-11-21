@@ -104,7 +104,7 @@ async function fleetHoldingDeclarations(): Promise<{ isHolding: () => boolean; l
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleet.addHook('preHandler', async (request) => {
     const declaration = z.object({ rules: z.array(z.unknown()) }).safeParse(request.body);
-    if (request.url === '/api/v1/fleet/declareNetworkRules' && declaration.success && declaration.data.rules.length > 0) {
+    if (request.url === '/api/v1/fleet/declareNetworkRules' && declaration.success && declaration.data.rules.length > 4) {
       isHolding = true;
       await through;
     }
@@ -200,9 +200,14 @@ describe('the squadron reach against a real fleet (#573, decision 0037)', () => 
     const { savedAgainstVersion } = unwrap(await useCases.saveNetworkRulesDraft(networking, { rules: [{ verb: 'send', from: [], to: [] }, { verb: 'read', from: [], to: [] }] }));
     unwrap(await useCases.applyNetworkRules(networking, { version: savedAgainstVersion }));
 
+    const unrelated = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'unrelated', type: 'agent' }));
     const explained = unwrap(await useCases.explainReach(argo, { fromShipId: management.shipId }));
 
     expect(explained.manage.map(({ shipId }) => shipId)).toEqual(expect.arrayContaining([flagship, member]));
+    expect(explained.manage.map(({ shipId }) => shipId)).not.toContain(unrelated.shipId);
+    await expectOk(installation('installation.setEnabled', { requestId: newKey(), fleetId, enabled: false }));
+    const withdrawn = unwrap(await useCases.explainReach(argo, { fromShipId: management.shipId }));
+    expect(withdrawn.manage.map(({ shipId }) => shipId)).not.toContain(member);
   });
 
   it('withdraws the declared rules when switched off, keeping the labels, and declares them again once on', async () => {

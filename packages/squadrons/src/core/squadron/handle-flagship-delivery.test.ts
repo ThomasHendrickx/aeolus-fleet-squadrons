@@ -1076,3 +1076,14 @@ describe('current crew evidence for on station', () => {
     expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toBeNull();
   });
 });
+
+it('accepts a replacement crew only through a fresh confirmation carrying its own lease', async () => {
+  const old = delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'tester' } });
+  memberLease = 'lse_01m3tbfspe96yf1rnr4ank0002';
+  await handle(held, old);
+  await handle(held, old);
+  expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toBeNull();
+  const fresh = Object.assign(delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'tester' } }), { senderLeaseId: memberLease });
+  await expect(handle(held, fresh)).resolves.toEqual({ isOk: true, value: 'on-station' });
+  expect(held.members.find(({ shipId }) => shipId === TESTER)?.onStationAt).toEqual(NOW);
+});
