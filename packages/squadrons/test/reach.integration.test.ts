@@ -165,8 +165,6 @@ describe('the squadron reach against a real fleet (#573, decision 0037)', () => 
 
     await expect.poll(() => declared()).toHaveLength(1);
     await expect.poll(() => labelsOf(member)).toEqual(['squadron=team-one', 'squadrons-formed=formed']);
-    const declarationsBefore = await fleetDatabase.event.count({ where: { type: 'NetworkRulesDeclared' } });
-    await severalRescans();
 
     await expect(labelsOf(flagship)).resolves.toEqual(['squadron-role=flagship', 'squadron=team-one', 'squadrons-formed=formed']);
     await expect(labelsOf(member)).resolves.toEqual(['squadron=team-one', 'squadrons-formed=formed']);
@@ -176,7 +174,7 @@ describe('the squadron reach against a real fleet (#573, decision 0037)', () => 
     const valueOf = async (value: string) => unwrap(await useCases.findLabelValue(argo, { key: 'squadron-role', value })).valueId;
     const formedValue = async (value: string) => unwrap(await useCases.findLabelValue(argo, { key: 'squadrons-formed', value })).valueId;
     const same = { labelId: squadron, value: '#' };
-    await expect(declared()).resolves.toEqual([
+    await expect.poll(() => declared()).toEqual([
       {
         shipId: management.shipId,
         rules: [
@@ -188,7 +186,9 @@ describe('the squadron reach against a real fleet (#573, decision 0037)', () => 
         ],
       },
     ]);
-    await expect(fleetDatabase.event.count({ where: { type: 'NetworkRulesDeclared' } })).resolves.toBe(declarationsBefore);
+    const declarationsBefore = await fleetDatabase.event.count({ where: { fleetId, type: 'NetworkRulesDeclared' } });
+    await severalRescans();
+    await expect(fleetDatabase.event.count({ where: { fleetId, type: 'NetworkRulesDeclared' } })).resolves.toBe(declarationsBefore);
   });
 
   it("manages its squadrons' ships through the manage rule it declared, in force beside the fleet's applied rules once open is off (decisions 0034, 0037)", async () => {

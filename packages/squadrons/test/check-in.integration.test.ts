@@ -249,8 +249,8 @@ describe('the check-in at the flagship', () => {
     await member.call('send', { selector: { kind: 'ship', name: `team-lease-${mode}` }, contentType: ON_STATION, payload: JSON.stringify({ squadron: `team-lease-${mode}`, role: 'tester' }), idempotencyKey: `confirmation-${mode}` });
     await expect.poll(() => leaseReads, { timeout: LIVE_TIMEOUT_MS }).toBeGreaterThan(0);
     await new Promise((resolve) => setTimeout(resolve, RESCANS_MS));
-    expect(await squadronState(`team-lease-${mode}`)).toBe('forming');
     leaseReadMode = 'available';
+    expect(await squadronState(`team-lease-${mode}`)).toBe('forming');
     // A new wake makes the flagship receive its unacknowledged delivery again.
     await member.call('send', { selector: { kind: 'ship', name: `team-lease-${mode}` }, payload: 'Wake to retry the held confirmation.', idempotencyKey: `retry-wake-${mode}` });
     // No second confirmation: the unacknowledged delivery itself must recover.
