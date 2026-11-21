@@ -14,8 +14,8 @@ import { CHARTER_MAX_BYTES, TEMPLATE_SCOPES_MAX, type ChainLayer, type CrewDraft
 import { fillParameters } from './member-crew.js';
 import type { SourceFile } from './ports.js';
 
-/** The most labels a template gives its members: as many as a ship carries, but squadrons' own squadron=<id>. */
-const TEMPLATE_LABELS_MAX = SHIP_LABELS_MAX - 1;
+/** The most labels a template gives its members: as many as a ship carries, but squadrons' own squadron=<id> and squadrons-formed=formed. */
+const TEMPLATE_LABELS_MAX = SHIP_LABELS_MAX - 2;
 
 /** The most templates a chain holds, the template itself included (decision 5). */
 export const CHAIN_MAX_TEMPLATES = 10;
@@ -25,7 +25,7 @@ export const CHAIN_MAX_TEMPLATES = 10;
  * of building changes, so each version builds anew under the new rules
  * (decision 11).
  */
-export const BUILD_RULES = 1;
+export const BUILD_RULES = 2;
 
 const BYTES_PER_KB = 1024;
 /** Tenths per whole: a size over a limit is shown to one decimal, rounded up. */
@@ -249,7 +249,7 @@ function overLimit(template: TemplateVersion): string | undefined {
     return `scopes are ${String(template.scopes.length)} once built, over ${String(TEMPLATE_SCOPES_MAX)}`;
   }
   if (template.labels.length > TEMPLATE_LABELS_MAX) {
-    return `labels are ${String(template.labels.length)} once built, over ${String(TEMPLATE_LABELS_MAX)}: a member carries at most ${String(SHIP_LABELS_MAX)} labels, squadron among them`;
+    return `labels are ${String(template.labels.length)} once built, over ${String(TEMPLATE_LABELS_MAX)}: a member carries at most ${String(SHIP_LABELS_MAX)} labels, squadron and squadrons-formed among them`;
   }
   return undefined;
 }

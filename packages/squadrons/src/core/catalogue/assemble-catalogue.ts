@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { err, ok, type Result } from '../shared/result.js';
 import { CHARTER_MAX_BYTES, FLAGSHIP, TEMPLATE_SCOPES_MAX, type BlueprintVersion, type Catalogue, type CatalogueProblem, type CrewDraft, type TemplateReference, type TemplateVersion } from './catalogue.js';
-import { SQUADRON_LABEL, SQUADRON_ROLE_LABEL } from '../network/label-squadrons.js';
+import { FORMED_LABEL, SQUADRON_LABEL, SQUADRON_ROLE_LABEL } from '../network/label-squadrons.js';
 import type { SourceFile, UnreadTag } from './ports.js';
 import { BUILD_RULES, buildTemplates, chainHashes, referenceKey, untaggedReason, type TemplateLayer, type ToBuild } from './template-base.js';
 
@@ -134,7 +134,7 @@ const layerFields = {
     .optional(),
 };
 /** The label keys squadrons puts on its ships itself, which no template sets. */
-const SQUADRONS_OWN_LABEL_KEYS: readonly string[] = [SQUADRON_LABEL, SQUADRON_ROLE_LABEL.key];
+const SQUADRONS_OWN_LABEL_KEYS: readonly string[] = [FORMED_LABEL.key, SQUADRON_LABEL, SQUADRON_ROLE_LABEL.key];
 
 /** A template without a base: today's template, its check-in and charter its own. */
 const templateSchema = z.object({ ...layerFields, checkIn, charter: charterText });

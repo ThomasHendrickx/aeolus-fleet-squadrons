@@ -145,12 +145,17 @@ async function crewed(ship: { shipId: string; secret: string }) {
     }
     return found;
   };
-  return { call, awaitDelivery };
+  const readShip = async (ship: { shipId: string }) => {
+    const response = await fetch(`${fleetUrl}/api/v1/fleet/ship`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${crewToken}` }, body: JSON.stringify(ship) });
+    expect(response.status).toBe(200);
+    return z.object({ owner: z.object({ id: z.string() }).nullable() }).parse(await response.json());
+  };
+  return { call, awaitDelivery, readShip };
 }
 
 async function squadronOf(squadronId: string) {
   const listed = z
-    .object({ result: z.object({ data: z.array(z.object({ id: z.string(), state: z.string(), members: z.array(z.object({ shipId: z.string(), name: z.string() })) })) }) })
+    .object({ result: z.object({ data: z.array(z.object({ id: z.string(), state: z.string(), flagship: z.object({ shipId: z.string() }), members: z.array(z.object({ shipId: z.string(), name: z.string() })) })) }) })
     .parse(await (await fetch(`${address}/trpc/squadrons.list`, { headers: { cookie } })).json());
   return listed.result.data.find((squadron) => squadron.id === squadronId);
 }
@@ -285,4 +290,16 @@ describe('a ship holding squadrons:form (decision 0017)', () => {
 
     expect(JSON.parse(asked.payload)).toMatchObject({ squadron: 'login-flow', member: { role: 'builder' }, payload: 'Which branch?' });
   });
+});
+
+it.each(['person', 'agent', 'app'] as const)('a %s requester owns the squadron ships through public calls', async (kind) => {
+  await expect.poll(async () => (await fleetUseCases.listScopes(argo)).some(({ namespace }) => namespace === 'squadrons'), { timeout: LIVE_TIMEOUT_MS }).toBe(true);
+  const requester = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'requester', type: 'requester', kind, scopes: ['squadrons:form', 'fleet:read'] }));
+  const crew = await crewed({ shipId: requester.shipId, secret: secretOf(requester.secret) });
+  await crew.call('send', { selector: { kind: 'ship', name: 'squadrons' }, contentType: FORM, payload: JSON.stringify({ blueprint: `${REPO}#delivery@1`, squadronId: 'requester-team', members: { 'builder-1': { parameters: { area: 'the public contract' } } }, key: 'requester-form' }), idempotencyKey: 'requester-form' });
+  await crew.awaitDelivery(FORMED);
+  const formed = await squadronOf('requester-team');
+  expect((await crew.readShip({ shipId: z.string().parse(formed?.flagship.shipId) })).owner?.id).toBe(requester.shipId);
+  const member = formed?.members[0];
+  expect((await crew.readShip({ shipId: z.string().parse(member?.shipId) })).owner?.id).toBe(requester.shipId);
 });

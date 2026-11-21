@@ -386,7 +386,7 @@ describe('the hash of a built template', () => {
       `{"repository":"${OWN}","name":"plain","version":1,"commit":"plain-1","file":"sha(plain text)"}`,
     ];
 
-    expect(hashOf([{ ...aeolusShip, text: 'base text' }, { ...plain, text: 'plain text' }])).toBe(`sha({"buildRules":1,"chain":[${chainText.join(',')}]})`);
+    expect(hashOf([{ ...aeolusShip, text: 'base text' }, { ...plain, text: 'plain text' }])).toBe(`sha({"buildRules":2,"chain":[${chainText.join(',')}]})`);
   });
 
   it('builds one chain to the same hash and the same full template whenever it is read', () => {
@@ -405,7 +405,7 @@ describe('the hash of a built template', () => {
   });
 
   it('builds anew to another hash under a raised build rules number', () => {
-    expect(hashOf([aeolusShip, plain], { buildRules: 2 })).not.toBe(hashOf([aeolusShip, plain]));
+    expect(hashOf([aeolusShip, plain], { buildRules: 3 })).not.toBe(hashOf([aeolusShip, plain]));
   });
 
   it('keeps the hash of a version on its base when a new version of the base is tagged', () => {
