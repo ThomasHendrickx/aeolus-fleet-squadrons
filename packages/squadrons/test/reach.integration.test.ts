@@ -83,7 +83,7 @@ async function fleetDown(): Promise<() => Promise<void>> {
   const { port } = new URL(fleetUrl);
   await fleet.close();
   return async () => {
-    fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
+    fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
     await fleet.listen({ host: '127.0.0.1', port: Number(port) });
   };
 }
@@ -101,7 +101,7 @@ async function fleetHoldingDeclarations(): Promise<{ isHolding: () => boolean; l
     letThrough = resolve;
   });
   let isHolding = false;
-  fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
+  fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleet.addHook('preHandler', async (request) => {
     const declaration = z.object({ rules: z.array(z.unknown()) }).safeParse(request.body);
     if (request.url === '/api/v1/fleet/declareNetworkRules' && declaration.success && declaration.data.rules.length > 0) {
@@ -143,7 +143,7 @@ beforeEach(async () => {
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'fleet:on-behalf'] }),
   );
   management = { shipId: commissioned.shipId, secret: secretOf(commissioned.secret) };
-  fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
+  fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
   const squadronsDatabaseUrl = await createSquadronsDatabase();
   await seedRepository(squadronsDatabaseUrl, { fleetId, name: REPO, url: 'https://github.com/acme/templates' });
