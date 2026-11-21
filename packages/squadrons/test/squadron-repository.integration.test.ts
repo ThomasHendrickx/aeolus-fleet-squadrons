@@ -214,8 +214,8 @@ describe('formation attempts begun in the same instant', () => {
     };
     const crew = { fleetId: FLEET, shipId: 'shp_01m3tbfspe96yf1rnr4ank9h1a', name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: AT } as const;
 
-    const forming = await beginFormation(deps, { crew, squadronId: 'team-b2c3d4' });
-    const adding = await beginFormation(deps, { crew, squadronId: 'team-b2c3d4' });
+    const forming = await beginFormation({ ...deps, prepareFormation: () => Promise.resolve({ isOk: true as const, value: 'lbv_01m3tbfspe96yf1rnr4ank9f02' as const }) }, { crew, squadronId: 'team-b2c3d4' });
+    const adding = await beginFormation({ ...deps, prepareFormation: () => Promise.resolve({ isOk: true as const, value: 'lbv_01m3tbfspe96yf1rnr4ank9f02' as const }) }, { crew, squadronId: 'team-b2c3d4' });
 
     expect(adding.attemptId).not.toBe(forming.attemptId);
     await expect(attempts.unfinished(FLEET)).resolves.toHaveLength(2);

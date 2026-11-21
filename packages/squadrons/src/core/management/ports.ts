@@ -55,7 +55,7 @@ export interface FleetDoor {
    */
   commission(
     crewToken: string,
-    ship: { name: string; type: string; scopes: readonly string[]; ownerOf?: ShipId; ownership?: 'requester'; idempotencyKey: string },
+    ship: { name: string; type: string; scopes: readonly string[]; ownerOf?: ShipId; ownership?: 'requester'; valueIds?: readonly LabelValueId[]; idempotencyKey: string },
   ): Promise<
     Result<
       {

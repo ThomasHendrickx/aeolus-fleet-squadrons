@@ -1,3 +1,4 @@
+import type { PrepareFormation } from '../network/prepare-formation.js';
 import type { CrewLine, FleetId, ShipId } from '@aeolus-fleet/common';
 
 import type { FleetDoor, ManagementCrewStore } from '../management/ports.js';
@@ -52,6 +53,7 @@ export type AddMember = (input: {
  */
 export function createAddMember(deps: {
   door: FleetDoor;
+  prepareFormation: PrepareFormation;
   management: ManagementCrewStore;
   squadrons: SquadronRepository;
   attempts: FormationAttempts;

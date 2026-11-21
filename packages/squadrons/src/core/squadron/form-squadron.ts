@@ -1,3 +1,4 @@
+import type { PrepareFormation } from '../network/prepare-formation.js';
 import { LABEL_VALUES_MAX, SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN, type CrewLine, type FleetId, type ShipId } from '@aeolus-fleet/common';
 
 import type { Catalogue, TemplateReference, TemplateVersion } from '../catalogue/catalogue.js';
@@ -64,6 +65,7 @@ function isHandle(value: string): boolean {
  */
 export function createFormSquadron(deps: {
   door: FleetDoor;
+  prepareFormation: PrepareFormation;
   management: ManagementCrewStore;
   squadrons: SquadronRepository;
   attempts: FormationAttempts;

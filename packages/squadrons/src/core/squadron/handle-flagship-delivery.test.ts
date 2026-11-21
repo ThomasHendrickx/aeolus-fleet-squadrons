@@ -215,7 +215,7 @@ const handle = createHandleFlagshipDelivery({
   relays,
   management,
   standDown: createStandDown({ squadrons }),
-  addMember: createAddMember({ door, management, squadrons, attempts: memoryAttempts(), random: { suffix: () => 'q8r2' }, clock, limits: NO_LIMITS }),
+  addMember: createAddMember({ prepareFormation: () => Promise.resolve(ok('lbv_01m3tbfspe96yf1rnr4ank9f02' as const)), door, management, squadrons, attempts: memoryAttempts(), random: { suffix: () => 'q8r2' }, clock, limits: NO_LIMITS }),
   removeMember: createRemoveMember({ door, management, squadrons, clock }),
   advanceStandDowns: () => {
     advances.push(acked.length);
