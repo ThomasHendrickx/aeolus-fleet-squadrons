@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { idSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
@@ -26,6 +26,12 @@ let address: string;
 let cookie: string;
 let fleetUseCases: ReturnType<typeof createUseCases>;
 let argo: ReturnType<typeof operatorCaller>;
+let leaseReadShip: string | undefined;
+let leaseReadMode: 'available' | 'delayed' | 'failed' | 'absent' | 'null';
+let leaseReads: number;
+let resumeLeaseRead: (() => void) | undefined;
+let delayedLeaseRead: Promise<void>;
+
 const ROLE = 'application/vnd.aeolus.squadron.role+json';
 const CHECK_IN = 'application/vnd.aeolus.squadron.check-in+json';
 const ON_STATION = 'application/vnd.aeolus.squadron.on-station+json';
@@ -47,6 +53,10 @@ async function signIn(): Promise<string> {
 }
 
 beforeEach(async () => {
+  leaseReadShip = undefined;
+  leaseReadMode = 'available';
+  leaseReads = 0;
+  delayedLeaseRead = new Promise<void>((resolve) => { resumeLeaseRead = resolve; });
   github = await startFakeGithub();
   github.repositories.set('acme/templates', {
     tags: tagsAt(
@@ -70,6 +80,20 @@ beforeEach(async () => {
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'fleet:on-behalf', 'labels:define', 'labels:assign', 'scopes:declare'] }),
   );
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
+  // Faults at the HTTP boundary leave core and squadrons persistence real.
+  fleet.addHook('preHandler', async (request, reply) => {
+    if (request.url !== '/api/v1/fleet/ship' || z.object({ shipId: z.string() }).safeParse(request.body).data?.shipId !== leaseReadShip) { return; }
+    leaseReads += 1;
+    if (leaseReadMode === 'delayed') { await delayedLeaseRead; }
+    if (leaseReadMode === 'failed') { return reply.code(503).send({ code: 'UNAVAILABLE', message: 'Lease read unavailable' }); }
+  });
+  fleet.addHook('onSend', async (...[request, , payload]: [FastifyRequest, FastifyReply, unknown]) => {
+    if (request.url !== '/api/v1/fleet/ship' || z.object({ shipId: z.string() }).safeParse(request.body).data?.shipId !== leaseReadShip || typeof payload !== 'string') { return payload; }
+    if (leaseReadMode !== 'absent' && leaseReadMode !== 'null') { return payload; }
+    const ship = z.record(z.string(), z.unknown()).parse(await new Response(payload).json());
+    if (leaseReadMode === 'absent') { delete ship.currentLease; } else { ship.currentLease = null; }
+    return JSON.stringify(ship);
+  });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
 
   const squadronsDatabaseUrl = await createSquadronsDatabase();
@@ -88,6 +112,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  resumeLeaseRead?.();
   await app.close();
   await fleet.close();
   await fleetDatabase.$disconnect();
@@ -186,6 +211,50 @@ describe('the check-in at the flagship', () => {
     });
 
     await expect.poll(() => squadronState('team-one'), { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
+  });
+
+  it('rejects a delayed old confirmation after re-crew and accepts only the fresh crew, including duplicates', async () => {
+    const formed = await formTeam('team-replacement');
+    const first = formed.members[0];
+    const shipId = idSchema('ship').parse(first?.shipId);
+    const old = await crewedMember(first?.crewLines[0]?.line ?? '');
+    leaseReadShip = shipId;
+    leaseReadMode = 'delayed';
+    const confirmation = { selector: { kind: 'ship', name: 'team-replacement' }, contentType: ON_STATION, payload: JSON.stringify({ squadron: 'team-replacement', role: 'tester' }), idempotencyKey: 'old-confirmation' };
+    const oldMessage = z.object({ messageId: z.string() }).parse(await old.call('send', confirmation));
+    await expect.poll(() => leaseReads, { timeout: LIVE_TIMEOUT_MS }).toBeGreaterThan(0);
+    const duplicateOld = z.object({ messageId: z.string() }).parse(await old.call('send', { ...confirmation, idempotencyKey: 'duplicate-old-confirmation' }));
+    const replacement = unwrap(await fleetUseCases.recrewShip(argo, { shipId }));
+    const fresh = await crewedMember(`crew fleet ${shipId} ${replacement.secret}`);
+    leaseReadMode = 'available';
+    resumeLeaseRead?.();
+    // The queued confirmation has the ended lease even though delivery is delayed.
+    await expect.poll(() => fleetDatabase.delivery.findFirst({ where: { fleetId: argo.fleetId, messageId: oldMessage.messageId } }).then((delivery) => delivery?.state), { timeout: LIVE_TIMEOUT_MS }).toBe('acknowledged');
+    await expect.poll(() => fleetDatabase.delivery.findFirst({ where: { fleetId: argo.fleetId, messageId: duplicateOld.messageId } }).then((delivery) => delivery?.state), { timeout: LIVE_TIMEOUT_MS }).toBe('acknowledged');
+    expect(await squadronState('team-replacement')).toBe('forming');
+    const current = { ...confirmation, idempotencyKey: 'fresh-confirmation' };
+    await fresh.call('send', current);
+    await expect.poll(() => squadronState('team-replacement'), { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
+    await fresh.call('send', current);
+    await fresh.call('send', { ...current, idempotencyKey: 'duplicate-confirmation' });
+    await new Promise((resolve) => setTimeout(resolve, RESCANS_MS));
+    expect(await squadronState('team-replacement')).toBe('sailing');
+  });
+
+  it.each(['failed', 'absent', 'null'] as const)('retries the same confirmation after a %s current lease read becomes available', async (mode) => {
+    const formed = await formTeam(`team-lease-${mode}`);
+    const member = await crewedMember(formed.members[0]?.crewLines[0]?.line ?? '');
+    leaseReadShip = formed.members[0]?.shipId;
+    leaseReadMode = mode;
+    await member.call('send', { selector: { kind: 'ship', name: `team-lease-${mode}` }, contentType: ON_STATION, payload: JSON.stringify({ squadron: `team-lease-${mode}`, role: 'tester' }), idempotencyKey: `confirmation-${mode}` });
+    await expect.poll(() => leaseReads, { timeout: LIVE_TIMEOUT_MS }).toBeGreaterThan(0);
+    await new Promise((resolve) => setTimeout(resolve, RESCANS_MS));
+    expect(await squadronState(`team-lease-${mode}`)).toBe('forming');
+    leaseReadMode = 'available';
+    // A new wake makes the flagship receive its unacknowledged delivery again.
+    await member.call('send', { selector: { kind: 'ship', name: `team-lease-${mode}` }, payload: 'Wake to retry the held confirmation.', idempotencyKey: `retry-wake-${mode}` });
+    // No second confirmation: the unacknowledged delivery itself must recover.
+    await expect.poll(() => squadronState(`team-lease-${mode}`), { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
   });
 
   it('shows a model mismatch on a member that checks in stating another model than its template pins', async () => {
