@@ -1,3 +1,4 @@
+import { createPrepareFormationInTurn } from './adapters/flagships/prepare-formation-in-turn.js';
 import { createPrepareFormation } from './core/network/prepare-formation.js';
 import type { FleetId } from '@aeolus-fleet/common';
 import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/adapters/fastify';
@@ -231,7 +232,7 @@ export function createSquadronsApp(options: {
   const deleteFleet: DeleteFleet = (input) => turns.take(input.fleetId, () => deleteFleetOutsideTurns(input));
   const labelSquadrons = createLabelSquadrons({ door: network, fleetDoor: door, management: store, squadrons, operator });
   const declareNetworkRules = createDeclareNetworkRules({ door: network, management: store, declarations });
-  const prepareFormation = createPrepareFormation({ management: store, door: network, label: labelSquadrons, declare: declareNetworkRules });
+  const prepareFormation = createPrepareFormationInTurn({ turns, isServed, prepare: createPrepareFormation({ management: store, door: network, label: labelSquadrons, declare: declareNetworkRules }) });
   const declareNamespace = createDeclareNamespace({ door: watchScopeLease(createRestScopeDoor(options.fleetUrl), store), management: store, operator });
   // Each rescan declares squadrons' namespace while its ship does not hold it, labels the fleet's squadrons, then declares their reach once the labels exist (#573); refusals are logged and the next rescan tries again.
   const reach: FleetReach = {
