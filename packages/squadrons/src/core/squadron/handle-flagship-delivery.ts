@@ -443,7 +443,10 @@ export function createHandleFlagshipDelivery(deps: {
       if (!current.isOk) {
         return err(current.error);
       }
-      if (delivery.senderLeaseId == null || delivery.senderLeaseId !== current.value.currentLease?.id) {
+      if (current.value.currentLease == null) {
+        return err({ code: 'UNAVAILABLE', message: 'The current crew lease is unavailable' });
+      }
+      if (delivery.senderLeaseId == null || delivery.senderLeaseId !== current.value.currentLease.id) {
         return acked('kept');
       }
       const at = deps.clock.now();
