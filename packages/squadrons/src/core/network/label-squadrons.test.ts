@@ -298,3 +298,14 @@ describe("a template's labels on its members", () => {
     expect(carried(shipIdOf(101))).toEqual(['squadron=team-1']);
   });
 });
+
+it('selects only its own formed ships for manage, with a separate controller value', async () => {
+  const outsider = shipIdOf(999);
+  fleet.state.ships.push({ shipId: outsider, labels: [] });
+  await labelSquadrons(FLEET_ID);
+  expect(valuesOf('squadrons-formed')).toEqual(['controller', 'formed']);
+  expect(carried(SHIP_ID)).toContain('squadrons-formed=controller');
+  expect(carried(shipIdOf(100))).toContain('squadrons-formed=formed');
+  expect(carried(shipIdOf(101))).toContain('squadrons-formed=formed');
+  expect(carried(outsider)).toEqual([]);
+});
