@@ -10,6 +10,9 @@ import type { LabelledShip, ListedLabel, NetworkDoor } from './ports.js';
 /** The label that names each squadron's ships by its id, for reach within the squadron (#573). Membership stays the ship type. */
 export const SQUADRON_LABEL = 'squadron';
 
+/** Manage selection, independent of squadron membership. */
+export const FORMED_LABEL = { key: 'squadrons-formed', controller: 'controller', formed: 'formed' } as const;
+
 /** The label that names the flagships and squadrons' own ship, for reach between them and nothing more (#573). */
 export const SQUADRON_ROLE_LABEL = { key: 'squadron-role', flagship: 'flagship', squadrons: 'squadrons' } as const;
 
@@ -79,13 +82,13 @@ export function createLabelSquadrons(deps: {
       return ok({ defined: 0, valuesChanged: 0, assigned: 0, unassigned: 0, unlabelled: [], skipped: NO_LABEL_SCOPES });
     }
     const serving = (await deps.squadrons.list(fleetId)).filter((squadron) => squadron.state !== 'disbanded');
-    const wanted = new Map<ShipId, Wanted>([[crew.shipId, { [SQUADRON_ROLE_LABEL.key]: SQUADRON_ROLE_LABEL.squadrons }]]);
+    const wanted = new Map<ShipId, Wanted>([[crew.shipId, { [SQUADRON_ROLE_LABEL.key]: SQUADRON_ROLE_LABEL.squadrons, [FORMED_LABEL.key]: FORMED_LABEL.controller }]]);
     for (const squadron of serving) {
-      wanted.set(squadron.flagship.shipId, { [SQUADRON_LABEL]: squadron.id, [SQUADRON_ROLE_LABEL.key]: SQUADRON_ROLE_LABEL.flagship });
+      wanted.set(squadron.flagship.shipId, { [SQUADRON_LABEL]: squadron.id, [SQUADRON_ROLE_LABEL.key]: SQUADRON_ROLE_LABEL.flagship, [FORMED_LABEL.key]: FORMED_LABEL.formed });
       for (const member of squadron.members.filter((each) => each.retiredAt === null)) {
         // Its template's labels, as built, beside its squadron; a template never sets squadron or squadron-role.
         const own = Object.fromEntries((templateOf(squadron, member)?.labels ?? []).map(({ key, value }) => [key, value]));
-        wanted.set(member.shipId, { ...own, [SQUADRON_LABEL]: squadron.id });
+        wanted.set(member.shipId, { ...own, [SQUADRON_LABEL]: squadron.id, [FORMED_LABEL.key]: FORMED_LABEL.formed });
       }
     }
     const done = await labelPass(deps.door, { crew, wanted, squadronIds: serving.map((squadron) => squadron.id) });
@@ -138,6 +141,15 @@ async function labelPass(door: NetworkDoor, pass: { crew: ManagementCrew; wanted
     outcome.defined += role.value.isDefined ? 1 : 0;
   }
 
+  const formed = await ownedLabel(door, { crew, listed: listed.value ?? [], key: FORMED_LABEL.key, values: () => [FORMED_LABEL.controller, FORMED_LABEL.formed] });
+  if (!formed.isOk) {
+    return formed;
+  }
+  if (formed.value !== undefined) {
+    labels.push(formed.value.label);
+    outcome.defined += formed.value.isDefined ? 1 : 0;
+  }
+
   const squadron = await ownedLabel(door, { crew, listed: listed.value ?? [], key: SQUADRON_LABEL, values: (existing) => squadronValues({ label: existing, squadronIds, ships: fleetShips }) });
   if (!squadron.isOk) {
     return squadron;
@@ -148,7 +160,7 @@ async function labelPass(door: NetworkDoor, pass: { crew: ManagementCrew; wanted
     outcome.valuesChanged += squadron.value.isChanged ? 1 : 0;
   }
   // Each key a member's template labels it with, defined by squadrons when the fleet has none; one another ship owns is left alone.
-  const templateKeys = [...new Set([...wanted.values()].flatMap((values) => Object.keys(values)))].filter((key) => key !== SQUADRON_LABEL && key !== SQUADRON_ROLE_LABEL.key);
+  const templateKeys = [...new Set([...wanted.values()].flatMap((values) => Object.keys(values)))].filter((key) => key !== SQUADRON_LABEL && key !== SQUADRON_ROLE_LABEL.key && key !== FORMED_LABEL.key);
   for (const key of templateKeys) {
     const needed = [...new Set([...wanted.values()].flatMap((values) => values[key] ?? []))];
     const owned = await ownedLabel(door, { crew, listed: listed.value ?? [], key, values: (existing) => keptValues({ label: existing, needed, ships: fleetShips }) });

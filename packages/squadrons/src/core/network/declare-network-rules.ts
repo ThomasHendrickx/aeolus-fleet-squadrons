@@ -3,7 +3,7 @@ import { ANY_LABEL_VALUE, SAME_LABEL_VALUE, type FleetId, type NetworkRule } fro
 import type { ManagementCrewStore } from '../management/ports.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
-import { SQUADRON_LABEL, SQUADRON_ROLE_LABEL } from './label-squadrons.js';
+import { FORMED_LABEL, SQUADRON_LABEL, SQUADRON_ROLE_LABEL } from './label-squadrons.js';
 import type { Declarations, ListedLabel, NetworkDoor } from './ports.js';
 
 /** Whether this pass declared to the fleet: false when it holds its declaration already or has nothing to declare yet. */
@@ -32,7 +32,7 @@ export function createDeclareNetworkRules(deps: { door: NetworkDoor; management:
       return refuse('FLEET_UNAVAILABLE', `The fleet did not answer its network rules: ${listed.error.message}`);
     }
     const owned = (key: string): ListedLabel | undefined => listed.value.find((each) => each.key === key && each.ownerShipId === crew.shipId);
-    const rules = rulesOn({ squadron: owned(SQUADRON_LABEL), role: owned(SQUADRON_ROLE_LABEL.key) });
+    const rules = rulesOn({ squadron: owned(SQUADRON_LABEL), role: owned(SQUADRON_ROLE_LABEL.key), formed: owned(FORMED_LABEL.key) });
     const declaration = JSON.stringify(rules);
     if (rules.length === 0 || deps.declarations.get(crew.shipId) === declaration) {
       return ok({ isDeclared: false });
@@ -51,7 +51,7 @@ export function createDeclareNetworkRules(deps: { door: NetworkDoor; management:
  * squadron label, send between flagships and its own ship on squadron-role,
  * and manage from its own ship to every squadron's ships.
  */
-function rulesOn(labels: { squadron: ListedLabel | undefined; role: ListedLabel | undefined }): NetworkRule[] {
+function rulesOn(labels: { squadron: ListedLabel | undefined; role: ListedLabel | undefined; formed: ListedLabel | undefined }): NetworkRule[] {
   const rules: NetworkRule[] = [];
   if (labels.squadron !== undefined) {
     const same = { labelId: labels.squadron.labelId, value: SAME_LABEL_VALUE };
@@ -65,6 +65,11 @@ function rulesOn(labels: { squadron: ListedLabel | undefined; role: ListedLabel 
   }
   if (labels.squadron !== undefined && squadrons !== undefined) {
     rules.push({ verb: 'manage', from: [squadrons], to: [{ labelId: labels.squadron.labelId, value: ANY_LABEL_VALUE }] });
+  }
+  const controller = labels.formed?.values.find((each) => each.value === FORMED_LABEL.controller)?.valueId;
+  const formed = labels.formed?.values.find((each) => each.value === FORMED_LABEL.formed)?.valueId;
+  if (controller !== undefined && formed !== undefined) {
+    rules.push({ verb: 'manage', from: [controller], to: [formed] });
   }
   return rules;
 }

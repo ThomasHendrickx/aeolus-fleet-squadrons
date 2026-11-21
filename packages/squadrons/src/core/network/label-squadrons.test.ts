@@ -103,20 +103,20 @@ describe('squadrons labelling its squadrons (#573)', () => {
   it("labels its own ship squadron-role=squadrons, and no squadron", async () => {
     await labelSquadrons(FLEET_ID);
 
-    expect(carried(SHIP_ID)).toEqual(['squadron-role=squadrons']);
+    expect(carried(SHIP_ID)).toEqual(['squadron-role=squadrons', 'squadrons-formed=controller']);
   });
 
   it("labels a squadron's flagship with its squadron and squadron-role=flagship", async () => {
     await labelSquadrons(FLEET_ID);
 
-    expect(carried(shipIdOf(100))).toEqual(['squadron-role=flagship', 'squadron=team-1']);
+    expect(carried(shipIdOf(100))).toEqual(['squadron-role=flagship', 'squadron=team-1', 'squadrons-formed=formed']);
   });
 
   it("labels each member of a squadron with its squadron, and no role", async () => {
     await labelSquadrons(FLEET_ID);
 
-    expect(carried(shipIdOf(101))).toEqual(['squadron=team-1']);
-    expect(carried(shipIdOf(102))).toEqual(['squadron=team-1']);
+    expect(carried(shipIdOf(101))).toEqual(['squadron=team-1', 'squadrons-formed=formed']);
+    expect(carried(shipIdOf(102))).toEqual(['squadron=team-1', 'squadrons-formed=formed']);
   });
 
   it('labels a squadron that stands down, as it still serves', async () => {
@@ -124,11 +124,11 @@ describe('squadrons labelling its squadrons (#573)', () => {
 
     await labelSquadrons(FLEET_ID);
 
-    expect(carried(shipIdOf(101))).toEqual(['squadron=team-1']);
+    expect(carried(shipIdOf(101))).toEqual(['squadron=team-1', 'squadrons-formed=formed']);
   });
 
   it('says what it did, and writes nothing again once every ship carries its labels', async () => {
-    await expect(labelSquadrons(FLEET_ID)).resolves.toEqual({ isOk: true, value: { defined: 2, valuesChanged: 0, assigned: 5, unassigned: 0, unlabelled: [] } });
+    await expect(labelSquadrons(FLEET_ID)).resolves.toEqual({ isOk: true, value: { defined: 3, valuesChanged: 0, assigned: 9, unassigned: 0, unlabelled: [] } });
     const writes = fleet.state.labelWrites.length;
 
     await expect(labelSquadrons(FLEET_ID)).resolves.toEqual({ isOk: true, value: { defined: 0, valuesChanged: 0, assigned: 0, unassigned: 0, unlabelled: [] } });
@@ -144,7 +144,7 @@ describe('squadrons labelling its squadrons (#573)', () => {
     await labelSquadrons(FLEET_ID);
 
     expect(fleet.state.labels.find((label) => label.key === 'squadron')?.values).toEqual([before, expect.objectContaining({ value: 'team-2' })]);
-    expect(carried(shipIdOf(201))).toEqual(['squadron=team-2']);
+    expect(carried(shipIdOf(201))).toEqual(['squadron=team-2', 'squadrons-formed=formed']);
   });
 
   it('labels no member squadrons retired', async () => {
@@ -174,7 +174,7 @@ describe('squadrons labelling its squadrons (#573)', () => {
     await labelSquadrons(FLEET_ID);
 
     expect(valuesOf('squadron')).toEqual(['team-1', 'team-2']);
-    expect(carried(shipIdOf(101))).toEqual(['squadron=team-1']);
+    expect(carried(shipIdOf(101))).toEqual(['squadron=team-1', 'squadrons-formed=formed']);
   });
 
   it('takes a value of its labels off a ship that should not carry it', async () => {
@@ -185,7 +185,7 @@ describe('squadrons labelling its squadrons (#573)', () => {
 
     await labelSquadrons(FLEET_ID);
 
-    expect(carried(shipIdOf(201))).toEqual(['squadron=team-2']);
+    expect(carried(shipIdOf(201))).toEqual(['squadron=team-2', 'squadrons-formed=formed']);
   });
 
   it('leaves alone a key another ship owns, and labels with the one it owns', async () => {
@@ -194,7 +194,7 @@ describe('squadrons labelling its squadrons (#573)', () => {
     await labelSquadrons(FLEET_ID);
 
     expect(fleet.state.labelWrites.filter((write) => write.includes('squadron-role'))).toEqual([]);
-    expect(carried(shipIdOf(100))).toEqual(['squadron=team-1']);
+    expect(carried(shipIdOf(100))).toEqual(['squadron=team-1', 'squadrons-formed=formed']);
   });
 
   it('defines no squadron label while the fleet has no squadron to label: a label needs a value', async () => {
@@ -203,7 +203,7 @@ describe('squadrons labelling its squadrons (#573)', () => {
     await labelSquadrons(FLEET_ID);
 
     expect(valuesOf('squadron')).toBeUndefined();
-    expect(carried(SHIP_ID)).toEqual(['squadron-role=squadrons']);
+    expect(carried(SHIP_ID)).toEqual(['squadron-role=squadrons', 'squadrons-formed=controller']);
   });
 
   it(`labels ${String(LABEL_VALUES_MAX)} squadrons, as many values as a label has`, async () => {
@@ -223,7 +223,7 @@ describe('squadrons labelling its squadrons (#573)', () => {
     await expect(labelSquadrons(FLEET_ID)).resolves.toMatchObject({ isOk: true, value: { unlabelled: [last] } });
     await labelSquadrons(FLEET_ID);
 
-    expect(carried(shipIdOf(100 * (LABEL_VALUES_MAX + 1)))).toEqual(['squadron-role=flagship']);
+    expect(carried(shipIdOf(100 * (LABEL_VALUES_MAX + 1)))).toEqual(['squadron-role=flagship', 'squadrons-formed=formed']);
     expect(told.map(({ fleetId, key }) => ({ fleetId, key }))).toEqual([{ fleetId: FLEET_ID, key: `unlabelled-${last}` }]);
     expect(told[0]?.headline).toBe('A squadron carries no squadron label');
     expect(told[0]?.body).toContain(`- Squadron: \`${last}\``);
@@ -275,8 +275,8 @@ describe("a template's labels on its members", () => {
 
     expect(valuesOf('company')).toEqual(['aeolus']);
     expect(fleet.state.labels.find((label) => label.key === 'company')?.ownerShipId).toBe(SHIP_ID);
-    expect(carried(shipIdOf(101))).toEqual(['company=aeolus', 'squadron=team-1']);
-    expect(carried(shipIdOf(102))).toEqual(['company=aeolus', 'squadron=team-1']);
+    expect(carried(shipIdOf(101))).toEqual(['company=aeolus', 'squadron=team-1', 'squadrons-formed=formed']);
+    expect(carried(shipIdOf(102))).toEqual(['company=aeolus', 'squadron=team-1', 'squadrons-formed=formed']);
   });
 
   it('are put on no flagship and not on squadrons\' own ship', async () => {
@@ -284,8 +284,8 @@ describe("a template's labels on its members", () => {
 
     await labelSquadrons(FLEET_ID);
 
-    expect(carried(shipIdOf(100))).toEqual(['squadron-role=flagship', 'squadron=team-1']);
-    expect(carried(SHIP_ID)).toEqual(['squadron-role=squadrons']);
+    expect(carried(shipIdOf(100))).toEqual(['squadron-role=flagship', 'squadron=team-1', 'squadrons-formed=formed']);
+    expect(carried(SHIP_ID)).toEqual(['squadron-role=squadrons', 'squadrons-formed=controller']);
   });
 
   it('leave alone a key another ship owns', async () => {
@@ -295,7 +295,7 @@ describe("a template's labels on its members", () => {
     await labelSquadrons(FLEET_ID);
 
     expect(fleet.state.labelWrites.filter((write) => write.includes('company'))).toEqual([]);
-    expect(carried(shipIdOf(101))).toEqual(['squadron=team-1']);
+    expect(carried(shipIdOf(101))).toEqual(['squadron=team-1', 'squadrons-formed=formed']);
   });
 });
 
