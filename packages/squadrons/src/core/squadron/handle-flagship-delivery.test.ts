@@ -1,4 +1,4 @@
-import { PAYLOAD_MAX_BYTES, PING_CONTENT_TYPE, type DeliveryId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { PAYLOAD_MAX_BYTES, PING_CONTENT_TYPE, type DeliveryId, type LeaseId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { FleetDoor, ManagementCrewStore, OutgoingMessage } from '../management/ports.js';
@@ -84,7 +84,7 @@ function squadron(): Squadron {
 let held: Squadron;
 const MANAGEMENT_CREW_TOKEN = 'aeolus_ct_v1_management';
 /** The scopes the forming ship holds now, as the fleet answers squadrons' own ship. */
-let memberLease: string | null | undefined;
+let memberLease: LeaseId | null | undefined;
 let isMemberReadUnavailable: boolean;
 const SENDING_LEASE = 'lse_01m3tbfspe96yf1rnr4ank0001';
 let formingShipScopes: string[];
@@ -1051,7 +1051,7 @@ describe('scaling a squadron by message to its flagship (decision 0017)', () => 
 });
 
 describe('current crew evidence for on station', () => {
-  it.each([null, undefined, 'lse_01m3tbfspe96yf1rnr4ank0002'])('does not accept a confirmation when the current lease is %s', async (lease) => {
+  it.each<LeaseId | null | undefined>([null, undefined, 'lse_01m3tbfspe96yf1rnr4ank0002'])('does not accept a confirmation when the current lease is %s', async (lease) => {
     memberLease = lease;
     const confirmation = delivery(TESTER, { contentType: ON_STATION, payload: { squadron: held.id, role: 'tester' } });
     await handle(held, confirmation);

@@ -4,6 +4,7 @@ import type {
   DeliveryId,
   FleetId,
   LabelValueId,
+  LeaseId,
   MessageId,
   ShipId,
 } from "@aeolus-fleet/common";
@@ -160,6 +161,8 @@ export interface FleetShip {
   inFlightDeliveries: number;
   /** Whether it holds a crew request, one being released included (decision 0029). */
   hasCrewRequest: boolean;
+  /** Current public lease evidence; absent means unavailable, never uncrewed. */
+  currentLease?: { id: LeaseId; startedAt: Date } | null;
   /** Its owner's ship (decision 0045); null for argo and the viewer. */
   ownerShipId: ShipId | null;
 }
@@ -169,6 +172,8 @@ export interface ReceivedMessage {
   deliveryId: DeliveryId;
   messageId: MessageId;
   senderShipId: ShipId;
+  /** Immutable sending lease; no evidence cannot confirm a crew. */
+  senderLeaseId?: LeaseId | null;
   senderName: string;
   contentType: string;
   payload: string;

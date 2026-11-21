@@ -431,8 +431,20 @@ export function createHandleFlagshipDelivery(deps: {
 
     if (delivery.contentType === ON_STATION) {
       const onStation = parsedPayload(onStationPayload, delivery.payload);
-      if (!member || onStation?.squadron !== squadron.id) {
+      if (!member || onStation?.squadron !== squadron.id || onStation.role !== member.role) {
         return keep();
+      }
+      const management = await deps.management.find(squadron.fleetId);
+      if (!management) {
+        return err({ code: 'NOT_CONNECTED', message: 'squadrons is not connected to this fleet' });
+      }
+      // Read one intended ship, never history. Receipt and a ship id cannot prove the current crew.
+      const current = await deps.door.getShip(management.crewToken, { shipId: member.shipId });
+      if (!current.isOk) {
+        return err(current.error);
+      }
+      if (delivery.senderLeaseId == null || delivery.senderLeaseId !== current.value.currentLease?.id) {
+        return acked('kept');
       }
       const at = deps.clock.now();
       // A member that checked in since it last came on station, after /clear or with a new crew, comes on station

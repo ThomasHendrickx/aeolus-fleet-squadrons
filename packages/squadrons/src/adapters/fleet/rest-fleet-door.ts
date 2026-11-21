@@ -177,9 +177,10 @@ export function createRestFleetDoor(fleetUrl: string, options: DoorOptions = {})
       if (!read.isOk) {
         return read;
       }
-      const { status, scopes, lastSeenAt, crewedSince, report, openDeliveries, inFlightDeliveries, crewRequest, owner } = read.value;
+      const { status, scopes, lastSeenAt, crewedSince, report, openDeliveries, inFlightDeliveries, crewRequest, owner, currentLease } = read.value;
       return ok({
         status,
+        currentLease: currentLease == null ? currentLease : { id: currentLease.id, startedAt: new Date(currentLease.startedAt) },
         scopes,
         lastSeenAt: dateOf(lastSeenAt),
         crewedSince: dateOf(crewedSince),
@@ -212,7 +213,7 @@ export function createRestFleetDoor(fleetUrl: string, options: DoorOptions = {})
         signal: until?.signal,
       });
       return received.isOk
-        ? ok(received.value.deliveries.map(({ deliveryId, messageId, senderShipId, senderName, contentType, payload, inReplyTo }) => ({ deliveryId, messageId, senderShipId, senderName, contentType, payload, inReplyTo })))
+        ? ok(received.value.deliveries.map(({ deliveryId, messageId, senderShipId, senderLeaseId, senderName, contentType, payload, inReplyTo }) => ({ deliveryId, messageId, senderShipId, senderLeaseId, senderName, contentType, payload, inReplyTo })))
         : received;
     },
     ack: async (crewToken, deliveryId) => {
