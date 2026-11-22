@@ -1,8 +1,8 @@
 # Installs the dependencies from an Actions cache entry keyed on the runner OS,
 # the Node version and the hash of package-lock.json, and runs npm ci only on a
-# miss. The entry holds every workspace's node_modules and the Prisma client
-# that npm ci's postinstall generates, so a hit needs no generate step. Needs the
-# repository checked out and Node set up.
+# miss. The entry holds every workspace's node_modules. The Prisma client is not
+# cached: the schema is not in the key, so every hit generates it again. Needs
+# the repository checked out and Node set up.
 name: Install
 description: Restores node_modules from the Actions cache, running npm ci on a miss.
 runs:
@@ -17,8 +17,11 @@ runs:
         path: |
           node_modules
           packages/*/node_modules
-          packages/squadrons/src/adapters/prisma/generated
         key: install-${{ runner.os }}-node-${{ steps.node.outputs.version }}-${{ hashFiles('package-lock.json') }}
     - if: steps.restore.outputs.cache-hit != 'true'
       shell: bash
       run: npm ci
+    # npm ci generates the client in its postinstall; a hit runs the same step.
+    - if: steps.restore.outputs.cache-hit == 'true'
+      shell: bash
+      run: npm run generate --workspace @aeolus-fleet/squadrons
