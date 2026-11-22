@@ -58,7 +58,7 @@ jobs:
           node-version: 26
           cache: npm
 
-      - run: npm ci
+      - uses: ./.github/actions/install
 
       # The release's own gate: a candidate is only what may be released.
       - name: Check the commit is on a release branch and passed CI

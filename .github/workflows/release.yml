@@ -84,7 +84,7 @@ jobs:
           fi
           npm --version
 
-      - run: npm ci
+      - uses: ./.github/actions/install
 
       # No second test run (decision 0011): CI's own result for this exact commit on
       # the release branch is the gate, read before anything is published.
