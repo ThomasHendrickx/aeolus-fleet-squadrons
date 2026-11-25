@@ -69,7 +69,7 @@ const notUsed = () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not use
 const door: FleetDoor = {
   register: notUsed,
   whoami: notUsed,
-  setExpectations: notUsed,
+  setExpectations: () => Promise.resolve(err({ code: 'CONFLICT', message: 'The fleet refused the expectation' })),
   deregister: notUsed,
   getShip: notUsed,
   getStartingPrompt: notUsed,
@@ -154,6 +154,17 @@ describe('adding a member', () => {
       },
     });
     expect(commissioned.map(({ name, type }) => ({ name, type }))).toEqual([{ name: 'tester-q8r2', type: 'team-a1b2c3:tester' }]);
+  });
+
+  it('retires the newly commissioned ship and keeps the membership when the fleet refuses its expectations', async () => {
+    held = { ...held, templates: held.templates.map((template) => ({ ...template, expectations: { reportChangesWithin: 60 } })) };
+
+    const added = await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester' });
+
+    expect(added).toMatchObject({ isOk: false, error: { code: 'ADDING_FAILED', message: expect.stringContaining('The fleet refused the expectation') } });
+    expect(commissioned.map(({ isRetired }) => isRetired)).toEqual([true]);
+    expect(held.members).toEqual([aTester()]);
+    expect(attempts.held).toEqual([]);
   });
 
   it('keeps the squadron Sailing, with the new member not on station until it checks in', async () => {
