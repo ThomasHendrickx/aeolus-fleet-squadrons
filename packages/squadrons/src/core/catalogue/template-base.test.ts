@@ -86,6 +86,34 @@ function chainOf(length: number, charterOf: (number: number) => string = (number
 /** Where a test of the whole built template leaves out its hash: "the hash of a built template" tests it. */
 const HASH_CHECKED_APART = 'checked apart';
 
+describe('expectations on a template base', () => {
+  const taskDoneBy = {
+    task: { kind: 'url', url: 'https://github.com/acme/work/issues/42' },
+    doneBy: '2026-12-01T18:00:00Z',
+  };
+  const base = layer(
+    { name: 'monitored', version: 1 },
+    { description: 'Tests.', checkIn: '30m', charter: 'You test.', expectations: { reportChangesWithin: 60, taskDoneBy } },
+  );
+  const onBase = { base: { template: `${SKILLS}#monitored@1` }, description: 'Tests more often.' };
+
+  it('inherits each omitted expectation and records the layer that last set each expectation', () => {
+    const derived = layer({ name: 'fast', version: 1 }, { ...onBase, expectations: { reportChangesWithin: 15 } });
+    const leaf = layer({ name: 'suite', version: 1 }, { base: { template: `${SKILLS}#fast@1` }, description: 'Tests the suite.' });
+
+    const built = builtOf([base, derived, leaf], 'suite');
+
+    expect(built?.expectations).toEqual({ reportChangesWithin: 15, taskDoneBy });
+    expect(built?.origins.fields).toMatchObject({ 'expectations.reportChangesWithin': 1, 'expectations.taskDoneBy': 0 });
+  });
+
+  it.each(['reportChangesWithin', 'taskDoneBy'])('refuses a null %s in a derived template', (field) => {
+    const derived = layer({ name: 'clearing', version: 1 }, { ...onBase, expectations: { [field]: null } });
+
+    expect(reasonOf([base, derived], 'clearing') ?? '').toContain(`expectations.${field}`);
+  });
+});
+
 describe('a template on a base', () => {
   it('is built from its chain, base-layer-0 first, into one full template', () => {
     expect({ ...builtOf(chain, 'typescript-implementer'), hash: HASH_CHECKED_APART }).toEqual({
