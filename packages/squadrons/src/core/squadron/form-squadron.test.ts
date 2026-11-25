@@ -543,6 +543,22 @@ describe('a squadron not formed', () => {
     expect(squadrons.held).toEqual([]);
   });
 
+  it('retires every commissioned ship when the fleet refuses expectations', async () => {
+    const planner = { ...templateVersion('planner'), expectations: { reportChangesWithin: 30 } };
+    const withExpectations = { ...catalogue, templates: [planner, templateVersion('implementer', ['done'])] };
+
+    const formed = await formWith({ catalogue: withExpectations })(fromHemmaFeature); // privacy-guard: allow private-repo
+
+    expect(formed).toMatchObject({ isOk: false, error: { kind: 'FORMING_FAILED' } });
+    expect(formed.isOk ? '' : formed.error.message).toContain('not used');
+    expect(fleet.state.ships.map(({ name, isRetired }) => ({ name, isRetired }))).toEqual([
+      { name: 'hemma-feature-a1b2c3', isRetired: true }, // privacy-guard: allow private-repo
+      { name: 'planner-k3x9', isRetired: true },
+    ]);
+    expect(attempts.held[0]).toMatchObject({ isFinished: true, ships: fleet.state.ships.map(({ name, shipId }) => ({ name, shipId })) });
+    expect(squadrons.held).toEqual([]);
+  });
+
   it('refuses while squadrons crews no management ship', async () => {
     const empty: ManagementCrewStore = { find: () => Promise.resolve(undefined), binding: () => Promise.resolve(undefined), connected: () => Promise.resolve([]), save: () => Promise.resolve(), drop: () => Promise.resolve() };
 
