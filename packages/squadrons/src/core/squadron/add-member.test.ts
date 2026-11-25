@@ -161,10 +161,13 @@ describe('adding a member', () => {
 
     const added = await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester' });
 
-    expect(added).toMatchObject({ isOk: false, error: { code: 'ADDING_FAILED', message: expect.stringContaining('The fleet refused the expectation') } });
+    expect(added).toEqual({
+      isOk: false,
+      error: { kind: 'ADDING_FAILED', message: 'The fleet refused a step, so no member was added: The fleet refused the expectation' },
+    });
     expect(commissioned.map(({ isRetired }) => isRetired)).toEqual([true]);
     expect(held.members).toEqual([aTester()]);
-    expect(attempts.held).toEqual([]);
+    await expect(attempts.unfinished(FLEET)).resolves.toEqual([]);
   });
 
   it('keeps the squadron Sailing, with the new member not on station until it checks in', async () => {
