@@ -1,4 +1,10 @@
-import { setExpectationsInputSchema } from '@aeolus-fleet/common';
+import { reportChangesWithinMinutesSchema, setExpectationsInputSchema } from '@aeolus-fleet/common';
+import { z } from 'zod';
 
-/** The expectations a template can set, before it has a ship to set them on. */
-export const templateExpectationsSchema = setExpectationsInputSchema.omit({ shipId: true }).strict();
+/** A template supplies expectation values for a newly commissioned ship. */
+export const templateExpectationsSchema = z.strictObject({
+  reportChangesWithin: reportChangesWithinMinutesSchema.optional(),
+  taskDoneBy: setExpectationsInputSchema.shape.taskDoneBy.unwrap().unwrap().optional(),
+});
+
+export type TemplateExpectations = z.infer<typeof templateExpectationsSchema>;

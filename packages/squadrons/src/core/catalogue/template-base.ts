@@ -10,9 +10,10 @@
 import { FIRST_PROMPT_MAX_BYTES, SHIP_LABELS_MAX } from '@aeolus-fleet/common';
 
 import { err, ok, type Result } from '../shared/result.js';
-import { CHARTER_MAX_BYTES, TEMPLATE_SCOPES_MAX, type ChainLayer, type CrewDraft, type TemplateExpectations, type TemplateOrigins, type TemplateReference, type TemplateVersion } from './catalogue.js';
+import { CHARTER_MAX_BYTES, TEMPLATE_SCOPES_MAX, type ChainLayer, type CrewDraft, type TemplateOrigins, type TemplateReference, type TemplateVersion } from './catalogue.js';
 import { fillParameters } from './member-crew.js';
 import type { SourceFile } from './ports.js';
+import type { TemplateExpectations } from './template-expectations.js';
 
 /** The most labels a template gives its members: as many as a ship carries, but squadrons' own squadron=<id> and squadrons-formed=formed. */
 const TEMPLATE_LABELS_MAX = SHIP_LABELS_MAX - 2;
@@ -99,6 +100,7 @@ function fieldsSetBy(layer: TemplateLayer, index: number): Record<string, number
     ...(model === undefined ? [] : ['crew.model']),
     ...(['harness', 'workspace', 'firstPrompt', 'machineLabels', 'mcpServers'] as const).filter((field) => crew[field] !== undefined).map((field) => `crew.${field}`),
     ...Object.keys(crew.options ?? {}).map((option) => `crew.options.${option}`),
+    ...Object.keys(layer.expectations ?? {}).map((field) => `expectations.${field}`),
     ...layer.handoffs.map((handoff) => `handoffs.${handoff.name}`),
     ...layer.scopes.map((scope) => `scopes.${scope}`),
     ...layer.labels.map((label) => `labels.${label.key}`),
@@ -193,6 +195,10 @@ function buildOn(below: TemplateVersion, layer: TemplateLayer & { base: Base }):
   const firstPrompt = layer.crew.firstPrompt ?? below.crew.firstPrompt;
   const crew: CrewDraft = { ...below.crew, ...layer.crew, ...options, ...(firstPrompt === undefined ? {} : { firstPrompt: fill(firstPrompt) }) };
 
+  const expectations = below.expectations === undefined && layer.expectations === undefined
+    ? undefined
+    : { ...below.expectations, ...layer.expectations };
+
   const filled = Object.keys(values).map((name) => ({ name, layer: index }));
   const fields = Object.fromEntries(
     Object.entries({ ...fieldsSetBy(layer, index), ...below.origins.fields, ...fieldsReplacedBy(layer, index) }).filter(([path]) => !filled.some(({ name }) => path === `parameters.${name}`)),
@@ -214,6 +220,7 @@ function buildOn(below: TemplateVersion, layer: TemplateLayer & { base: Base }):
     charter: charter.map((part) => part.text).join(CHARTER_SEPARATOR),
     handoffs: [...below.handoffs, ...layer.handoffs],
     crew,
+    ...(expectations === undefined ? {} : { expectations }),
     parameters: [...below.parameters.filter((parameter) => !(parameter.name in values)), ...layer.parameters],
     scopes: [...new Set([...below.scopes, ...layer.scopes])],
     labels: [...below.labels, ...layer.labels.filter((label) => !below.labels.some((each) => each.key === label.key))],

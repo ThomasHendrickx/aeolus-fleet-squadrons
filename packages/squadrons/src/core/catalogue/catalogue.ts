@@ -1,5 +1,7 @@
-import type { SetExpectationsInput, TrierarchWorkspace } from '@aeolus-fleet/common';
+import type { TrierarchWorkspace } from '@aeolus-fleet/common';
 import type { z } from 'zod';
+
+import type { TemplateExpectations } from './template-expectations.js';
 
 /** A value an option may hold: anything JSON. */
 export type OptionValue = z.infer<ReturnType<typeof z.json>>;
@@ -19,8 +21,6 @@ export interface CrewDraft {
   /** Names on the trierarch plugin's server list, never a definition or a path. */
   mcpServers?: string[];
 }
-
-export type TemplateExpectations = Omit<SetExpectationsInput, 'shipId'>;
 
 /** One version of a ship template, as its tag holds it (docs/squadrons.md, "Ship template"). */
 export interface TemplateVersion {

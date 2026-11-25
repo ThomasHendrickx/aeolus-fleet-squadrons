@@ -1,7 +1,7 @@
 import type { PrepareFormation } from '../network/prepare-formation.js';
 import type { LabelValueId, ShipId } from '@aeolus-fleet/common';
 
-import type { TemplateExpectations } from '../catalogue/catalogue.js';
+import type { TemplateExpectations } from '../catalogue/template-expectations.js';
 import type { FleetDoor, FleetRefusal, IssuedPrompt, ManagementCrew } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { err, ok, type Result } from '../shared/result.js';
@@ -83,7 +83,7 @@ export async function beginFormation(
         const made = await commissionOnce({ name: shipName, type: ship.type, scopes: ship.scopes, valueIds: [prepared.value], ownerOf, ...(ownerOf === undefined ? {} : { ownership: 'requester' as const }), idempotencyKey: `${attemptId}:${slot}:${shipName}` });
         if (made.isOk) {
           const expectations = ship.expectations;
-          if (expectations?.reportChangesWithin != null || expectations?.taskDoneBy != null) {
+          if (expectations?.reportChangesWithin !== undefined || expectations?.taskDoneBy !== undefined) {
             const set = await deps.door.setExpectations(crew.crewToken, { shipId: made.value.shipId, ...expectations });
             if (!set.isOk) {
               return set;
