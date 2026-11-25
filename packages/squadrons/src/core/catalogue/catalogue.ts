@@ -1,4 +1,4 @@
-import type { TrierarchWorkspace } from '@aeolus-fleet/common';
+import type { SetExpectationsInput, TrierarchWorkspace } from '@aeolus-fleet/common';
 import type { z } from 'zod';
 
 /** A value an option may hold: anything JSON. */
@@ -20,8 +20,12 @@ export interface CrewDraft {
   mcpServers?: string[];
 }
 
+export type TemplateExpectations = Omit<SetExpectationsInput, 'shipId'>;
+
 /** One version of a ship template, as its tag holds it (docs/squadrons.md, "Ship template"). */
 export interface TemplateVersion {
+  /** The monitoring expectations squadrons sets when it commissions a member from this template. */
+  expectations?: TemplateExpectations;
   repository: string;
   name: string;
   version: number;

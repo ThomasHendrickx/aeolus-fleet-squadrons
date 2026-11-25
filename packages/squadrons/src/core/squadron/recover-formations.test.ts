@@ -20,6 +20,7 @@ let isNoticeRefused: boolean;
 const door: FleetDoor = {
   register: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   whoami: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  setExpectations: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   getShip: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   commission: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),

@@ -201,7 +201,7 @@ export function createFormSquadron(deps: {
         blueprint.memberNames === 'prefixed'
           ? () => `${squadronId}:${role.name}-${String(number)}`
           : () => `${role.name}-${deps.random.suffix(MEMBER_SUFFIX_LENGTH)}`;
-      const member = await commission(slot, { names, type: `${squadronId}:${role.name}`, scopes: used[index]?.scopes ?? [] });
+      const member = await commission(slot, { names, type: `${squadronId}:${role.name}`, scopes: used[index]?.scopes ?? [], expectations: used[index]?.expectations });
       if (!member.isOk) {
         return failed(member.error);
       }

@@ -73,6 +73,7 @@ function fleetDoor(): FleetDoor {
   return {
     register: ({ shipId }) => Promise.resolve(ok({ crewToken: `aeolus_ct_v1_${shipId}` })),
     whoami: notUsed,
+    setExpectations: notUsed,
     getShip: (_crewToken, { shipId }) =>
       Promise.resolve(shipId === MANAGEMENT ? ok(aShip(['fleet:read', 'fleet:commission'])) : shipId === TECH_LEAD ? ok(aShip(senderScopes)) : err({ code: 'NOT_FOUND', message: 'No such ship' })),
     deregister: notUsed,

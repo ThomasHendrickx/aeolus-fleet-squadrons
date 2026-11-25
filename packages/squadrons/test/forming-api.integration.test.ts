@@ -103,8 +103,8 @@ const formedSchema = z.object({
   result: z.object({
     data: z.object({
       squadronId: z.string(),
-      flagship: z.object({ shipId: z.string(), name: z.string() }),
-      members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLines: z.array(z.object({ harness: z.string(), line: z.string() })), launchNote: z.string().nullable() })),
+      flagship: z.object({ shipId: idSchema('ship'), name: z.string() }),
+      members: z.array(z.object({ shipId: idSchema('ship'), name: z.string(), role: z.string(), crewLines: z.array(z.object({ harness: z.string(), line: z.string() })), launchNote: z.string().nullable() })),
     }),
   }),
 });
@@ -122,7 +122,13 @@ async function formTeam(squadronId?: string, more: Record<string, unknown> = {})
 describe('forming a squadron at the squadrons API', () => {
   it('sets both template expectations as squadrons on each commissioned member whose template carries them', async () => {
     const formed = await formTeam('monitored-team', { blueprint: { repository: REPO, name: 'monitored-team', version: 1 } });
-    const expectationsOf = async (id: string) => unwrap(await fleetUseCases.getShip(argo, { shipId: idSchema('ship').parse(id) })).expectations;
+    const expectationsOf = async (shipId: ShipId) => {
+      const ship = unwrap(await fleetUseCases.getShip(argo, { shipId }));
+      if (!('expectations' in ship)) {
+        expect.fail('argo can read the commissioned ship');
+      }
+      return ship.expectations;
+    };
     const setBy = { kind: 'ship', shipId: managementShipId };
 
     expect(formed.members.map(({ role }) => role)).toEqual(['monitored', 'monitored', 'tester']);
@@ -131,14 +137,16 @@ describe('forming a squadron at the squadrons API', () => {
         reportChangesWithin: { minutes: 60, setBy },
         taskDoneBy: {
           task: { kind: 'url', url: 'https://github.com/acme/work/issues/42' },
-          doneBy: '2026-12-01T18:00:00.000Z',
+          doneBy: new Date('2026-12-01T18:00:00Z'),
           setBy,
         },
       });
     }
     const tester = formed.members.find(({ role }) => role === 'tester');
-    expect(tester).toBeDefined();
-    await expect(expectationsOf(tester?.shipId ?? '')).resolves.toEqual({ reportChangesWithin: null, taskDoneBy: null });
+    if (!tester) {
+      expect.fail('the tester was commissioned');
+    }
+    await expect(expectationsOf(tester.shipId)).resolves.toEqual({ reportChangesWithin: null, taskDoneBy: null });
     await expect(expectationsOf(formed.flagship.shipId)).resolves.toEqual({ reportChangesWithin: null, taskDoneBy: null });
   });
 

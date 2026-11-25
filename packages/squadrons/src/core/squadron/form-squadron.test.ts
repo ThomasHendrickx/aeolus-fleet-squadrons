@@ -115,6 +115,7 @@ function fakeFleet() {
       return Promise.resolve(ok({ crewToken: `aeolus_ct_v1_${ship.name}` }));
     },
     whoami: () => Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'not used' })),
+    setExpectations: () => Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'not used' })),
     getShip: (_crewToken, { shipId }) =>
       Promise.resolve(
         shipId === MANAGEMENT

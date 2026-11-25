@@ -55,6 +55,7 @@ const down = () => Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The flee
 const door: FleetDoor = {
   register: notUsed,
   whoami: notUsed,
+  setExpectations: notUsed,
   deregister: notUsed,
   commission: notUsed,
   getStartingPrompt: notUsed,

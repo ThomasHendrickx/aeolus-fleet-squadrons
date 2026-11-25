@@ -10,7 +10,7 @@
 import { FIRST_PROMPT_MAX_BYTES, SHIP_LABELS_MAX } from '@aeolus-fleet/common';
 
 import { err, ok, type Result } from '../shared/result.js';
-import { CHARTER_MAX_BYTES, TEMPLATE_SCOPES_MAX, type ChainLayer, type CrewDraft, type TemplateOrigins, type TemplateReference, type TemplateVersion } from './catalogue.js';
+import { CHARTER_MAX_BYTES, TEMPLATE_SCOPES_MAX, type ChainLayer, type CrewDraft, type TemplateExpectations, type TemplateOrigins, type TemplateReference, type TemplateVersion } from './catalogue.js';
 import { fillParameters } from './member-crew.js';
 import type { SourceFile } from './ports.js';
 
@@ -25,7 +25,7 @@ export const CHAIN_MAX_TEMPLATES = 10;
  * of building changes, so each version builds anew under the new rules
  * (decision 11).
  */
-export const BUILD_RULES = 2;
+export const BUILD_RULES = 3;
 
 const BYTES_PER_KB = 1024;
 /** Tenths per whole: a size over a limit is shown to one decimal, rounded up. */
@@ -43,6 +43,7 @@ interface LayerFields {
   handoffs: { name: string; carries: string }[];
   parameters: { name: string; description: string }[];
   crew: CrewDraft;
+  expectations: TemplateExpectations | undefined;
   scopes: string[];
   labels: { key: string; value: string }[];
 }
@@ -133,6 +134,7 @@ function rootOf(layer: TemplateLayer & { base: null }): Result<TemplateVersion, 
     charter: layer.charter,
     handoffs: layer.handoffs,
     crew: layer.crew,
+    ...(layer.expectations === undefined ? {} : { expectations: layer.expectations }),
     parameters: layer.parameters,
     scopes: layer.scopes,
     labels: layer.labels,
