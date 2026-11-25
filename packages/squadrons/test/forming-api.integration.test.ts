@@ -1,3 +1,4 @@
+import { idSchema, type ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -25,6 +26,7 @@ let address: string;
 let cookie: string;
 let fleetUseCases: ReturnType<typeof createUseCases>;
 let argo: ReturnType<typeof operatorCaller>;
+let managementShipId: ShipId;
 
 async function signIn(): Promise<string> {
   const response = await fetch(`${fleetUrl}/trpc/console.signIn`, {
@@ -43,10 +45,23 @@ beforeEach(async () => {
       {
         files: {
           '.aeolus/squadrons/templates/tester.yaml': 'description: Tests.\ncheckIn: 30m\nlaunchNote: Start in the repository root.\ncharter: You test.\n',
+          '.aeolus/squadrons/templates/monitored.yaml': [
+            'description: Tests with expectations.',
+            'checkIn: 30m',
+            'charter: You test.',
+            'expectations:',
+            '  reportChangesWithin: 60',
+            '  taskDoneBy:',
+            '    task:',
+            '      kind: url',
+            '      url: https://github.com/acme/work/issues/42',
+            '    doneBy: "2026-12-01T18:00:00Z"',
+          ].join('\n'),
+          '.aeolus/squadrons/blueprints/monitored-team.yaml': `description: A team with monitored members.\nroles:\n  monitored:\n    template: ${REPO}#monitored@1\n    count: 2\n  tester:\n    template: ${REPO}#tester@1\n`,
           '.aeolus/squadrons/blueprints/team.yaml': `description: A team.\nroles:\n  tester:\n    template: ${REPO}#tester@1\n    count: 2\n`,
         },
       },
-      'tester@1', 'team@1',
+      'tester@1', 'team@1', 'monitored@1', 'monitored-team@1',
     ),
   });
 
@@ -59,6 +74,7 @@ beforeEach(async () => {
   const { shipId, secret } = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'fleet:on-behalf', 'labels:define', 'labels:assign', 'scopes:declare'] }),
   );
+  managementShipId = shipId;
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
 
@@ -87,8 +103,8 @@ const formedSchema = z.object({
   result: z.object({
     data: z.object({
       squadronId: z.string(),
-      flagship: z.object({ shipId: z.string(), name: z.string() }),
-      members: z.array(z.object({ shipId: z.string(), name: z.string(), role: z.string(), crewLines: z.array(z.object({ harness: z.string(), line: z.string() })), launchNote: z.string().nullable() })),
+      flagship: z.object({ shipId: idSchema('ship'), name: z.string() }),
+      members: z.array(z.object({ shipId: idSchema('ship'), name: z.string(), role: z.string(), crewLines: z.array(z.object({ harness: z.string(), line: z.string() })), launchNote: z.string().nullable() })),
     }),
   }),
 });
@@ -104,6 +120,36 @@ async function formTeam(squadronId?: string, more: Record<string, unknown> = {})
 }
 
 describe('forming a squadron at the squadrons API', () => {
+  it('sets both template expectations as squadrons on each commissioned member whose template carries them', async () => {
+    const formed = await formTeam('monitored-team', { blueprint: { repository: REPO, name: 'monitored-team', version: 1 } });
+    const expectationsOf = async (shipId: ShipId) => {
+      const ship = unwrap(await fleetUseCases.getShip(argo, { shipId }));
+      if (!('expectations' in ship)) {
+        expect.fail('argo can read the commissioned ship');
+      }
+      return ship.expectations;
+    };
+    const setBy = { kind: 'ship', shipId: managementShipId };
+
+    expect(formed.members.map(({ role }) => role)).toEqual(['monitored', 'monitored', 'tester']);
+    for (const member of formed.members.filter(({ role }) => role === 'monitored')) {
+      await expect(expectationsOf(member.shipId)).resolves.toMatchObject({
+        reportChangesWithin: { minutes: 60, setBy },
+        taskDoneBy: {
+          task: { kind: 'url', url: 'https://github.com/acme/work/issues/42' },
+          doneBy: new Date('2026-12-01T18:00:00Z'),
+          setBy,
+        },
+      });
+    }
+    const tester = formed.members.find(({ role }) => role === 'tester');
+    if (!tester) {
+      expect.fail('the tester was commissioned');
+    }
+    await expect(expectationsOf(tester.shipId)).resolves.toEqual({ reportChangesWithin: null, taskDoneBy: null });
+    await expect(expectationsOf(formed.flagship.shipId)).resolves.toEqual({ reportChangesWithin: null, taskDoneBy: null });
+  });
+
   it('makes the flagship and the members ships of the fleet, the flagship crewed by squadrons', async () => {
     const formed = await formTeam('team-one');
 

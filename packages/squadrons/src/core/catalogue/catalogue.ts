@@ -1,6 +1,8 @@
 import type { TrierarchWorkspace } from '@aeolus-fleet/common';
 import type { z } from 'zod';
 
+import type { TemplateExpectations } from './template-expectations.js';
+
 /** A value an option may hold: anything JSON. */
 export type OptionValue = z.infer<ReturnType<typeof z.json>>;
 
@@ -22,6 +24,8 @@ export interface CrewDraft {
 
 /** One version of a ship template, as its tag holds it (docs/squadrons.md, "Ship template"). */
 export interface TemplateVersion {
+  /** The monitoring expectations squadrons sets when it commissions a member from this template. */
+  expectations?: TemplateExpectations;
   repository: string;
   name: string;
   version: number;

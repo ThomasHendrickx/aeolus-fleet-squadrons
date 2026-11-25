@@ -106,6 +106,7 @@ const crewRequests = new Set<ShipId>();
 const door: FleetDoor = {
   register: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   whoami: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  setExpectations: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   getShip: (crewToken, { shipId }) => {
     const ship = { lastSeenAt: NOW, crewedSince: NOW, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false };
     if (crewToken === MANAGEMENT_CREW_TOKEN && (shipId === TESTER || shipId === PLANNER)) {

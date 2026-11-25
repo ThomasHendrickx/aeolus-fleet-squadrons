@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { idSchema, SAME_LABEL_VALUE } from '@aeolus-fleet/common';
+import { idSchema, SAME_LABEL_VALUE, type ShipId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
@@ -43,6 +43,7 @@ let address: string;
 let cookie: string;
 let fleetUseCases: ReturnType<typeof createUseCases>;
 let argo: ReturnType<typeof operatorCaller>;
+let managementShipId: ShipId;
 
 async function signIn(): Promise<string> {
   const response = await fetch(`${fleetUrl}/trpc/console.signIn`, {
@@ -60,7 +61,7 @@ beforeEach(async () => {
     tags: tagsAt(
       {
         files: {
-          '.aeolus/squadrons/templates/builder.yaml': 'description: Builds.\ncheckIn: 30m\ncharter: You build {{area}}.\nparameters:\n  area: What to build\ncrew:\n  workspace:\n    kind: repositories\n    main:\n      repository: hemma\n    subRepositories: []\n',
+          '.aeolus/squadrons/templates/builder.yaml': 'description: Builds.\ncheckIn: 30m\ncharter: You build {{area}}.\nparameters:\n  area: What to build\ncrew:\n  workspace:\n    kind: repositories\n    main:\n      repository: hemma\n    subRepositories: []\nexpectations:\n  reportChangesWithin: 45\n',
           '.aeolus/squadrons/blueprints/delivery.yaml': `description: Delivers one outcome.\nroles:\n  builder:\n    template: ${REPO}#builder@1\n`,
         },
       },
@@ -82,6 +83,7 @@ beforeEach(async () => {
       scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'fleet:on-behalf', 'scopes:declare'],
     }),
   );
+  managementShipId = shipId;
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false });
   fleetUrl = await fleet.listen({ host: '127.0.0.1', port: 0 });
 
@@ -250,6 +252,28 @@ describe('a ship holding squadrons:form (decision 0017)', () => {
     await member.call('send', { selector: { kind: 'ship', name: 'login-flow' }, contentType: ON_STATION, payload: JSON.stringify({ squadron: 'login-flow', role: 'builder' }), inReplyTo: role.messageId, idempotencyKey: 'on-station-1' });
     await expect.poll(async () => (await squadronOf('login-flow'))?.state, { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
   }
+
+  it('sets the saved template expectation as squadrons when a forming ship adds a member', async () => {
+    const lead = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tech-lead', type: 'lead', scopes: ['squadrons:form', 'squadrons:scale'] }));
+    const techLead = await crewed({ shipId: lead.shipId, secret: secretOf(lead.secret) });
+    await formLoginFlow(techLead);
+    await sail();
+    await techLead.call('send', {
+      selector: { kind: 'ship', name: 'login-flow' },
+      contentType: ADD_MEMBER,
+      payload: JSON.stringify({ squadron: 'login-flow', role: 'builder', parameters: { area: 'the signup flow' }, key: 'add-1' }),
+      idempotencyKey: 'add-1',
+    });
+    const added = await techLead.awaitDelivery(MEMBER_ADDED);
+    const { member } = z.object({ member: z.object({ name: z.string() }) }).parse(JSON.parse(added.payload));
+    const squadron = await squadronOf('login-flow');
+    const shipId = idSchema('ship').parse(squadron?.members.find(({ name }) => name === member.name)?.shipId);
+    const ship = unwrap(await fleetUseCases.getShip(argo, { shipId }));
+
+    expect(ship).toMatchObject({
+      expectations: { reportChangesWithin: { minutes: 45, setBy: { kind: 'ship', shipId: managementShipId } }, taskDoneBy: null },
+    });
+  });
 
   it('adds and removes a member by message for a ship holding squadrons:scale, and refuses it without the scope', async () => {
     const lead = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tech-lead', type: 'lead', scopes: ['squadrons:form'] }));

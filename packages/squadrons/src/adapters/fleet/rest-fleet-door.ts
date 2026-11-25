@@ -21,6 +21,7 @@ import {
   ON_BEHALF_OF_HEADER,
   PAGE_SIZE_MAX,
   receivedDeliverySchema,
+  setExpectationsOutputSchema,
   shipDetailOutputSchema,
   type ShipId,
   type ShipOutsideReadReach,
@@ -172,6 +173,10 @@ export function createRestFleetDoor(fleetUrl: string, options: DoorOptions = {})
         body: ship,
         answers: z.object({ shipId: idSchema('ship'), prompt: z.string().nullable(), secret: z.string().nullable(), crewLines: z.array(crewLineSchema).nullable() }),
       }),
+    setExpectations: async (crewToken, input) => {
+      const set = await call(door, { path: '/fleet/setExpectations', method: 'POST', crewToken, body: input, answers: setExpectationsOutputSchema });
+      return set.isOk ? ok(undefined) : set;
+    },
     getShip: async (crewToken, ship) => {
       const read = await call(door, { path: '/fleet/ship', method: 'POST', crewToken, body: ship, answers: shipDetailOutputSchema });
       if (!read.isOk) {

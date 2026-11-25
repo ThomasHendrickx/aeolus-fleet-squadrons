@@ -6,6 +6,7 @@ import { CHARTER_MAX_BYTES, FLAGSHIP, TEMPLATE_SCOPES_MAX, type BlueprintVersion
 import { FORMED_LABEL, SQUADRON_LABEL, SQUADRON_ROLE_LABEL } from '../network/label-squadrons.js';
 import type { SourceFile, UnreadTag } from './ports.js';
 import { BUILD_RULES, buildTemplates, chainHashes, referenceKey, untaggedReason, type TemplateLayer, type ToBuild } from './template-base.js';
+import { templateExpectationsSchema } from './template-expectations.js';
 
 const MINUTES_PER_HOUR = 60;
 const CHECK_IN_MAX_MINUTES = 24 * MINUTES_PER_HOUR;
@@ -116,6 +117,7 @@ const layerFields = {
   handoffs: handleRecord(text('what the hand-off carries'), 'a mapping of hand-off names, each to what it carries').optional(),
   parameters: handleRecord(text('what the parameter stands for'), 'a mapping of parameter names, each to what it stands for').optional(),
   crew: crewSchema.optional(),
+  expectations: templateExpectationsSchema.optional(),
   scopes: z
     .array(scopeNameSchema.or(z.never({ error: () => 'must be a scope <namespace>:<action>' })), expecting('a list of scopes, each <namespace>:<action>'))
     .max(TEMPLATE_SCOPES_MAX, `must be at most ${String(TEMPLATE_SCOPES_MAX)} scopes`)
@@ -242,7 +244,7 @@ function hasBase(content: unknown): boolean {
 }
 
 function layerFieldsOf(file: SourceFile, fields: Omit<z.infer<typeof templateSchema>, 'checkIn' | 'charter'>): Omit<TemplateLayer, 'base' | 'checkInMinutes' | 'charter'> {
-  const { description, launchNote, handoffs, parameters, crew, scopes, labels } = fields;
+  const { description, launchNote, handoffs, parameters, crew, expectations, scopes, labels } = fields;
   return {
     file,
     description,
@@ -251,6 +253,7 @@ function layerFieldsOf(file: SourceFile, fields: Omit<z.infer<typeof templateSch
     handoffs: Object.entries(handoffs ?? {}).map(([handoff, carries]) => ({ name: handoff, carries })),
     parameters: Object.entries(parameters ?? {}).map(([parameter, description]) => ({ name: parameter, description })),
     crew: crewOf(crew),
+    expectations,
     scopes: scopes ?? [],
     labels: labels ?? [],
   };

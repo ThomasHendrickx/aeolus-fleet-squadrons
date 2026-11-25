@@ -5,6 +5,7 @@
 import { trierarchWorkspaceSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
+import { templateExpectationsSchema } from '../../core/catalogue/template-expectations.js';
 import type { CrewDraft, TemplateVersion } from '../../core/catalogue/catalogue.js';
 
 // Snapshots stored before squadron files had crew settings (#343) have none.
@@ -35,6 +36,7 @@ export const templateSchema: z.ZodType<TemplateVersion> = z
     charter: z.string(),
     handoffs: z.array(z.object({ name: z.string(), carries: z.string() })),
     crew,
+    expectations: templateExpectationsSchema.optional(),
     parameters: z.array(z.object({ name: z.string(), description: z.string() })).default([]),
     // Snapshots stored before templates named scopes grant none.
     scopes: z.array(z.string()).default([]),

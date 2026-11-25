@@ -86,6 +86,7 @@ export function fakeManagementFleet() {
       return Promise.resolve(ok(undefined));
     },
     commission: notUsed,
+    setExpectations: notUsed,
     getStartingPrompt: notUsed,
     release: notUsed,
     requestCrew: notUsed,

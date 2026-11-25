@@ -1,6 +1,7 @@
 import type { PrepareFormation } from '../network/prepare-formation.js';
 import type { LabelValueId, ShipId } from '@aeolus-fleet/common';
 
+import type { TemplateExpectations } from '../catalogue/template-expectations.js';
 import type { FleetDoor, FleetRefusal, IssuedPrompt, ManagementCrew } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { err, ok, type Result } from '../shared/result.js';
@@ -19,7 +20,7 @@ export interface Formation {
    * the squadron, so a name drawn twice in one attempt never repeats another
    * ship's key; `names` draws a name, again when the fleet holds it already.
    */
-  commission: (slot: string, ship: { names: () => string; type: string; scopes: readonly string[] }) => Promise<Result<{ shipId: ShipId; name: string } & IssuedPrompt, FleetRefusal>>;
+  commission: (slot: string, ship: { names: () => string; type: string; scopes: readonly string[]; expectations?: TemplateExpectations | undefined }) => Promise<Result<{ shipId: ShipId; name: string } & IssuedPrompt, FleetRefusal>>;
   /**
    * Retires every ship this attempt commissioned and finishes the attempt: it formed nothing.
    * When the fleet refuses a retire the attempt is given up unfinished, for recover-formations at a rescan.
@@ -81,6 +82,13 @@ export async function beginFormation(
         await deps.attempts.plan(crew.fleetId, { attemptId, name: shipName });
         const made = await commissionOnce({ name: shipName, type: ship.type, scopes: ship.scopes, valueIds: [prepared.value], ownerOf, ...(ownerOf === undefined ? {} : { ownership: 'requester' as const }), idempotencyKey: `${attemptId}:${slot}:${shipName}` });
         if (made.isOk) {
+          const expectations = ship.expectations;
+          if (expectations?.reportChangesWithin !== undefined || expectations?.taskDoneBy !== undefined) {
+            const set = await deps.door.setExpectations(crew.crewToken, { shipId: made.value.shipId, ...expectations });
+            if (!set.isOk) {
+              return set;
+            }
+          }
           return ok({ ...made.value, name: shipName });
         }
         refusal = made.error;

@@ -6,6 +6,7 @@ import type {
   LabelValueId,
   LeaseId,
   MessageId,
+  SetExpectationsInput,
   ShipId,
 } from "@aeolus-fleet/common";
 
@@ -67,6 +68,8 @@ export interface FleetDoor {
       FleetRefusal
     >
   >;
+  /** Sets standing monitoring expectations as the crew token's ship (fleet:manage). */
+  setExpectations(crewToken: string, input: SetExpectationsInput): Promise<Result<undefined, FleetRefusal>>;
   /** A ship of the fleet, retired ones included; needs fleet:read. */
   getShip(
     crewToken: string,

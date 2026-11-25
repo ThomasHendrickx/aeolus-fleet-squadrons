@@ -47,6 +47,7 @@ const notUsed = () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not use
 const door: FleetDoor = {
   register: notUsed,
   whoami: notUsed,
+  setExpectations: notUsed,
   deregister: notUsed,
   commission: notUsed,
   getStartingPrompt: notUsed,
